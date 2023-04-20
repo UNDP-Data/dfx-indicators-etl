@@ -1,0 +1,10 @@
+# ignore pycharm config
+.idea
+# ignore VSCode config
+.vscode
+# ignore pycharm project files
+*.iml
+# ignore python cache
+__pycache__
+# ignore python compiled files
+*.pyc
