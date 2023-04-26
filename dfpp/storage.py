@@ -36,10 +36,6 @@ class AzureBlobStorageManager:
             self.container_client = ContainerClient.from_connection_string(
                 connection_string, container_name
             )
-            try:
-                self.container_client.create_container()
-            except ResourceExistsError:
-                pass
 
     def list_blobs(self):
         blob_list = []
@@ -126,10 +122,6 @@ class AsyncAzureBlobStorageManager:
         self.container_client = AContainerClient.from_connection_string(
             self.connection_string, self.container_name
         )
-        try:
-            await self.container_client.create_container()
-        except ResourceExistsError:
-            pass
 
     async def list_blobs(self):
         blob_list = []
