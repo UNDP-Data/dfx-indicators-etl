@@ -1,6 +1,5 @@
 import asyncio
 
-from azure.core.exceptions import ResourceExistsError
 from azure.storage.blob import ContainerClient
 from azure.storage.blob.aio import ContainerClient as AContainerClient
 
