@@ -310,9 +310,12 @@ class AsyncAzureBlobStorageManager:
 
         Example usage:
 
-            async for dataset in get_source_files(root_folder, source_type, delimiter, source_query):
-                # Process each dataset here
+            async for dataset in AsyncAzureBlobStorageManager.get_source_files(root_folder, source_type, delimiter, source_query):
+                # Open and process each dataset here
         """
+        if source_type not in ("raw", "standardized"):
+            raise ValueError("source_type must be either 'raw' or 'standardized'")
+
         if source_query is None:
             source_query = []
 
@@ -371,7 +374,7 @@ async def main():
     connection_string = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
     container_name = os.environ["CONTAINER_NAME"]
     root_folder = os.environ["ROOT_FOLDER"]
-    prefix = os.path.join(root_folder, "pipeline", "config", "sources")
+
     async_manager = await AsyncAzureBlobStorageManager.create_instance(
         connection_string=connection_string, container_name=container_name
     )
