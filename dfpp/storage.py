@@ -297,7 +297,7 @@ class AsyncAzureBlobStorageManager:
 
         Args:
             root_folder (str): The root folder for the query.
-            source_type (str): The subdirectory under 'sources' to search for CSV files.
+            source_type (str): The subdirectory under 'sources' to search for CSV files. Values can either be "raw" or "standardized"
             delimiter (str, optional): The delimiter used for the Azure Blob storage paths. Defaults to "/".
             source_query (list, optional): A list of source file names to search for. If empty or None,
                                         all CSV files in the directory will be returned. Defaults to None.
