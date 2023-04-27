@@ -245,7 +245,7 @@ class AsyncAzureBlobStorageManager:
             source_query = []
 
         prefix = os.path.join(root_folder, "sources", "raw")
-        source_return = []
+        found_csv = False
         async for blob in self.container_client.walk_blobs(
             name_starts_with=prefix, delimiter=delimiter
         ):
@@ -260,7 +260,8 @@ class AsyncAzureBlobStorageManager:
                             blob.name, max_concurrency=8
                         )
                         content = await stream.readall()
-                        source_return.append(content)
+                        found_csv = True
+                        yield content
             elif (
                 not source_query
                 and not isinstance(blob, BlobPrefix)
@@ -270,14 +271,13 @@ class AsyncAzureBlobStorageManager:
                     blob.name, max_concurrency=8
                 )
                 content = await stream.readall()
-                source_return.append(content)
+                found_csv = True
+                yield content
 
-        if not source_return:
+        if not found_csv:
             raise DFPSourceError(
                 f"An error occurred returning the source CSVs from the raw directory."
             )
-
-        return source_return
 
     async def delete(self, blob_name: str = None):
         blob_client = self.container_client.get_blob_client(blob=blob_name)
