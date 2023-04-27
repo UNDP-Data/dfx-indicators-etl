@@ -158,8 +158,23 @@ class AsyncAzureBlobStorageManager:
         return hierarchical_blobs
 
     async def list_sources(
-        self, delimiter: str = "/", root_folder: str = None
+        self, root_folder: str, delimiter: str = "/"
     ) -> Dict[str, Dict[str, Any]]:
+        """
+        Asynchronously lists source configuration files from an Azure Blob Container,
+        and returns a dictionary containing their parsed content.
+
+        Args:
+            root_folder (str): The root folder for the query.
+            delimiter (str, optional): The delimiter used for the Azure Blob storage paths. Defaults to "/".
+
+        Returns:
+            Dict[str, Dict[str, Any]]: A dictionary where keys are source IDs and values are dictionaries
+                                        containing the key-value pairs of the source configuration.
+
+        Raises:
+            ConfigError: Raised if a source configuration file is invalid or has a missing "source" section.
+        """
         cfg = {}
         prefix = os.path.join(root_folder, "config", "sources")
         async for blob in self.container_client.walk_blobs(
@@ -185,11 +200,25 @@ class AsyncAzureBlobStorageManager:
         return cfg
 
     async def list_source_indicators(
-        self,
-        delimiter: str = "/",
-        root_folder: str = None,
-        cfg: Dict[str, Dict[str, Any]] = None,
+        self, root_folder: str, cfg: Dict[str, Dict[str, Any]], delimiter: str = "/"
     ) -> Dict[str, Dict[str, Any]]:
+        """
+        Asynchronously lists source indicator configuration files from an Azure Blob Container,
+        and updates the provided 'cfg' dictionary with the parsed content.
+
+        Args:
+            root_folder (str): The root folder for the query.
+            cfg (Dict[str, Dict[str, Any]]): A dictionary containing the source configuration information.
+            delimiter (str, optional): The delimiter used for the Azure Blob storage paths. Defaults to "/".
+
+        Returns:
+            Dict[str, Dict[str, Any]]: The updated 'cfg' dictionary with the source indicator information
+                                        (keys are source IDs, and values are dictionaries containing source
+                                        configuration and a list of associated indicator IDs).
+
+        Raises:
+            ConfigError: Raised if an indicator configuration file is invalid or has a missing "indicator" section.
+        """
         prefix = os.path.join(root_folder, "config", "sources", "indicators")
         async for blob in self.container_client.walk_blobs(
             name_starts_with=prefix, delimiter=delimiter
@@ -212,8 +241,25 @@ class AsyncAzureBlobStorageManager:
         return cfg
 
     async def get_utilities(
-        self, delimiter: str = "/", root_folder: str = None, utility_file: str = None
+        self, root_folder: str, utility_file: str, delimiter: str = "/"
     ):
+        """
+        Asynchronously retrieves a specified utility configuration file from the Azure Blob Container,
+        parses it, and returns its content as a dictionary.
+
+        Args:
+            root_folder (str): The root folder for the query.
+            utility_file (str): The name of the utility configuration file to search for.
+            delimiter (str, optional): The delimiter used for the Azure Blob storage paths. Defaults to "/".
+
+        Returns:
+            dict: A dictionary representation of the utility configuration file content,
+                where keys are section names and values are dictionaries of key-value pairs within the section.
+
+        Raises:
+            ConfigError: Raised if the specified utility configuration file is not found or not valid.
+
+        """
         prefix = os.path.join(root_folder, "config", "utilities")
         async for blob in self.container_client.walk_blobs(
             name_starts_with=prefix, delimiter=delimiter
@@ -238,7 +284,7 @@ class AsyncAzureBlobStorageManager:
             else:
                 raise ConfigError(f"Utitlity source not valid")
 
-    async def get_raw_source(
+    async def get_source_files(
         self,
         root_folder: str,
         source_type: str,
@@ -256,7 +302,6 @@ class AsyncAzureBlobStorageManager:
             source_query (list, optional): A list of source file names to search for. If empty or None,
                                         all CSV files in the directory will be returned. Defaults to None.
 
-
         Yields:
             bytes: The content of a CSV file in bytes.
 
@@ -265,7 +310,7 @@ class AsyncAzureBlobStorageManager:
 
         Example usage:
 
-            async for dataset in get_raw_source(root_folder, source_type, delimiter, source_query):
+            async for dataset in get_source_files(root_folder, source_type, delimiter, source_query):
                 # Process each dataset here
         """
         if source_query is None:
