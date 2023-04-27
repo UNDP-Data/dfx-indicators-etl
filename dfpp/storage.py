@@ -1,3 +1,5 @@
+from typing import Type
+
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import ContainerClient
 from azure.storage.blob.aio import ContainerClient as AContainerClient
@@ -12,17 +14,17 @@ class AzureBlobStorageManager:
     _instance = None
 
     @staticmethod
-    def create_instance(connection_string, container_name):
+    def create_instance(connection_string: str = None, container_name: str = None):
         """
         Returns a singleton instance of the class.
         """
         if AzureBlobStorageManager._instance is None:
             AzureBlobStorageManager._instance = AzureBlobStorageManager(
-                connection_string, container_name
+                connection_string=connection_string, container_name=container_name
             )
         return AzureBlobStorageManager._instance
 
-    def __init__(self, connection_string, container_name):
+    def __init__(self, connection_string: str = None, container_name: str = None):
         """
         Initializes the container client for Azure Blob Storage.
         """
@@ -32,7 +34,7 @@ class AzureBlobStorageManager:
             )
         else:
             self.container_client = ContainerClient.from_connection_string(
-                connection_string, container_name
+                connection_string=connection_string, container_name=container_name
             )
 
     def list_blobs(self):
@@ -41,7 +43,7 @@ class AzureBlobStorageManager:
             blob_list.append(blob)
         return blob_list
 
-    def list_and_filter(self, prefix):
+    def list_and_filter(self, prefix: str = None):
         filtered_blobs = []
         for blob in self.container_client.list_blobs(name_starts_with=prefix):
             filtered_blobs.append(blob)
@@ -53,19 +55,20 @@ class AzureBlobStorageManager:
             hierarchical_blobs.append(blob)
         return hierarchical_blobs
 
-    def delete(self, blob_name):
-        blob_client = self.container_client.get_blob_client(blob_name)
+    def delete(self, blob_name: str = None):
+        blob_client = self.container_client.get_blob_client(blob=blob_name)
         blob_client.delete_blob()
 
-    def download(self, blob_name, file_path):
-        blob_client = self.container_client.get_blob_client(blob_name)
+    def download(self, blob_name: str = None, file_path: str = None):
+        blob_client = self.container_client.get_blob_client(blob=blob_name)
         with open(file_path, "wb") as f:
-            f.write(blob_client.download_blob().readall())
+            data = blob_client.download_blob()
+            f.write(data.readall())
 
-    def upload(self, blob_name, file_path):
-        blob_client = self.container_client.get_blob_client(blob_name)
+    def upload(self, blob_name: str = None, file_path: str = None):
+        blob_client = self.container_client.get_blob_client(blob=blob_name)
         with open(file_path, "rb") as f:
-            blob_client.upload_blob(f)
+            blob_client.upload_blob(data=f)
 
 
 class AsyncAzureBlobStorageManager:
@@ -88,11 +91,17 @@ class AsyncAzureBlobStorageManager:
         self.container_client = container_client
 
     @classmethod
-    async def create_instance(cls, connection_string, container_name):
+    async def create_instance(
+        cls: Type[AsyncAzureBlobStorageManager],
+        connection_string: str = None,
+        container_name: str = None,
+    ):
         """
         Asynchronously creates and initializes an instance of the AsyncAzureBlobStorageManager class
         using the Singleton pattern. If an instance already exists, it returns the existing instance.
 
+        :param cls: A singleton class instance of AsyncAzureBlobStorageManager.
+        :type: Type[AsyncAzureBlobStorageManager]
         :param connection_string: The connection string for the Azure Blob Storage account.
         :type connection_string: str
         :param container_name: The name of the container to be used in Azure Blob Storage.
@@ -102,9 +111,9 @@ class AsyncAzureBlobStorageManager:
         """
         if cls._instance is None:
             container_client = AContainerClient.from_connection_string(
-                connection_string, container_name
+                connection_string=connection_string, container_name=container_name
             )
-            await cls._initialize(container_client)
+            await cls._initialize(container_client=container_client)
             cls._instance = cls(container_client)
         return cls(container_client)
 
@@ -129,8 +138,11 @@ class AsyncAzureBlobStorageManager:
         async for blob in self.container_client.list_blobs():
             blob_list.append(blob)
         return blob_list
+    
+    async def list_sources(self):
+        
 
-    async def list_and_filter(self, prefix):
+    async def list_and_filter(self, prefix: str = None):
         filtered_blobs = []
         async for blob in self.container_client.list_blobs(name_starts_with=prefix):
             filtered_blobs.append(blob)
@@ -142,17 +154,17 @@ class AsyncAzureBlobStorageManager:
             hierarchical_blobs.append(blob)
         return hierarchical_blobs
 
-    async def delete(self, blob_name):
-        blob_client = self.container_client.get_blob_client(blob_name)
+    async def delete(self, blob_name: str = None):
+        blob_client = self.container_client.get_blob_client(blob=blob_name)
         await blob_client.delete_blob()
 
-    async def download(self, blob_name, file_path):
-        blob_client = self.container_client.get_blob_client(blob_name)
+    async def download(self, blob_name: str = None, file_path: str = None):
+        blob_client = self.container_client.get_blob_client(blob=blob_name)
         with open(file_path, "wb") as f:
             data = await blob_client.download_blob()
             f.write(await data.readall())
 
-    async def upload(self, blob_name, file_path):
-        blob_client = self.container_client.get_blob_client(blob_name)
+    async def upload(self, blob_name: str = None, file_path: str = None):
+        blob_client = self.container_client.get_blob_client(blob=blob_name)
         with open(file_path, "rb") as f:
-            await blob_client.upload_blob(f)
+            await blob_client.upload_blob(data=f)
