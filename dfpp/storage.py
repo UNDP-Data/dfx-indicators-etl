@@ -297,9 +297,10 @@ class AsyncAzureBlobStorageManager:
 
         Args:
             root_folder (str): The root folder for the query.
-            source_type (str): The subdirectory under 'sources' to search for CSV files. Values can either be "raw" or "standardized"
+            source_type (str): The subdirectory under 'sources' to search for CSV files.
+                            Values can either be "raw" or "standardized"
             delimiter (str, optional): The delimiter used for the Azure Blob storage paths. Defaults to "/".
-            source_query (list, optional): A list of source file names to search for. If empty or None,
+            source_query (list, optional): A list of source ids to search for. If empty or None,
                                         all CSV files in the directory will be returned. Defaults to None.
 
         Yields:
@@ -309,7 +310,6 @@ class AsyncAzureBlobStorageManager:
             DFPSourceError: Raised if no matching CSV files are found in the specified directory.
 
         Example usage:
-
             async for dataset in AsyncAzureBlobStorageManager.get_source_files(root_folder, source_type, delimiter, source_query):
                 # Open and process each dataset here
         """
@@ -325,11 +325,11 @@ class AsyncAzureBlobStorageManager:
             name_starts_with=prefix, delimiter=delimiter
         ):
             if len(source_query) > 0:
-                for source_file in source_query:
+                for source_id in source_query:
                     if (
                         not isinstance(blob, BlobPrefix)
                         and blob.name.endswith(".csv")
-                        and source_file in blob.name
+                        and source_id in blob.name
                     ):
                         stream = await self.container_client.download_blob(
                             blob.name, max_concurrency=8
