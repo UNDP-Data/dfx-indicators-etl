@@ -238,13 +238,40 @@ class AsyncAzureBlobStorageManager:
             else:
                 raise ConfigError(f"Utitlity source not valid")
 
-    async def get_source_files(
-        self, delimiter: str = "/", root_folder: str = None, source_query: list = None
+    async def get_raw_source(
+        self,
+        root_folder: str,
+        source_type: str,
+        delimiter: str = "/",
+        source_query: list = None,
     ):
+        """
+        Asynchronously queries an Azure Blob Container for CSV files in a specific directory,
+        and yields them one by one as a generator.
+
+        Args:
+            root_folder (str): The root folder for the query.
+            source_type (str): The subdirectory under 'sources' to search for CSV files.
+            delimiter (str, optional): The delimiter used for the Azure Blob storage paths. Defaults to "/".
+            source_query (list, optional): A list of source file names to search for. If empty or None,
+                                        all CSV files in the directory will be returned. Defaults to None.
+
+
+        Yields:
+            bytes: The content of a CSV file in bytes.
+
+        Raises:
+            DFPSourceError: Raised if no matching CSV files are found in the specified directory.
+
+        Example usage:
+
+            async for dataset in get_raw_source(root_folder, source_type, delimiter, source_query):
+                # Process each dataset here
+        """
         if source_query is None:
             source_query = []
 
-        prefix = os.path.join(root_folder, "sources", "raw")
+        prefix = os.path.join(root_folder, "sources", source_type)
         found_csv = False
         async for blob in self.container_client.walk_blobs(
             name_starts_with=prefix, delimiter=delimiter
