@@ -8,7 +8,7 @@ from azure.storage.blob import ContainerClient
 from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import ContainerClient as AContainerClient
 
-from dfpp.dfpp_exceptions import ConfigError
+from dfpp.dfpp_exceptions import ConfigError, DFPSourceError
 
 
 class AzureBlobStorageManager:
@@ -145,6 +145,18 @@ class AsyncAzureBlobStorageManager:
             blob_list.append(blob)
         return blob_list
 
+    async def list_and_filter(self, prefix: str = None):
+        filtered_blobs = []
+        async for blob in self.container_client.list_blobs(name_starts_with=prefix):
+            filtered_blobs.append(blob)
+        return filtered_blobs
+
+    async def hierarchical_list(self, delimiter="/"):
+        hierarchical_blobs = []
+        async for blob in self.container_client.walk_blobs(delimiter=delimiter):
+            hierarchical_blobs.append(blob)
+        return hierarchical_blobs
+
     async def list_sources(
         self, delimiter: str = "/", root_folder: str = None
     ) -> Dict[str, Dict[str, Any]]:
@@ -226,17 +238,46 @@ class AsyncAzureBlobStorageManager:
             else:
                 raise ConfigError(f"Utitlity source not valid")
 
-    async def list_and_filter(self, prefix: str = None):
-        filtered_blobs = []
-        async for blob in self.container_client.list_blobs(name_starts_with=prefix):
-            filtered_blobs.append(blob)
-        return filtered_blobs
+    async def get_source_files(
+        self, delimiter: str = "/", root_folder: str = None, source_query: list = None
+    ):
+        if source_query is None:
+            source_query = []
 
-    async def hierarchical_list(self, delimiter="/"):
-        hierarchical_blobs = []
-        async for blob in self.container_client.walk_blobs(delimiter=delimiter):
-            hierarchical_blobs.append(blob)
-        return hierarchical_blobs
+        prefix = os.path.join(root_folder, "sources", "raw")
+        source_return = []
+        async for blob in self.container_client.walk_blobs(
+            name_starts_with=prefix, delimiter=delimiter
+        ):
+            if len(source_query) > 0:
+                for source_file in source_query:
+                    if (
+                        not isinstance(blob, BlobPrefix)
+                        and blob.name.endswith(".csv")
+                        and source_file in blob.name
+                    ):
+                        stream = await self.container_client.download_blob(
+                            blob.name, max_concurrency=8
+                        )
+                        content = await stream.readall()
+                        source_return.append(content)
+            elif (
+                not source_query
+                and not isinstance(blob, BlobPrefix)
+                and blob.name.endswith(".csv")
+            ):
+                stream = await self.container_client.download_blob(
+                    blob.name, max_concurrency=8
+                )
+                content = await stream.readall()
+                source_return.append(content)
+
+        if not source_return:
+            raise DFPSourceError(
+                f"An error occurred returning the source CSVs from the raw directory."
+            )
+
+        return source_return
 
     async def delete(self, blob_name: str = None):
         blob_client = self.container_client.get_blob_client(blob=blob_name)
