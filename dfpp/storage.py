@@ -146,9 +146,10 @@ class AsyncAzureBlobStorageManager:
         return blob_list
 
     async def list_sources(
-        self, delimiter: str = "/", prefix: str = None
+        self, delimiter: str = "/", root_folder: str = None
     ) -> Dict[str, Dict[str, Any]]:
         cfg = {}
+        prefix = os.path.join(root_folder, "config", "sources")
         async for blob in self.container_client.walk_blobs(
             name_starts_with=prefix, delimiter=delimiter
         ):
@@ -174,17 +175,14 @@ class AsyncAzureBlobStorageManager:
     async def list_source_indicators(
         self,
         delimiter: str = "/",
-        prefix: str = None,
+        root_folder: str = None,
         cfg: Dict[str, Dict[str, Any]] = None,
     ) -> Dict[str, Dict[str, Any]]:
+        prefix = os.path.join(root_folder, "config", "sources", "indicators")
         async for blob in self.container_client.walk_blobs(
             name_starts_with=prefix, delimiter=delimiter
         ):
-            if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and "indicators" in blob.name
-            ):
+            if not isinstance(blob, BlobPrefix) and blob.name.endswith(".cfg"):
                 stream = await self.container_client.download_blob(
                     blob.name, max_concurrency=8
                 )
@@ -198,8 +196,35 @@ class AsyncAzureBlobStorageManager:
                     # set indicator value to a list if it does not exist yet, and append the value to the existing/new list
                     cfg[src_id].setdefault("indicators", []).append(indicator_id)
                 else:
-                    raise ConfigError(f"Invalid source")
+                    raise ConfigError(f"Invalid indicator config")
         return cfg
+
+    async def get_utilities(
+        self, delimiter: str = "/", root_folder: str = None, utility_file: str = None
+    ):
+        prefix = os.path.join(root_folder, "config", "utilities")
+        async for blob in self.container_client.walk_blobs(
+            name_starts_with=prefix, delimiter=delimiter
+        ):
+            if (
+                not isinstance(blob, BlobPrefix)
+                and blob.name.endswith(".cfg")
+                and utility_file in blob.name
+            ):
+                stream = await self.container_client.download_blob(
+                    blob.name, max_concurrency=8
+                )
+                content = await stream.readall()
+                content_str = content.decode("utf-8")
+                parser = configparser.ConfigParser()
+                parser.read_string(content_str)
+                config_dict = {
+                    section: dict(parser.items(section))
+                    for section in parser.sections()
+                }
+                return config_dict
+            else:
+                raise ConfigError(f"Utitlity source not valid")
 
     async def list_and_filter(self, prefix: str = None):
         filtered_blobs = []
