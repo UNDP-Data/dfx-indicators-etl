@@ -1,8 +1,14 @@
-from typing import Type
+import asyncio
+import configparser
+import os
+from typing import Any, Dict, Type
 
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import ContainerClient
+from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import ContainerClient as AContainerClient
+
+from dfpp.dfpp_exceptions import ConfigError
 
 
 class AzureBlobStorageManager:
@@ -138,9 +144,62 @@ class AsyncAzureBlobStorageManager:
         async for blob in self.container_client.list_blobs():
             blob_list.append(blob)
         return blob_list
-    
-    async def list_sources(self):
-        
+
+    async def list_sources(
+        self, delimiter: str = "/", prefix: str = None
+    ) -> Dict[str, Dict[str, Any]]:
+        cfg = {}
+        async for blob in self.container_client.walk_blobs(
+            name_starts_with=prefix, delimiter=delimiter
+        ):
+            if (
+                not isinstance(blob, BlobPrefix)
+                and blob.name.endswith(".cfg")
+                and not "indicators" in blob.name
+            ):
+                stream = await self.container_client.download_blob(
+                    blob.name, max_concurrency=8
+                )
+                content = await stream.readall()
+                content_str = content.decode("utf-8")
+                parser = configparser.ConfigParser()
+                parser.read_string(content_str)
+                if "source" in parser:
+                    src_id = parser["source"].get("id")
+                    cfg[src_id] = dict(parser["source"].items())
+                else:
+                    raise ConfigError(f"Invalid source")
+        return cfg
+
+    async def list_source_indicators(
+        self,
+        delimiter: str = "/",
+        prefix: str = None,
+        cfg: Dict[str, Dict[str, Any]] = None,
+    ) -> Dict[str, Dict[str, Any]]:
+        async for blob in self.container_client.walk_blobs(
+            name_starts_with=prefix, delimiter=delimiter
+        ):
+            if (
+                not isinstance(blob, BlobPrefix)
+                and blob.name.endswith(".cfg")
+                and "indicators" in blob.name
+            ):
+                stream = await self.container_client.download_blob(
+                    blob.name, max_concurrency=8
+                )
+                content = await stream.readall()
+                content_str = content.decode("utf-8")
+                parser = configparser.ConfigParser()
+                parser.read_string(content_str)
+                if "indicator" in parser:
+                    src_id = parser["indicator"].get("source_id")
+                    indicator_id = parser["indicator"].get("id")
+                    # set indicator value to a list if it does not exist yet, and append the value to the existing/new list
+                    cfg[src_id].setdefault("indicators", []).append(indicator_id)
+                else:
+                    raise ConfigError(f"Invalid source")
+        return cfg
 
     async def list_and_filter(self, prefix: str = None):
         filtered_blobs = []
@@ -168,3 +227,21 @@ class AsyncAzureBlobStorageManager:
         blob_client = self.container_client.get_blob_client(blob=blob_name)
         with open(file_path, "rb") as f:
             await blob_client.upload_blob(data=f)
+
+
+async def main():
+    connection_string = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
+    container_name = os.environ["CONTAINER_NAME"]
+    root_folder = os.environ["ROOT_FOLDER"]
+    prefix = os.path.join(root_folder, "pipeline", "config", "sources")
+    async_manager = await AsyncAzureBlobStorageManager.create_instance(
+        connection_string=connection_string, container_name=container_name
+    )
+    # perform other asynchronous operations with async_manager here
+    await async_manager.list_source_config()
+    await async_manager.close()
+
+
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
