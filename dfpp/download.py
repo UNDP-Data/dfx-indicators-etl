@@ -215,7 +215,7 @@ async def call_function(function_name: str, *args, **kwargs) -> Any:
         return None
 
 
-async def main_simple_retrieval() -> None:
+async def retrieval() -> None:
     """
     Asynchronously retrieves data from multiple sources using Azure Blob Storage, and uploads the results to a new Blob.
 
@@ -228,7 +228,7 @@ async def main_simple_retrieval() -> None:
 
     Example usage:
     ```
-    await main_simple_retrieval()
+    await retrieval()
     ```
     """
     sources = await azblob.list_blobs(
@@ -262,4 +262,4 @@ if __name__ == '__main__':
     logging.basicConfig()
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
-    asyncio.run(main_simple_retrieval())
+    asyncio.run(retrieval())
