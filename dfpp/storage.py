@@ -1,7 +1,7 @@
 import asyncio
 import configparser
 import os
-from typing import Any, Dict, Type
+from typing import Any, AsyncGenerator, Dict, List, Tuple, Type
 
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import ContainerClient
@@ -151,7 +151,7 @@ class AsyncAzureBlobStorageManager:
             filtered_blobs.append(blob)
         return filtered_blobs
 
-    async def hierarchical_list(self, delimiter="/"):
+    async def hierarchical_list(self, delimiter: str = "/"):
         hierarchical_blobs = []
         async for blob in self.container_client.walk_blobs(delimiter=delimiter):
             hierarchical_blobs.append(blob)
@@ -242,7 +242,7 @@ class AsyncAzureBlobStorageManager:
 
     async def get_utilities(
         self, root_folder: str, utility_file: str, delimiter: str = "/"
-    ):
+    ) -> Dict[str, Dict[str, Any]]:
         """
         Asynchronously retrieves a specified utility configuration file from the Azure Blob Container,
         parses it, and returns its content as a dictionary.
@@ -289,8 +289,8 @@ class AsyncAzureBlobStorageManager:
         root_folder: str,
         source_type: str,
         delimiter: str = "/",
-        source_query: list = None,
-    ):
+        source_query: List[str] = None,
+    ) -> AsyncGenerator[bytes, None]:
         """
         Asynchronously queries an Azure Blob Container for CSV files in a specific directory,
         and yields them one by one as a generator.
@@ -354,13 +354,16 @@ class AsyncAzureBlobStorageManager:
                 f"An error occurred returning the source CSVs from the raw directory."
             )
 
-    async def get_output_files(self, output_type: str, delimiter: str = "/"):
+    async def get_output_files(
+        self, subfolder: str, delimiter: str = "/"
+    ) -> AsyncGenerator[Tuple[str, bytes], None]:
+        # ...
         """
         Asynchronously retrieves the contents of CSV and JSON files within the "raw" folder
-        inside the specified output_type directory.
+        inside the specified subfolder directory.
 
         Args:
-            output_type (str): The subdirectory under 'output' to search for files.
+            subfolder (str): The subdirectory under 'output' to search for files.
                                 Values can either be "access_all_data" or "vaccine_equity"
             delimiter (str, optional): The delimiter used for the Azure Blob storage paths. Defaults to "/".
 
@@ -368,15 +371,15 @@ class AsyncAzureBlobStorageManager:
             Tuple[str, bytes]: A tuple containing the file name and the content of the file in bytes.
 
         Raises:
-            ValueError: Raised if output_type is not "access_all_data" or "vaccine_equity".
+            ValueError: Raised if subfolder is not "access_all_data" or "vaccine_equity".
         """
 
-        if output_type not in ("access_all_data", "vaccine_equity"):
+        if subfolder not in ("access_all_data", "vaccine_equity"):
             raise ValueError(
                 "output_type must be either 'access_all_data' or 'vaccine_equity'"
             )
 
-        prefix = os.path.join("output", output_type, "raw")
+        prefix = os.path.join("output", subfolder, "raw")
         async for blob in self.container_client.walk_blobs(
             name_starts_with=prefix, delimiter=delimiter
         ):
@@ -387,17 +390,17 @@ class AsyncAzureBlobStorageManager:
                 content = await stream.readall()
                 yield blob.name, content
 
-    async def delete(self, blob_name: str = None):
+    async def delete(self, blob_name: str = None) -> None:
         blob_client = self.container_client.get_blob_client(blob=blob_name)
         await blob_client.delete_blob()
 
-    async def download(self, blob_name: str = None, file_path: str = None):
+    async def download(self, blob_name: str = None, file_path: str = None) -> None:
         blob_client = self.container_client.get_blob_client(blob=blob_name)
         with open(file_path, "wb") as f:
             data = await blob_client.download_blob()
             f.write(await data.readall())
 
-    async def upload(self, blob_name: str = None, file_path: str = None):
+    async def upload(self, blob_name: str = None, file_path: str = None) -> None:
         blob_client = self.container_client.get_blob_client(blob=blob_name)
         with open(file_path, "rb") as f:
             await blob_client.upload_blob(data=f)
