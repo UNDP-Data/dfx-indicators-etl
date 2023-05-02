@@ -5,6 +5,7 @@ from ..storage import AsyncAzureBlobStorageManager, AzureBlobStorageManager
 
 CONNECTION_STRING = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
 CONTAINER_NAME = os.environ["CONTAINER_NAME"]
+ROOT_FOLDER = os.environ["ROOT_FOLDER"]
 
 
 class TestSyncAzureBlobStorageManager(unittest.TestCase):
@@ -36,10 +37,9 @@ class TestSyncAzureBlobStorageManager(unittest.TestCase):
 
 
 class TestAsyncAzureBlobStorageManager(unittest.IsolatedAsyncioTestCase):
-    # Test the asynchronous class
     async def test_async_class(self):
         async_manager = await AsyncAzureBlobStorageManager.create_instance(
-            CONNECTION_STRING, CONTAINER_NAME
+            connection_string=CONNECTION_STRING, container_name=CONTAINER_NAME
         )
 
         # Create a test file
@@ -47,7 +47,9 @@ class TestAsyncAzureBlobStorageManager(unittest.IsolatedAsyncioTestCase):
             f.write("This is a test file")
 
         # Upload the test file
-        await async_manager.upload("async_test.txt", "async_test.txt")
+        await async_manager.upload(
+            blob_name="async_test.txt", file_path="async_test.txt"
+        )
 
         # List blobs
         blobs = await async_manager.list_blobs()
@@ -55,10 +57,50 @@ class TestAsyncAzureBlobStorageManager(unittest.IsolatedAsyncioTestCase):
             print(blob.name)
 
         # Download the test file
-        await async_manager.download("async_test.txt", "downloaded_async_test.txt")
+        await async_manager.download(
+            blob_name="async_test.txt", file_path="downloaded_async_test.txt"
+        )
+
+        # Test list_and_filter
+        filtered_blobs = await async_manager.list_and_filter(prefix="async_test")
+        for blob in filtered_blobs:
+            print(blob.name)
+
+        # Test hierarchical_list
+        hierarchical_blobs = await async_manager.hierarchical_list(delimiter="/")
+        for blob in hierarchical_blobs:
+            print(blob.name)
+
+        # Test list_sources
+        sources = await async_manager.list_sources(root_folder=ROOT_FOLDER)
+        print(sources)
+
+        # Test list_source_indicators
+        source_indicators = await async_manager.list_source_indicators(
+            root_folder=ROOT_FOLDER, cfg=sources
+        )
+        print(source_indicators)
+
+        # Test get_utilities
+        utility_config = await async_manager.get_utilities(
+            root_folder=ROOT_FOLDER, utility_file="testing.cfg"
+        )
+        print(utility_config)
+
+        # Test get_source_files
+        async for dataset in async_manager.get_source_files(
+            root_folder=ROOT_FOLDER, source_type="raw"
+        ):
+            print(dataset)
+
+        # Test get_output_files
+        async for file_name, file_content in async_manager.get_output_files(
+            subfolder="access_all_data"
+        ):
+            print(file_name, file_content)
 
         # Clean up
-        await async_manager.delete("async_test.txt")
+        await async_manager.delete(blob_name="async_test.txt")
         os.remove("async_test.txt")
         os.remove("downloaded_async_test.txt")
 
