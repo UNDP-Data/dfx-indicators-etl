@@ -354,6 +354,39 @@ class AsyncAzureBlobStorageManager:
                 f"An error occurred returning the source CSVs from the raw directory."
             )
 
+    async def get_output_files(self, output_type: str, delimiter: str = "/"):
+        """
+        Asynchronously retrieves the contents of CSV and JSON files within the "raw" folder
+        inside the specified output_type directory.
+
+        Args:
+            output_type (str): The subdirectory under 'output' to search for files.
+                                Values can either be "access_all_data" or "vaccine_equity"
+            delimiter (str, optional): The delimiter used for the Azure Blob storage paths. Defaults to "/".
+
+        Yields:
+            Tuple[str, bytes]: A tuple containing the file name and the content of the file in bytes.
+
+        Raises:
+            ValueError: Raised if output_type is not "access_all_data" or "vaccine_equity".
+        """
+
+        if output_type not in ("access_all_data", "vaccine_equity"):
+            raise ValueError(
+                "output_type must be either 'access_all_data' or 'vaccine_equity'"
+            )
+
+        prefix = os.path.join("output", output_type, "raw")
+        async for blob in self.container_client.walk_blobs(
+            name_starts_with=prefix, delimiter=delimiter
+        ):
+            if not isinstance(blob, BlobPrefix):
+                stream = await self.container_client.download_blob(
+                    blob.name, max_concurrency=8
+                )
+                content = await stream.readall()
+                yield blob.name, content
+
     async def delete(self, blob_name: str = None):
         blob_client = self.container_client.get_blob_client(blob=blob_name)
         await blob_client.delete_blob()
