@@ -47,19 +47,12 @@ class TestAsyncAzureBlobStorageManager(unittest.IsolatedAsyncioTestCase):
             f.write("This is a test file")
 
         # Upload the test file
-        await async_manager.upload(
-            blob_name="async_test.txt", file_path="async_test.txt"
-        )
+        await async_manager.upload(dst_path="async_test.txt", src_path="async_test.txt")
 
         # List blobs
         blobs = await async_manager.list_blobs()
         for blob in blobs:
             print(blob.name)
-
-        # Download the test file
-        await async_manager.download(
-            blob_name="async_test.txt", file_path="downloaded_async_test.txt"
-        )
 
         # Test list_and_filter
         filtered_blobs = await async_manager.list_and_filter(prefix="async_test")
@@ -67,30 +60,34 @@ class TestAsyncAzureBlobStorageManager(unittest.IsolatedAsyncioTestCase):
             print(blob.name)
 
         # Test hierarchical_list
-        hierarchical_blobs = await async_manager.hierarchical_list(delimiter="/")
+        hierarchical_blobs = await async_manager._hierarchical_list()
         for blob in hierarchical_blobs:
             print(blob.name)
 
+        # Test list_indicators
+        indicators = await async_manager.list_indicators()
+        print(indicators)
+
         # Test list_sources
-        sources = await async_manager.list_sources(root_folder=ROOT_FOLDER)
+        sources = await async_manager.list_sources()
         print(sources)
 
-        # Test list_source_indicators
-        source_indicators = await async_manager.list_source_indicators(
-            root_folder=ROOT_FOLDER, cfg=sources
-        )
-        print(source_indicators)
+        # Test get_source_config
+        source_config = await async_manager.get_source_config()
+        print(source_config)
 
-        # Test get_utilities
-        utility_config = await async_manager.get_utilities(
-            root_folder=ROOT_FOLDER, utility_file="testing.cfg"
+        # Test get_source_indicator_config
+        source_indicator_config = await async_manager.get_source_indicator_config()
+        print(source_indicator_config)
+
+        # Test get_utility_file
+        utility_config = await async_manager.get_utility_file(
+            utility_file="testing.cfg"
         )
         print(utility_config)
 
         # Test get_source_files
-        async for dataset in async_manager.get_source_files(
-            root_folder=ROOT_FOLDER, source_type="raw"
-        ):
+        async for dataset in async_manager.get_source_files(source_type="raw"):
             print(dataset)
 
         # Test get_output_files
@@ -98,6 +95,11 @@ class TestAsyncAzureBlobStorageManager(unittest.IsolatedAsyncioTestCase):
             subfolder="access_all_data"
         ):
             print(file_name, file_content)
+
+        # Download the test file
+        await async_manager.download(
+            blob_name="async_test.txt", dst_path="downloaded_async_test.txt"
+        )
 
         # Clean up
         await async_manager.delete(blob_name="async_test.txt")
