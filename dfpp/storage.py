@@ -19,17 +19,6 @@ class AzureBlobStorageManager:
 
     _instance = None
 
-    @staticmethod
-    def create_instance(connection_string: str = None, container_name: str = None):
-        """
-        Returns a singleton instance of the class.
-        """
-        if AzureBlobStorageManager._instance is None:
-            AzureBlobStorageManager._instance = AzureBlobStorageManager(
-                connection_string=connection_string, container_name=container_name
-            )
-        return AzureBlobStorageManager._instance
-
     def __init__(self, connection_string: str = None, container_name: str = None):
         """
         Initializes the container client for Azure Blob Storage.
@@ -42,6 +31,35 @@ class AzureBlobStorageManager:
             self.container_client = ContainerClient.from_connection_string(
                 connection_string=connection_string, container_name=container_name
             )
+
+    @staticmethod
+    def create_instance(
+        connection_string: str = None,
+        container_name: str = None,
+        use_singleton: bool = True,
+    ):
+        """
+        Creates and initializes an instance of the AzureBlobStorageManager class
+        using the Singleton pattern. If an instance already exists and use_singleton is True,
+        it returns the existing instance. If use_singleton is False, it always creates a new instance.
+
+        :param connection_string: The connection string for the Azure Blob Storage account.
+        :type connection_string: str
+        :param container_name: The name of the container to be used in Azure Blob Storage.
+        :type container_name: str
+        :param use_singleton: A boolean to determine if the Singleton pattern should be used.
+                            If True, return the existing instance if available. If False, create a new instance.
+        :type use_singleton: bool, optional, default=True
+        :return: An initialized instance of the AzureBlobStorageManager class.
+        :rtype: AzureBlobStorageManager
+        """
+        if use_singleton and AzureBlobStorageManager._instance is not None:
+            return AzureBlobStorageManager._instance
+        else:
+            AzureBlobStorageManager._instance = AzureBlobStorageManager(
+                connection_string=connection_string, container_name=container_name
+            )
+            return AzureBlobStorageManager._instance
 
     def _hierarchical_list(self, prefix: str = None):
         for blob in self.container_client.walk_blobs(
@@ -245,7 +263,7 @@ class AzureBlobStorageManager:
         self,
         source_type: str,
         source_files: List[str] = None,
-    ) -> Generator[bytes, None]:
+    ) -> Generator[bytes, None, None]:
         """
         Synchronously queries an Azure Blob Container for CSV files in a specific directory,
         and yields them one by one as a generator.
@@ -301,7 +319,9 @@ class AzureBlobStorageManager:
                 f"An error occurred returning the source CSVs from the raw directory."
             )
 
-    def get_output_files(self, subfolder: str) -> Generator[Tuple[str, bytes], None]:
+    def get_output_files(
+        self, subfolder: str
+    ) -> Generator[Tuple[str, bytes], None, None]:
         # ...
         """
         Synchronously retrieves the contents of CSV and JSON files within the "raw" folder
@@ -374,10 +394,12 @@ class AsyncAzureBlobStorageManager:
         cls: Type[AsyncAzureBlobStorageManager],
         connection_string: str = None,
         container_name: str = None,
+        use_singleton: bool = True,
     ):
         """
         Asynchronously creates and initializes an instance of the AsyncAzureBlobStorageManager class
-        using the Singleton pattern. If an instance already exists, it returns the existing instance.
+        using the Singleton pattern. If an instance already exists and use_singleton is True,
+        it returns the existing instance. If use_singleton is False, it always creates a new instance.
 
         :param cls: A singleton class instance of AsyncAzureBlobStorageManager.
         :type: Type[AsyncAzureBlobStorageManager]
@@ -385,16 +407,26 @@ class AsyncAzureBlobStorageManager:
         :type connection_string: str
         :param container_name: The name of the container to be used in Azure Blob Storage.
         :type container_name: str
+        :param use_singleton: A boolean to determine if the Singleton pattern should be used.
+                            If True, return the existing instance if available. If False, create a new instance.
+        :type use_singleton: bool, optional, default=True
         :return: An initialized instance of the AsyncAzureBlobStorageManager class.
         :rtype: AsyncAzureBlobStorageManager
         """
-        if cls._instance is None:
-            container_client = AContainerClient.from_connection_string(
-                connection_string=connection_string, container_name=container_name
+        if use_singleton:
+            if cls._instance is None:
+                # Create an instance if it doesn't exist
+                container_client = ContainerClient.from_connection_string(
+                    connection_string, container_name
+                )
+                cls._instance = cls(container_client)
+            return cls._instance
+        else:
+            # Always create a new instance
+            container_client = ContainerClient.from_connection_string(
+                connection_string, container_name
             )
-            await cls._initialize(container_client=container_client)
-            cls._instance = cls(container_client)
-        return cls(container_client)
+            return cls(container_client)
 
     @staticmethod
     async def _initialize(container_client):
