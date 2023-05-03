@@ -20,18 +20,58 @@ class TestSyncAzureBlobStorageManager(unittest.TestCase):
             f.write("This is a test file")
 
         # Upload the test file
-        manager.upload("sync_test.txt", "sync_test.txt")
+        manager.upload(dst_path="sync_test.txt", src_path="sync_test.txt")
 
         # List blobs
-        print("Blobs in the container:")
-        for blob in manager.list_blobs():
+        blobs = manager.list_blobs()
+        for blob in blobs:
             print(blob.name)
 
+        # Test list_and_filter
+        filtered_blobs = manager.list_and_filter(prefix="sync_test")
+        for blob in filtered_blobs:
+            print(blob.name)
+
+        # Test hierarchical_list
+        hierarchical_blobs = manager._hierarchical_list()
+        for blob in hierarchical_blobs:
+            print(blob.name)
+
+        # Test list_indicators
+        indicators = manager.list_indicators()
+        print(indicators)
+
+        # Test list_sources
+        sources = manager.list_sources()
+        print(sources)
+
+        # Test get_source_config
+        source_config = manager.get_source_config()
+        print(source_config)
+
+        # Test get_source_indicator_config
+        source_indicator_config = manager.get_source_indicator_config()
+        print(source_indicator_config)
+
+        # Test get_utility_file
+        utility_config = manager.get_utility_file(utility_file="testing.cfg")
+        print(utility_config)
+
+        # Test get_source_files
+        for dataset in manager.get_source_files(source_type="raw"):
+            print(dataset)
+
+        # Test get_output_files
+        for file_name, file_content in manager.get_output_files(
+            subfolder="access_all_data"
+        ):
+            print(file_name, file_content)
+
         # Download the test file
-        manager.download("sync_test.txt", "downloaded_sync_test.txt")
+        manager.download(blob_name="sync_test.txt", dst_path="downloaded_sync_test.txt")
 
         # Clean up
-        manager.delete("sync_test.txt")
+        manager.delete(blob_name="sync_test.txt")
         os.remove("sync_test.txt")
         os.remove("downloaded_sync_test.txt")
 
