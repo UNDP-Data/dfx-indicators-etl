@@ -113,7 +113,7 @@ class AzureBlobStorageManager:
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
-                and "indicators" in blob.name
+                and not "indicators" in blob.name
             ):
                 stream = self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -182,7 +182,11 @@ class AzureBlobStorageManager:
         cfg = self.get_source_config()
         prefix = os.path.join(self.ROOT_FOLDER, "config", "sources", "indicators")
         for blob in self._hierarchical_list(prefix=prefix):
-            if not isinstance(blob, BlobPrefix) and blob.name.endswith(".cfg"):
+            if (
+                not isinstance(blob, BlobPrefix)
+                and blob.name.endswith(".cfg")
+                and "indicators" in blob.name
+            ):
                 stream = self.container_client.download_blob(
                     blob.name, max_concurrency=8
                 )
@@ -220,7 +224,7 @@ class AzureBlobStorageManager:
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
-                and utility_file == blob.name
+                and utility_file == os.path.basename(blob.name)
             ):
                 stream = self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -276,7 +280,7 @@ class AzureBlobStorageManager:
                     if (
                         not isinstance(blob, BlobPrefix)
                         and blob.name.endswith(".csv")
-                        and source_id in blob.name
+                        and source_id == os.path.basename(blob.name)
                     ):
                         stream = self.container_client.download_blob(
                             blob.name, max_concurrency=8
@@ -478,7 +482,7 @@ class AsyncAzureBlobStorageManager:
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
-                and "indicators" in blob.name
+                and not "indicators" in blob.name
             ):
                 stream = await self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -547,7 +551,11 @@ class AsyncAzureBlobStorageManager:
         cfg = await self.get_source_config()
         prefix = os.path.join(self.ROOT_FOLDER, "config", "sources", "indicators")
         async for blob in self._hierarchical_list(prefix=prefix):
-            if not isinstance(blob, BlobPrefix) and blob.name.endswith(".cfg"):
+            if (
+                not isinstance(blob, BlobPrefix)
+                and blob.name.endswith(".cfg")
+                and "indicators" in blob.name
+            ):
                 stream = await self.container_client.download_blob(
                     blob.name, max_concurrency=8
                 )
@@ -585,7 +593,7 @@ class AsyncAzureBlobStorageManager:
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
-                and utility_file == blob.name
+                and utility_file == os.path.basename(blob.name)
             ):
                 stream = await self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -637,11 +645,11 @@ class AsyncAzureBlobStorageManager:
         found_csv = False
         async for blob in self._hierarchical_list(prefix=prefix):
             if len(source_files) > 0:
-                for source_id in source_files:
+                for source_file in source_files:
                     if (
                         not isinstance(blob, BlobPrefix)
                         and blob.name.endswith(".csv")
-                        and source_id in blob.name
+                        and source_file == os.path.basename(blob.name)
                     ):
                         stream = await self.container_client.download_blob(
                             blob.name, max_concurrency=8
