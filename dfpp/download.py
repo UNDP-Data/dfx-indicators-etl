@@ -2,7 +2,7 @@ import os
 import io
 import json
 import logging
-from typing import Any
+from typing import Any, Optional, Tuple
 import aiohttp
 import numpy as np
 import pandas as pd
@@ -17,14 +17,14 @@ ROOT_FOLDER = os.environ['ROOT_FOLDER']
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=600)
 
 
-async def simple_url_download(url, timeout=DEFAULT_TIMEOUT, max_retries=5) -> Any:
+async def simple_url_download(url, timeout=DEFAULT_TIMEOUT, max_retries=5) -> Optional[Tuple[bytes, str]]:
     """
-    Downloads the content from a given URL using the aiohttp library and displays a progress bar.
+    Downloads the content in bytes from a given URL using the aiohttp library.
 
     :param url: The URL to download.
     :param timeout: The maximum amount of time to wait for a response from the server, in seconds.
     :param max_retries: The maximum number of times to retry the download if an error occurs.
-    :return: a list containing the downloaded content and the content type.
+    :return: a tuple containing the downloaded content and the content type, or None if the download fails.
     """
     async with aiohttp.ClientSession() as session:
         retry_count = 0
@@ -32,24 +32,24 @@ async def simple_url_download(url, timeout=DEFAULT_TIMEOUT, max_retries=5) -> An
             try:
                 async with session.get(url, timeout=timeout) as resp:
                     if resp.status == 200:
-                        # bytes_resp = await resp.read()
-                        # return bytes_resp.decode('utf-8')
                         content_length = int(resp.headers.get('Content-Length', 0))
-                        bytes_so_far = 0
+                        print(f'Content length: {content_length}')
+                        downloaded_bytes = 0
                         chunk_size = 1024
+                        data = b''
                         progress_bar = tqdm(total=content_length, unit='B', unit_scale=True,
                                             desc=url.split('/')[-1])
                         async for chunk in resp.content.iter_chunked(chunk_size):
-                            bytes_so_far += len(chunk)
+                            downloaded_bytes += len(chunk)
                             progress_bar.update(len(chunk))
+                            data += chunk
                         progress_bar.close()
-                        data = await resp.read()
-                        logger.warning(f'Successfully downloaded {url}.')
-                        return [data, resp.content_type]
+                        # data = await resp.read()  # bytes in memory
+                        # print('Downloaded {} bytes'.format(len(data)))
+                        return data, resp.content_type
                     else:
-                        raise aiohttp.ClientError(f'Failed to download source: {resp.status}')
-                        # logger.info(f'Failed to download source: {resp.status}')
-                        # return [None, None]
+                        print(f'Failed to download source: {resp.status}')
+                        return None
             except asyncio.TimeoutError:
                 retry_count += 1
                 logger.info(f'Timeout error occurred while downloading {url}.')
@@ -59,14 +59,15 @@ async def simple_url_download(url, timeout=DEFAULT_TIMEOUT, max_retries=5) -> An
             except Exception as e:
                 retry_count += 1
                 logger.info(f'Error occurred while downloading {url}: {e}')
+    return None
 
 
-async def default_http_downloader(source_id=None, source_url=None, **kwargs) -> list:
+async def default_http_downloader(source_id=None, source_url=None, **kwargs):
     """
-    Downloads data from HTTP sources and uploads it to Azure Blob Storage.
+    Downloads data from HTTP sources
 
-    Retrieves a list of blob sources from an Azure Blob Storage container, then downloads data from each source via HTTP
-    requests. The downloaded data is saved as a blob in the Azure Blob Storage container.
+    Downloads data from a source URL using the aiohttp library. If the download fails, the function will retry up to 5 times.
+    requests.
 
     Returns:
         None
@@ -75,10 +76,11 @@ async def default_http_downloader(source_id=None, source_url=None, **kwargs) -> 
         return await simple_url_download(source_url)
     except Exception as e:
         logger.info(f'Error occurred while downloading {source_url}: {e}')
-        return [None, None]
+        return None, None
 
 
-async def country_downloader(source_id=None, source_url=None, params_type=None, params_url=None, params_codes=None) -> list:
+async def country_downloader(source_id=None, source_url=None, params_type=None, params_url=None,
+                             params_codes=None):
     """
     Asynchronously downloads country data from a specified source URL and adds the data to a DataFrame containing country codes and associated metadata. The metadata is obtained by downloading and processing a JSON file stored in an Azure Blob Storage container.
 
@@ -121,40 +123,39 @@ async def country_downloader(source_id=None, source_url=None, params_type=None, 
             country_codes_df['Alpha-3 code'] = countries_territory_dataframe[
                 'Alpha-3 code']  # only has the alpha-3 code column
             logger.info("Processed country_territory_groups.json")
-
             tasks = []
             for index, row in country_codes_df.iterrows():
-                logger.info(f"Downloading {row['Alpha-3 code']} from {params_url + row['Alpha-3 code'].lower()}")
+                row = country_codes_df.iloc[index]
+                logger.debug(f"Downloading {row['Alpha-3 code']} from {source_url + row['Alpha-3 code'].lower()}")
                 text_response_task = asyncio.create_task(
                     simple_url_download(source_url + row['Alpha-3 code'].lower(), timeout=DEFAULT_TIMEOUT))
                 tasks.append(text_response_task)
-            responses = await asyncio.gather(*tasks)
-            for response in responses:
-                logger.info(response.status)
-                if response is not None:
-                    logger.info(f"Downloaded {row['Alpha-3 code']}")
-                    country_df = pd.read_csv(io.StringIO(response))
-                    for country_id, country_row in country_df.iterrows():
-                        column_name = "_".join(country_row['indicator'].rsplit(" ")[0],
-                                               str(country_row['year']))
-                        country_codes_df.at[index, column_name] = country_row['value']
-            # create a params dictionary from the config
-
+            responses = await asyncio.gather(*tasks)  # list of responses in bytes in the format [bytes, content_type]
+            for i, response in enumerate(responses): # response is a list of bytes and content type as follows: [bytes, content_type]
+                if response is not None and len(response[0]) > 0:
+                    country_indicators_df = pd.read_json(io.StringIO(response[0].decode('utf-8')))
+                    for country_id, country_row in country_indicators_df.iterrows():
+                        column_name = "_".join([country_row["indicator"].rsplit(" ")[0], str(country_row["year"])])
+                        country_codes_df.at[i, column_name] = country_row["value"]
+            print(country_codes_df)
             if params_type == 'BATCH_ADD':
                 text_response = await simple_url_download(params_url, timeout=DEFAULT_TIMEOUT)
-                region_dataframe = pd.read_csv(io.StringIO(text_response))
+                region_dataframe = pd.read_csv(io.StringIO(text_response[0].decode('utf-8')))
                 selected_dataframe = region_dataframe[
                     region_dataframe['iso3'].isin(params_codes.split('|'))]
                 selected_dataframe['iso3'] = selected_dataframe['country']
                 selected_dataframe.rename(columns={'iso3': 'Alpha-3 code'}, inplace=True)
                 selected_dataframe = selected_dataframe[country_codes_df.columns]
-                country_codes_df = country_codes_df.append(selected_dataframe)
+                country_codes_df = pd.concat([country_codes_df, selected_dataframe], ignore_index=True)
                 csv_data = country_codes_df.to_csv(index=False).encode('utf-8')
                 print(f"Successfully downloaded {source_id}")
-                return [csv_data, 'text/csv']
+                return csv_data, 'text/csv'
     except Exception as e:
-        print(f"Error occurred while downloading {source_id}: {e}")
-        return [None, None]
+        raise e
+
+
+async def cpia_downloader():
+    pass
 
 
 async def simple_upload_to_blob(blob_name: str = None, data: bytes = None, content_type: str = None) -> None:
@@ -210,7 +211,7 @@ async def call_function(function_name: str, *args, **kwargs) -> Any:
     ```
     """
     if function_name is not None:
-        return await globals()[function_name](*args)
+        return await globals()[function_name](*args, **kwargs)
     else:
         return None
 
@@ -239,13 +240,17 @@ async def retrieval() -> None:
 
     tasks = []
     for sid, config in sources.items():  # sid = source id, config = source config
+        print('249 SOURCE ID: ', sid)
         logger.info(f"Downloading {sid} from {config['url']}.")
         if 'downloader_params' in config:
             params = config['downloader_params']
-            [data, content_type] = await call_function(config['downloader_function'], source_id=sid, source_url=config['url'], params_type=params['type'], params_url=params['url'], params_codes=params['codes'])
+            data, content_type = await call_function(config['downloader_function'],
+                                                     source_id=sid,
+                                                     source_url=config['url'], params_type=params['type'],
+                                                     params_url=params['url'], params_codes=params['codes'])
         else:
             # [data, content_type] = await call_function(config['downloader_function'], source_id=sid, source_url=config['url'])
-            [data, content_type] = await default_http_downloader(source_id=sid, source_url=config['url'])
+            data, content_type = await default_http_downloader(source_id=sid, source_url=config['url'])
         logger.info(f"Downloaded {sid} from {config['url']}.")
         logger.info(f"Uploading {sid} to blob storage.")
         upload_task = asyncio.create_task(
