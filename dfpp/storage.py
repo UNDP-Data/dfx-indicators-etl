@@ -256,6 +256,10 @@ class AsyncAzureBlobStorageManager:
                 if "source" in parser:
                     src_id = parser["source"].get("id")
                     cfg[src_id] = dict(parser["source"].items())
+                    if "downloader_function_args" in parser:
+                        cfg[src_id].update(
+                            dict(parser["downloader_function_args"].items())
+                        )
                 else:
                     raise ConfigError(f"Invalid source")
         return cfg
