@@ -1,7 +1,7 @@
 import asyncio
 import configparser
 import os
-from typing import Any, AsyncGenerator, Dict, List, Tuple, Type
+from typing import Any, AsyncGenerator, Dict, Generator, List, Tuple, Type
 
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import ContainerClient
@@ -43,6 +43,12 @@ class AzureBlobStorageManager:
                 connection_string=connection_string, container_name=container_name
             )
 
+    def _hierarchical_list(self, prefix: str = None):
+        for blob in self.container_client.walk_blobs(
+            name_starts_with=prefix, delimiter=self.delimiter
+        ):
+            yield blob
+
     def list_blobs(self):
         blob_list = []
         for blob in self.container_client.list_blobs():
@@ -55,25 +61,286 @@ class AzureBlobStorageManager:
             filtered_blobs.append(blob)
         return filtered_blobs
 
-    def hierarchical_list(self, delimiter="/"):
-        hierarchical_blobs = []
-        for blob in self.container_client.walk_blobs(delimiter=delimiter):
-            hierarchical_blobs.append(blob)
-        return hierarchical_blobs
+    def list_indicators(self) -> List[str]:
+        """
+        Synchronously lists indicator configuration files from an Azure Blob Container,
+        and returns a list containing all of the indicator_ids present in the directory.
 
-    def delete(self, blob_name: str = None):
+        Returns:
+            List[str]: A list where each value is an indicator_id taken from individual indicator
+                                    configuration files.
+
+        Raises:
+            ConfigError: Raised if an indicator configuration file is invalid or has a missing "indicator" section.
+        """
+        indicator_list = []
+        prefix = os.path.join(self.ROOT_FOLDER, "config", "indicators")
+        for blob in self._hierarchical_list(prefix=prefix):
+            if (
+                not isinstance(blob, BlobPrefix)
+                and blob.name.endswith(".cfg")
+                and "indicators" in blob.name
+            ):
+                stream = self.container_client.download_blob(
+                    blob.name, max_concurrency=8
+                )
+                content = stream.readall()
+                content_str = content.decode("utf-8")
+                parser = configparser.ConfigParser()
+                parser.read_string(content_str)
+                if "indicator" in parser:
+                    indicator_list.append(parser["indicator"].get("id"))
+
+                else:
+                    raise ConfigError(f"Invalid indicator config")
+        return indicator_list
+
+    def list_sources(self) -> List[str]:
+        """
+        Synchronously lists source configuration files from an Azure Blob Container,
+        and returns a list containing all of the source_ids present in the directory.
+
+        Returns:
+            List[str]: A list where each value is a source_id taken from individual source
+                                        configuration files.
+
+        Raises:
+            ConfigError: Raised if a source configuration file is invalid or has a missing "source" section.
+        """
+        source_list = []
+        prefix = os.path.join(self.ROOT_FOLDER, "config", "sources")
+        for blob in self._hierarchical_list(prefix=prefix):
+            if (
+                not isinstance(blob, BlobPrefix)
+                and blob.name.endswith(".cfg")
+                and "indicators" in blob.name
+            ):
+                stream = self.container_client.download_blob(
+                    blob.name, max_concurrency=8
+                )
+                content = stream.readall()
+                content_str = content.decode("utf-8")
+                parser = configparser.ConfigParser()
+                parser.read_string(content_str)
+                if "source" in parser:
+                    source_list.append(parser["source"].get("id"))
+                else:
+                    raise ConfigError(f"Invalid source")
+        return source_list
+
+    def get_source_config(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Synchronously lists source configuration files from an Azure Blob Container,
+        and returns a dictionary containing their parsed content.
+
+        Returns:
+            Dict[str, Dict[str, Any]]: A dictionary where keys are source IDs and values are dictionaries
+                                        containing the key-value pairs of the source configuration.
+
+        Raises:
+            ConfigError: Raised if a source configuration file is invalid or has a missing "source" section.
+        """
+        cfg = {}
+        prefix = os.path.join(self.ROOT_FOLDER, "config", "sources")
+        for blob in self._hierarchical_list(prefix=prefix):
+            if (
+                not isinstance(blob, BlobPrefix)
+                and blob.name.endswith(".cfg")
+                and not "indicators" in blob.name
+            ):
+                stream = self.container_client.download_blob(
+                    blob.name, max_concurrency=8
+                )
+                content = stream.readall()
+                content_str = content.decode("utf-8")
+                parser = configparser.ConfigParser()
+                parser.read_string(content_str)
+                if "source" in parser:
+                    src_id = parser["source"].get("id")
+                    cfg[src_id] = dict(parser["source"].items())
+                    if "downloader_function_args" in parser:
+                        cfg[src_id].update(
+                            dict(parser["downloader_function_args"].items())
+                        )
+                else:
+                    raise ConfigError(f"Invalid source")
+        return cfg
+
+    def get_source_indicator_config(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Synchronously lists source indicator configuration files from an Azure Blob Container,
+        and updates the provided 'cfg' dictionary with the parsed content.
+
+        Returns:
+            Dict[str, Dict[str, Any]]: The updated 'cfg' dictionary with the source indicator information
+                                        (keys are source IDs, and values are dictionaries containing source
+                                        configuration and a list of associated indicator IDs).
+
+        Raises:
+            ConfigError: Raised if an indicator configuration file is invalid or has a missing "indicator" section.
+        """
+        cfg = self.get_source_config()
+        prefix = os.path.join(self.ROOT_FOLDER, "config", "sources", "indicators")
+        for blob in self._hierarchical_list(prefix=prefix):
+            if not isinstance(blob, BlobPrefix) and blob.name.endswith(".cfg"):
+                stream = self.container_client.download_blob(
+                    blob.name, max_concurrency=8
+                )
+                content = stream.readall()
+                content_str = content.decode("utf-8")
+                parser = configparser.ConfigParser()
+                parser.read_string(content_str)
+                if "indicator" in parser:
+                    src_id = parser["indicator"].get("source_id")
+                    indicator_id = parser["indicator"].get("id")
+                    # set indicator value to a list if it does not exist yet, and append the value to the existing/new list
+                    cfg[src_id].setdefault("indicators", []).append(indicator_id)
+                else:
+                    raise ConfigError(f"Invalid indicator config")
+        return cfg
+
+    def get_utility_file(self, utility_file: str) -> Dict[str, Dict[str, Any]]:
+        """
+        Synchronously retrieves a specified utility configuration file from the Azure Blob Container,
+        parses it, and returns its content as a dictionary.
+
+        Args:
+            utility_file (str): The name of the utility configuration file to search for.
+
+        Returns:
+            dict: A dictionary representation of the utility configuration file content,
+                where keys are section names and values are dictionaries of key-value pairs within the section.
+
+        Raises:
+            ConfigError: Raised if the specified utility configuration file is not found or not valid.
+
+        """
+        prefix = os.path.join(self.ROOT_FOLDER, "config", "utilities")
+        for blob in self._hierarchical_list(prefix=prefix):
+            if (
+                not isinstance(blob, BlobPrefix)
+                and blob.name.endswith(".cfg")
+                and utility_file == blob.name
+            ):
+                stream = self.container_client.download_blob(
+                    blob.name, max_concurrency=8
+                )
+                content = stream.readall()
+                content_str = content.decode("utf-8")
+                parser = configparser.ConfigParser()
+                parser.read_string(content_str)
+                config_dict = {
+                    section: dict(parser.items(section))
+                    for section in parser.sections()
+                }
+                return config_dict
+        else:
+            raise ConfigError(f"Utitlity source not valid")
+
+    def get_source_files(
+        self,
+        source_type: str,
+        source_files: List[str] = None,
+    ) -> Generator[bytes, None]:
+        """
+        Synchronously queries an Azure Blob Container for CSV files in a specific directory,
+        and yields them one by one as a generator.
+
+        Args:
+            source_type (str): The subdirectory under 'sources' to search for CSV files.
+                            Values can either be "raw" or "standardized"
+            source_files (list, optional): A list of source files to search for. If empty or None,
+                                        all CSV files in the directory will be returned. Defaults to None.
+
+        Yields:
+            bytes: The content of a CSV file in bytes.
+
+        Raises:
+            DFPSourceError: Raised if no matching CSV files are found in the specified directory.
+
+        Example usage:
+            for dataset in AzureBlobStorageManager.get_source_files(source_type, source_files):
+                # Open and process each dataset here
+        """
+        if source_type not in ("raw", "standardized"):
+            raise ValueError("source_type must be either 'raw' or 'standardized'")
+
+        if source_files is None:
+            source_files = []
+
+        prefix = os.path.join(self.ROOT_FOLDER, "sources", source_type)
+        found_csv = False
+        for blob in self._hierarchical_list(prefix=prefix):
+            if len(source_files) > 0:
+                for source_id in source_files:
+                    if (
+                        not isinstance(blob, BlobPrefix)
+                        and blob.name.endswith(".csv")
+                        and source_id in blob.name
+                    ):
+                        stream = self.container_client.download_blob(
+                            blob.name, max_concurrency=8
+                        )
+                        content = stream.readall()
+                        found_csv = True
+                        yield content
+            elif not isinstance(blob, BlobPrefix) and blob.name.endswith(".csv"):
+                stream = self.container_client.download_blob(
+                    blob.name, max_concurrency=8
+                )
+                content = stream.readall()
+                found_csv = True
+                yield content
+
+        if not found_csv:
+            raise DFPSourceError(
+                f"An error occurred returning the source CSVs from the raw directory."
+            )
+
+    def get_output_files(self, subfolder: str) -> Generator[Tuple[str, bytes], None]:
+        # ...
+        """
+        Synchronously retrieves the contents of CSV and JSON files within the "raw" folder
+        inside the specified subfolder directory.
+
+        Args:
+            subfolder (str): The subdirectory under 'output' to search for files.
+                                Values can either be "access_all_data" or "vaccine_equity"
+
+        Yields:
+            Tuple[str, bytes]: A tuple containing the file name and the content of the file in bytes.
+
+        Raises:
+            ValueError: Raised if subfolder is not "access_all_data" or "vaccine_equity".
+        """
+
+        if subfolder not in ("access_all_data", "vaccine_equity"):
+            raise ValueError(
+                "output_type must be either 'access_all_data' or 'vaccine_equity'"
+            )
+
+        prefix = os.path.join("output", subfolder, "raw")
+        for blob in self._hierarchical_list(prefix=prefix):
+            if not isinstance(blob, BlobPrefix):
+                stream = self.container_client.download_blob(
+                    blob.name, max_concurrency=8
+                )
+                content = stream.readall()
+                yield blob.name, content
+
+    def delete(self, blob_name: str = None) -> None:
         blob_client = self.container_client.get_blob_client(blob=blob_name)
         blob_client.delete_blob()
 
-    def download(self, blob_name: str = None, file_path: str = None):
+    def download(self, blob_name: str = None, dst_path: str = None) -> None:
         blob_client = self.container_client.get_blob_client(blob=blob_name)
-        with open(file_path, "wb") as f:
+        with open(dst_path, "wb") as f:
             data = blob_client.download_blob()
             f.write(data.readall())
 
-    def upload(self, blob_name: str = None, file_path: str = None):
-        blob_client = self.container_client.get_blob_client(blob=blob_name)
-        with open(file_path, "rb") as f:
+    def upload(self, dst_path: str = None, src_path: str = None) -> None:
+        blob_client = self.container_client.get_blob_client(blob=dst_path)
+        with open(src_path, "rb") as f:
             blob_client.upload_blob(data=f)
 
 
