@@ -80,9 +80,10 @@ class AzureBlobStorageManager:
             blob_list.append(blob)
         return blob_list
 
-    def list_and_filter(self, prefix: str = None):
+    def list_and_filter(self, prefix: str = None, filter: str = None):
         filtered_blobs = []
-        for blob in self.container_client.list_blobs(name_starts_with=prefix):
+        name_starts_with = f"{prefix}/{filter}"
+        for blob in self.container_client.list_blobs(name_starts_with=name_starts_with):
             filtered_blobs.append(blob)
         return filtered_blobs
 
