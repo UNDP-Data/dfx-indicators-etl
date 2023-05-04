@@ -4,7 +4,7 @@ import os
 from typing import Any, AsyncGenerator, Dict, Generator, List, Tuple
 
 from azure.core.exceptions import ResourceNotFoundError
-from azure.storage.blob import ContainerClient
+from azure.storage.blob import ContainerClient, ContentSettings
 from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import ContainerClient as AContainerClient
 
@@ -187,10 +187,8 @@ class AzureBlobStorageManager:
                 if "source" in parser:
                     src_id = parser["source"].get("id")
                     cfg[src_id] = dict(parser["source"].items())
-                    if "downloader_function_args" in parser:
-                        cfg[src_id].update(
-                            dict(parser["downloader_function_args"].items())
-                        )
+                    if "downloader_params" in parser:
+                        cfg[src_id]["downloader_params"] = dict(parser["downloader_params"].items())
                 else:
                     raise ConfigError(f"Invalid source")
         return cfg
@@ -385,10 +383,10 @@ class AzureBlobStorageManager:
             data = blob_client.download_blob()
             f.write(data.readall())
 
-    def upload(self, dst_path: str = None, src_path: str = None) -> None:
+    def upload(self, dst_path: str = None, src_path: str = None, overwrite=None, content_type=None) -> None:
         blob_client = self.container_client.get_blob_client(blob=dst_path)
         with open(src_path, "rb") as f:
-            blob_client.upload_blob(data=f)
+            blob_client.upload_blob(data=f, overwrite=overwrite, content_settings=ContentSettings(content_type=content_type))
 
 
 class AsyncAzureBlobStorageManager:
@@ -790,7 +788,7 @@ class AsyncAzureBlobStorageManager:
             data = await blob_client.download_blob()
             f.write(await data.readall())
 
-    async def upload(self, dst_path: str = None, src_path: str = None) -> None:
+    async def upload(self, dst_path: str = None, src_path: str = None, overwrite: bool = True) -> None:
         blob_client = self.container_client.get_blob_client(blob=dst_path)
         with open(src_path, "rb") as f:
-            await blob_client.upload_blob(data=f)
+            await blob_client.upload_blob(data=f, overwrite=overwrite)
