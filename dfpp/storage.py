@@ -1,7 +1,7 @@
 import asyncio
 import configparser
 import os
-from typing import Any, AsyncGenerator, Dict, Generator, List, Tuple, Type
+from typing import Any, AsyncGenerator, Dict, Generator, List, Tuple
 
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import ContainerClient
@@ -23,13 +23,16 @@ class AzureBlobStorageManager:
         """
         Initializes the container client for Azure Blob Storage.
         """
+        self.delimiter = "/"
+        self.ROOT_FOLDER = os.environ["ROOT_FOLDER"]
+
         if AzureBlobStorageManager._instance is not None:
             raise Exception(
                 "Use create_instance() to get a singleton instance of this class"
             )
         else:
             self.container_client = ContainerClient.from_connection_string(
-                connection_string=connection_string, container_name=container_name
+                conn_str=connection_string, container_name=container_name
             )
 
     @staticmethod
@@ -61,15 +64,19 @@ class AzureBlobStorageManager:
             )
             return AzureBlobStorageManager._instance
 
-    def _hierarchical_list(self, prefix: str = None):
+    def hierarchical_list(self, prefix: str = None):
         for blob in self.container_client.walk_blobs(
             name_starts_with=prefix, delimiter=self.delimiter
         ):
             yield blob
 
-    def list_blobs(self):
+    def _yield_blobs(self, prefix: str = None):
+        for blob in self.container_client.list_blobs(name_starts_with=prefix):
+            yield blob
+
+    def list_blobs(self, prefix: str = None):
         blob_list = []
-        for blob in self.container_client.list_blobs():
+        for blob in self.container_client.list_blobs(name_starts_with=prefix):
             blob_list.append(blob)
         return blob_list
 
@@ -92,8 +99,9 @@ class AzureBlobStorageManager:
             ConfigError: Raised if an indicator configuration file is invalid or has a missing "indicator" section.
         """
         indicator_list = []
-        prefix = os.path.join(self.ROOT_FOLDER, "config", "indicators")
-        for blob in self._hierarchical_list(prefix=prefix):
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.ROOT_FOLDER}/config/sources"
+        for blob in self._yield_blobs(prefix=prefix):
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
@@ -126,8 +134,9 @@ class AzureBlobStorageManager:
             ConfigError: Raised if a source configuration file is invalid or has a missing "source" section.
         """
         source_list = []
-        prefix = os.path.join(self.ROOT_FOLDER, "config", "sources")
-        for blob in self._hierarchical_list(prefix=prefix):
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.ROOT_FOLDER}/config/sources"
+        for blob in self._yield_blobs(prefix=prefix):
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
@@ -159,8 +168,9 @@ class AzureBlobStorageManager:
             ConfigError: Raised if a source configuration file is invalid or has a missing "source" section.
         """
         cfg = {}
-        prefix = os.path.join(self.ROOT_FOLDER, "config", "sources")
-        for blob in self._hierarchical_list(prefix=prefix):
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.ROOT_FOLDER}/config/sources"
+        for blob in self._yield_blobs(prefix=prefix):
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
@@ -198,8 +208,9 @@ class AzureBlobStorageManager:
             ConfigError: Raised if an indicator configuration file is invalid or has a missing "indicator" section.
         """
         cfg = self.get_source_config()
-        prefix = os.path.join(self.ROOT_FOLDER, "config", "sources", "indicators")
-        for blob in self._hierarchical_list(prefix=prefix):
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.ROOT_FOLDER}/config/sources"
+        for blob in self._yield_blobs(prefix=prefix):
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
@@ -237,8 +248,9 @@ class AzureBlobStorageManager:
             ConfigError: Raised if the specified utility configuration file is not found or not valid.
 
         """
-        prefix = os.path.join(self.ROOT_FOLDER, "config", "utilities")
-        for blob in self._hierarchical_list(prefix=prefix):
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.ROOT_FOLDER}/config/utilities"
+        for blob in self._yield_blobs(prefix=prefix):
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
@@ -290,14 +302,19 @@ class AzureBlobStorageManager:
         if source_files is None:
             source_files = []
 
-        prefix = os.path.join(self.ROOT_FOLDER, "sources", source_type)
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.ROOT_FOLDER}/sources/{source_type}"
         found_csv = False
-        for blob in self._hierarchical_list(prefix=prefix):
+        for blob in self._yield_blobs(prefix=prefix):
             if len(source_files) > 0:
                 for source_id in source_files:
                     if (
                         not isinstance(blob, BlobPrefix)
-                        and blob.name.endswith(".csv")
+                        and (
+                            blob.name.endswith(".csv")
+                            or blob.name.endswith(".xlsx")
+                            or blob.name.endswith(".xls")
+                        )
                         and source_id == os.path.basename(blob.name)
                     ):
                         stream = self.container_client.download_blob(
@@ -306,7 +323,11 @@ class AzureBlobStorageManager:
                         content = stream.readall()
                         found_csv = True
                         yield content
-            elif not isinstance(blob, BlobPrefix) and blob.name.endswith(".csv"):
+            elif not isinstance(blob, BlobPrefix) and (
+                blob.name.endswith(".csv")
+                or blob.name.endswith(".xlsx")
+                or blob.name.endswith(".xls")
+            ):
                 stream = self.container_client.download_blob(
                     blob.name, max_concurrency=8
                 )
@@ -343,8 +364,9 @@ class AzureBlobStorageManager:
                 "output_type must be either 'access_all_data' or 'vaccine_equity'"
             )
 
-        prefix = os.path.join("output", subfolder, "raw")
-        for blob in self._hierarchical_list(prefix=prefix):
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.ROOT_FOLDER}/output/{subfolder}/raw"
+        for blob in self._yield_blobs(prefix=prefix):
             if not isinstance(blob, BlobPrefix):
                 stream = self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -391,7 +413,7 @@ class AsyncAzureBlobStorageManager:
 
     @classmethod
     async def create_instance(
-        cls: Type[AsyncAzureBlobStorageManager],
+        cls: "AsyncAzureBlobStorageManager",
         connection_string: str = None,
         container_name: str = None,
         use_singleton: bool = True,
@@ -416,15 +438,15 @@ class AsyncAzureBlobStorageManager:
         if use_singleton:
             if cls._instance is None:
                 # Create an instance if it doesn't exist
-                container_client = ContainerClient.from_connection_string(
-                    connection_string, container_name
+                container_client = AContainerClient.from_connection_string(
+                    conn_str=connection_string, container_name=container_name
                 )
                 cls._instance = cls(container_client)
             return cls._instance
         else:
             # Always create a new instance
-            container_client = ContainerClient.from_connection_string(
-                connection_string, container_name
+            container_client = AContainerClient.from_connection_string(
+                conn_str=connection_string, container_name=container_name
             )
             return cls(container_client)
 
@@ -444,21 +466,28 @@ class AsyncAzureBlobStorageManager:
                 f"The container '{container_client.container_name}' does not exist."
             ) from e
 
-    async def _hierarchical_list(self, prefix: str = None):
+    async def hierarchical_list(self, prefix: str = None):
         async for blob in self.container_client.walk_blobs(
             name_starts_with=prefix, delimiter=self.delimiter
         ):
             yield blob
 
-    async def list_blobs(self):
+    async def list_blobs(self, prefix: str = None):
         blob_list = []
-        async for blob in self.container_client.list_blobs():
+        async for blob in self.container_client.list_blobs(name_starts_with=prefix):
             blob_list.append(blob)
         return blob_list
 
-    async def list_and_filter(self, prefix: str = None):
-        filtered_blobs = []
+    async def _yield_blobs(self, prefix: str = None):
         async for blob in self.container_client.list_blobs(name_starts_with=prefix):
+            yield blob
+
+    async def list_and_filter(self, prefix: str = None, filter: str = None):
+        filtered_blobs = []
+        name_starts_with = f"{prefix}/{filter}"
+        async for blob in self.container_client.list_blobs(
+            name_starts_with=name_starts_with
+        ):
             filtered_blobs.append(blob)
         return filtered_blobs
 
@@ -475,8 +504,9 @@ class AsyncAzureBlobStorageManager:
             ConfigError: Raised if an indicator configuration file is invalid or has a missing "indicator" section.
         """
         indicator_list = []
-        prefix = os.path.join(self.ROOT_FOLDER, "config", "indicators")
-        async for blob in self._hierarchical_list(prefix=prefix):
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.ROOT_FOLDER}/config/sources"
+        async for blob in self._yield_blobs(prefix=prefix):
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
@@ -509,8 +539,9 @@ class AsyncAzureBlobStorageManager:
             ConfigError: Raised if a source configuration file is invalid or has a missing "source" section.
         """
         source_list = []
-        prefix = os.path.join(self.ROOT_FOLDER, "config", "sources")
-        async for blob in self._hierarchical_list(prefix=prefix):
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.ROOT_FOLDER}/config/sources"
+        async for blob in self._yield_blobs(prefix=prefix):
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
@@ -542,8 +573,9 @@ class AsyncAzureBlobStorageManager:
             ConfigError: Raised if a source configuration file is invalid or has a missing "source" section.
         """
         cfg = {}
-        prefix = os.path.join(self.ROOT_FOLDER, "config", "sources")
-        async for blob in self._hierarchical_list(prefix=prefix):
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.ROOT_FOLDER}/config/sources"
+        async for blob in self._yield_blobs(prefix=prefix):
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
@@ -581,8 +613,9 @@ class AsyncAzureBlobStorageManager:
             ConfigError: Raised if an indicator configuration file is invalid or has a missing "indicator" section.
         """
         cfg = await self.get_source_config()
-        prefix = os.path.join(self.ROOT_FOLDER, "config", "sources", "indicators")
-        async for blob in self._hierarchical_list(prefix=prefix):
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.ROOT_FOLDER}/config/sources"
+        async for blob in self._yield_blobs(prefix=prefix):
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
@@ -620,8 +653,9 @@ class AsyncAzureBlobStorageManager:
             ConfigError: Raised if the specified utility configuration file is not found or not valid.
 
         """
-        prefix = os.path.join(self.ROOT_FOLDER, "config", "utilities")
-        async for blob in self._hierarchical_list(prefix=prefix):
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.ROOT_FOLDER}/config/utilities"
+        async for blob in self._yield_blobs(prefix=prefix):
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
@@ -673,15 +707,20 @@ class AsyncAzureBlobStorageManager:
         if source_files is None:
             source_files = []
 
-        prefix = os.path.join(self.ROOT_FOLDER, "sources", source_type)
         found_csv = False
-        async for blob in self._hierarchical_list(prefix=prefix):
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.ROOT_FOLDER}/sources/{source_type}"
+        async for blob in self._yield_blobs(prefix=prefix):
             if len(source_files) > 0:
-                for source_file in source_files:
+                for source_id in source_files:
                     if (
                         not isinstance(blob, BlobPrefix)
-                        and blob.name.endswith(".csv")
-                        and source_file == os.path.basename(blob.name)
+                        and (
+                            blob.name.endswith(".csv")
+                            or blob.name.endswith(".xlsx")
+                            or blob.name.endswith(".xls")
+                        )
+                        and source_id == os.path.basename(blob.name)
                     ):
                         stream = await self.container_client.download_blob(
                             blob.name, max_concurrency=8
@@ -689,7 +728,11 @@ class AsyncAzureBlobStorageManager:
                         content = await stream.readall()
                         found_csv = True
                         yield content
-            elif not isinstance(blob, BlobPrefix) and blob.name.endswith(".csv"):
+            elif not isinstance(blob, BlobPrefix) and (
+                blob.name.endswith(".csv")
+                or blob.name.endswith(".xlsx")
+                or blob.name.endswith(".xls")
+            ):
                 stream = await self.container_client.download_blob(
                     blob.name, max_concurrency=8
                 )
@@ -726,8 +769,9 @@ class AsyncAzureBlobStorageManager:
                 "output_type must be either 'access_all_data' or 'vaccine_equity'"
             )
 
-        prefix = os.path.join("output", subfolder, "raw")
-        async for blob in self._hierarchical_list(prefix=prefix):
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.ROOT_FOLDER}/output/{subfolder}/raw"
+        async for blob in self._yield_blobs(prefix=prefix):
             if not isinstance(blob, BlobPrefix):
                 stream = await self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -749,20 +793,3 @@ class AsyncAzureBlobStorageManager:
         blob_client = self.container_client.get_blob_client(blob=dst_path)
         with open(src_path, "rb") as f:
             await blob_client.upload_blob(data=f)
-
-
-async def main():
-    connection_string = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
-    container_name = os.environ["CONTAINER_NAME"]
-
-    async_manager = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=connection_string, container_name=container_name
-    )
-    # perform other asynchronous operations with async_manager here
-    await async_manager.list_source_config()
-    await async_manager.close()
-
-
-if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
