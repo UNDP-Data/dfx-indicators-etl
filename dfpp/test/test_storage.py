@@ -24,13 +24,19 @@ class TestSyncAzureBlobStorageManager(unittest.TestCase):
         manager.upload(dst_path=dst_test_path, src_path="sync_test.txt")
 
         # Test list_and_filter
-        filtered_blobs = manager.list_and_filter(prefix="sync_test")
+        filtered_blobs = manager.list_and_filter(
+            prefix="DataFuturePlatform/pipeline", filter="sync_test"
+        )
         for blob in filtered_blobs:
             print(blob.name)
 
         # List blobs
         all_listed_blobs = manager.list_blobs(prefix="DataFuturePlatform/pipeline")
         for blob in all_listed_blobs:
+            print(blob.name)
+
+        # Test _yield_blobs
+        for blob in manager._yield_blobs(prefix="DataFuturePlatform/pipeline"):
             print(blob.name)
 
         # Test hierarchical_list
@@ -94,15 +100,16 @@ class TestAsyncAzureBlobStorageManager(unittest.IsolatedAsyncioTestCase):
         await async_manager.upload(dst_path=dst_test_path, src_path="async_test.txt")
 
         # Test list_and_filter
-        filtered_blobs = await async_manager.list_and_filter(prefix="async_test")
+        filtered_blobs = await async_manager.list_and_filter(
+            prefix="DataFuturePlatform/pipeline", filter="async_test"
+        )
         for blob in filtered_blobs:
             print(blob.name)
 
         # Test list_blobs
-        all_listed_blobs = await async_manager.list_blobs(
+        for blob in await async_manager.list_blobs(
             prefix="DataFuturePlatform/pipeline"
-        )
-        for blob in all_listed_blobs:
+        ):
             print(blob.name)
 
         # Test _yield_blobs
