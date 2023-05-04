@@ -34,28 +34,26 @@ async def simple_url_download(url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, timeout=timeout) as resp:
                     if resp.status == 200:
-                        content_length = int(resp.headers.get('Content-Length', 0))
                         downloaded_bytes = 0
                         chunk_size = 1024
                         data = b''
-                        progress_bar = tqdm(total=content_length, unit='B', unit_scale=True, desc=url.split('/')[-1])
+                        logger.info(f'Downloading {url}')
                         async for chunk in resp.content.iter_chunked(chunk_size):
                             downloaded_bytes += len(chunk)
-                            progress_bar.update(len(chunk))
                             data += chunk
-                        progress_bar.close()
+                        logger.info(f'Downloaded {downloaded_bytes} bytes from {url}')
                         return data, resp.content_type
                     else:
                         logger.error(f'Failed to download source: {resp.status}')
                         return None
         except asyncio.TimeoutError as e:
-            logger.info(f'Timeout error occurred while downloading {url}.')
+            logger.exception(f'Timeout error occurred while downloading {url}.')
             if retry_count == max_retries - 1:
                 logger.warning(f'Reached maximum number of retries ({max_retries}). Giving up.')
                 raise e
 
         except aiohttp.ClientError as e:
-            logger.info(f'Client error occurred while downloading {url}: {e}')
+            logger.exception(f'Client error occurred while downloading {url}: {e}')
             if retry_count == max_retries - 1:
                 logger.warning(f'Reached maximum number of retries ({max_retries}). Giving up.')
                 raise e
@@ -138,9 +136,13 @@ async def country_downloader(source_id=None, source_url=None, params_type=None, 
 
             # create a list of tasks to download the country data for each country code and wait for all tasks to complete
             tasks = []
+            # urls = []
+            progress_bars = {}
             for index, row in country_codes_df.iterrows():
                 row = country_codes_df.iloc[index]
-                logger.debug(f"Downloading {row['Alpha-3 code']} from {source_url + row['Alpha-3 code'].lower()}")
+                logger.info(f"Downloading {row['Alpha-3 code']} from {source_url + row['Alpha-3 code'].lower()}")
+                # urls.append(source_url + row['Alpha-3 code'].lower())
+                # tasks = [asyncio.create_task(simple_url_download(url, timeout=DEFAULT_TIMEOUT, progress_bars=progress_bars)) for url in urls]
                 text_response_task = asyncio.create_task(
                     simple_url_download(source_url + row['Alpha-3 code'].lower(), timeout=DEFAULT_TIMEOUT))
                 tasks.append(text_response_task)
@@ -282,7 +284,15 @@ async def retrieval() -> None:
 
 if __name__ == '__main__':
     import asyncio
+
     logging.basicConfig()
-    logger = logging.getLogger()
-    logger.setLevel(logging.WARNING)
+    logger = logging.getLogger('azure.storage.blob')
+    logging_stream_handler = logging.StreamHandler()
+    logging_stream_handler.setFormatter(
+        logging.Formatter('%(asctime)s-%(filename)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s',
+                          "%Y-%m-%d %H:%M:%S"))
+    logger.setLevel(logging.DEBUG)
+    logger.handlers.clear()
+    logger.addHandler(logging_stream_handler)
+    logger.name = __name__
     asyncio.run(retrieval())
