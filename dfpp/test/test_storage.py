@@ -1,9 +1,9 @@
 import os
 import unittest
 
-from ..storage import AsyncAzureBlobStorageManager, AzureBlobStorageManager
+from dfpp.storage import AsyncAzureBlobStorageManager, AzureBlobStorageManager
 
-CONNECTION_STRING = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
+CONNECTION_STRING = os.environ["CONNECTION_STRING"]
 CONTAINER_NAME = os.environ["CONTAINER_NAME"]
 ROOT_FOLDER = os.environ["ROOT_FOLDER"]
 
@@ -20,20 +20,23 @@ class TestSyncAzureBlobStorageManager(unittest.TestCase):
             f.write("This is a test file")
 
         # Upload the test file
-        manager.upload(dst_path="sync_test.txt", src_path="sync_test.txt")
-
-        # List blobs
-        blobs = manager.list_blobs()
-        for blob in blobs:
-            print(blob.name)
+        dst_test_path = os.path.join("DataFuturePlatform", "pipeline", "sync_test.txt")
+        manager.upload(dst_path=dst_test_path, src_path="sync_test.txt")
 
         # Test list_and_filter
         filtered_blobs = manager.list_and_filter(prefix="sync_test")
         for blob in filtered_blobs:
             print(blob.name)
 
+        # List blobs
+        all_listed_blobs = manager.list_blobs(prefix="DataFuturePlatform/pipeline")
+        for blob in all_listed_blobs:
+            print(blob.name)
+
         # Test hierarchical_list
-        hierarchical_blobs = manager._hierarchical_list()
+        hierarchical_blobs = manager.hierarchical_list(
+            prefix="DataFuturePlatform/pipeline"
+        )
         for blob in hierarchical_blobs:
             print(blob.name)
 
@@ -68,10 +71,10 @@ class TestSyncAzureBlobStorageManager(unittest.TestCase):
             print(file_name, file_content)
 
         # Download the test file
-        manager.download(blob_name="sync_test.txt", dst_path="downloaded_sync_test.txt")
+        manager.download(blob_name=dst_test_path, dst_path="downloaded_sync_test.txt")
 
         # Clean up
-        manager.delete(blob_name="sync_test.txt")
+        manager.delete(blob_name=dst_test_path)
         os.remove("sync_test.txt")
         os.remove("downloaded_sync_test.txt")
 
@@ -87,21 +90,31 @@ class TestAsyncAzureBlobStorageManager(unittest.IsolatedAsyncioTestCase):
             f.write("This is a test file")
 
         # Upload the test file
-        await async_manager.upload(dst_path="async_test.txt", src_path="async_test.txt")
-
-        # List blobs
-        blobs = await async_manager.list_blobs()
-        for blob in blobs:
-            print(blob.name)
+        dst_test_path = os.path.join("DataFuturePlatform", "pipeline", "async_test.txt")
+        await async_manager.upload(dst_path=dst_test_path, src_path="async_test.txt")
 
         # Test list_and_filter
         filtered_blobs = await async_manager.list_and_filter(prefix="async_test")
         for blob in filtered_blobs:
             print(blob.name)
 
+        # Test list_blobs
+        all_listed_blobs = await async_manager.list_blobs(
+            prefix="DataFuturePlatform/pipeline"
+        )
+        for blob in all_listed_blobs:
+            print(blob.name)
+
+        # Test _yield_blobs
+        async for blob in async_manager._yield_blobs(
+            prefix="DataFuturePlatform/pipeline"
+        ):
+            print(blob.name)
+
         # Test hierarchical_list
-        hierarchical_blobs = await async_manager._hierarchical_list()
-        for blob in hierarchical_blobs:
+        async for blob in async_manager.hierarchical_list(
+            prefix="DataFuturePlatform/pipeline"
+        ):
             print(blob.name)
 
         # Test list_indicators
@@ -138,11 +151,11 @@ class TestAsyncAzureBlobStorageManager(unittest.IsolatedAsyncioTestCase):
 
         # Download the test file
         await async_manager.download(
-            blob_name="async_test.txt", dst_path="downloaded_async_test.txt"
+            blob_name=dst_test_path, dst_path="downloaded_async_test.txt"
         )
 
         # Clean up
-        await async_manager.delete(blob_name="async_test.txt")
+        await async_manager.delete(blob_name=dst_test_path)
         os.remove("async_test.txt")
         os.remove("downloaded_async_test.txt")
 
