@@ -176,7 +176,8 @@ async def country_downloader(source_id=None, source_url=None, params_type=None, 
         raise e
 
 
-async def cpia_downloader():
+async def cpia_downloader(source_id=None, source_url=None, params_type=None, params_url=None,
+                          params_codes=None):
     pass
 
 
