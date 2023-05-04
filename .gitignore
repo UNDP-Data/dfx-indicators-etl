@@ -8,3 +8,8 @@
 __pycache__
 # ignore python compiled files
 *.pyc
+# ignore .env files
+*.env
+
+.pytest_cache
+*test.txt
