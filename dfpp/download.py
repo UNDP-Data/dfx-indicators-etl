@@ -2,13 +2,12 @@ import os
 import io
 import logging
 from configparser import ConfigParser
-from typing import Any, Optional, Tuple
+from typing import Any
 import aiohttp
 import numpy as np
 import pandas as pd
 from aiohttp import ClientTimeout
-import azblob
-from dfpp.storage import AzureBlobStorageManager
+from dfpp.storage import AsyncAzureBlobStorageManager
 import tempfile
 
 CONNECTION_STRING = os.environ['AZURE_STORAGE_CONNECTION_STRING']
@@ -17,8 +16,10 @@ ROOT_FOLDER = os.environ['ROOT_FOLDER']
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=600)
 
 
-async def simple_url_download(url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5) -> Optional[
-    Tuple[bytes, str]]:
+async def simple_url_download(url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5) -> tuple[
+                                                                                                               bytes, str] | \
+                                                                                                           tuple[
+                                                                                                               None, None] | None:
     """
     Downloads the content in bytes from a given URL using the aiohttp library.
 
@@ -27,10 +28,9 @@ async def simple_url_download(url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT
     :param max_retries: The maximum number of times to retry the download if an error occurs.
     :return: a tuple containing the downloaded content and the content type, or None if the download fails.
     """
-
-    for retry_count in range(max_retries):
-        try:
-            async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession() as session:
+        for retry_count in range(max_retries):
+            try:
                 async with session.get(url, timeout=timeout) as resp:
                     if resp.status == 200:
                         downloaded_bytes = 0
@@ -44,29 +44,29 @@ async def simple_url_download(url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT
                         return data, resp.content_type
                     else:
                         logger.error(f'Failed to download source: {resp.status}')
-                        return None
-        except asyncio.TimeoutError as e:
-            logger.exception(f'Timeout error occurred while downloading {url}.')
-            if retry_count == max_retries - 1:
-                logger.warning(f'Reached maximum number of retries ({max_retries}). Giving up.')
-                raise e
+                        return None, None
+            except asyncio.TimeoutError as e:
+                logger.exception(f'Timeout error occurred while downloading {url}.')
+                if retry_count == max_retries - 1:
+                    logger.warning(f'Reached maximum number of retries ({max_retries}). Giving up.')
+                    raise e
 
-        except aiohttp.ClientError as e:
-            logger.exception(f'Client error occurred while downloading {url}: {e}')
-            if retry_count == max_retries - 1:
-                logger.warning(f'Reached maximum number of retries ({max_retries}). Giving up.')
-                raise e
+            except aiohttp.ClientError as e:
+                logger.exception(f'Client error occurred while downloading {url}: {e}')
+                if retry_count == max_retries - 1:
+                    logger.warning(f'Reached maximum number of retries ({max_retries}). Giving up.')
+                    raise e
 
-        except Exception as e:
-            logger.exception(f'Error occurred while downloading {url}: {e}')
-            if retry_count == max_retries - 1:
-                logger.warning(f'Reached maximum number of retries ({max_retries}). Giving up.')
-                raise e
+            except Exception as e:
+                logger.exception(f'Error occurred while downloading {url}: {e}')
+                if retry_count == max_retries - 1:
+                    logger.warning(f'Reached maximum number of retries ({max_retries}). Giving up.')
+                    raise e
 
     return None
 
 
-async def default_http_downloader(source_id=None, source_url=None, **kwargs):
+async def default_http_downloader(**kwargs):
     """
     Downloads data from HTTP sources
 
@@ -76,6 +76,7 @@ async def default_http_downloader(source_id=None, source_url=None, **kwargs):
     Returns:
         None
     """
+    source_url = kwargs['source_url']
     try:
         return await simple_url_download(source_url)
     except Exception as e:
@@ -83,8 +84,7 @@ async def default_http_downloader(source_id=None, source_url=None, **kwargs):
         return None, None
 
 
-async def country_downloader(source_id=None, source_url=None, params_type=None, params_url=None,
-                             params_codes=None, storage_manager: AzureBlobStorageManager = None):
+async def country_downloader(**kwargs):
     """
     Asynchronously downloads country data from a specified source URL and adds the data to a DataFrame containing country codes and associated metadata. The metadata is obtained by downloading and processing a JSON file stored in an Azure Blob Storage container.
 
@@ -111,34 +111,21 @@ async def country_downloader(source_id=None, source_url=None, params_type=None, 
         :param storage_manager:
 
     """
+    source_id = kwargs['source_id']
+    source_url = kwargs['source_url']
+    params_type = kwargs['params_type']
+    params_url = kwargs['params_url']
+    params_codes = kwargs['params_codes']
+    storage_manager = kwargs['storage_manager']
+    print('country_downloader, called!!')
     try:
-        # FIXME: USES A TEMPFILE advantage: can handle large files and doesn't require the file to be loaded into memory, disadvantage: slower
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_file = os.path.join(temp_dir, 'country_territory_groups.json')
-            storage_manager.download(
-                os.path.join('DataFuturePlatform', 'pipeline', 'config', 'utilities', 'country_territory_groups.cfg'),
-                temp_file)
-            with open(temp_file, 'r') as config_file:
-                configparser = ConfigParser()
-                configparser.read_file(config_file)
-                countries_territory_data = {}
-                for section in configparser.sections():
-                    countries_territory_data[section] = {}
-                    for key, value in configparser.items(section):
-                        countries_territory_data[section][key] = value
-            country_territories_data_list = []
-            for key, data in countries_territory_data.items():
-                data.update({'Alpha-3 code-1': key})
-                country_territories_data_list.append(data)
-            countries_territory_dataframe = pd.DataFrame(country_territories_data_list)
 
-        # TODO: DOESNT USE A TEMPFILE: advantage: faster, disadvantage: requires the file to be loaded into memory
-        # countries_territory_data = storage_manager.get_utility_file('country_territory_groups.cfg')
-        # country_territories_data_list = []
-        # for key, data in countries_territory_data.items():
-        #     data.update({'Alpha-3 code-1': key})
-        #     country_territories_data_list.append(data)
-        # countries_territory_dataframe = pd.DataFrame(country_territories_data_list)
+        countries_territory_data = storage_manager.get_utility_file('country_territory_groups.cfg')
+        country_territories_data_list = []
+        for key, data in countries_territory_data.items():
+            data.update({'Alpha-3 code-1': key})
+            country_territories_data_list.append(data)
+        countries_territory_dataframe = pd.DataFrame(country_territories_data_list)
 
         countries_territory_dataframe.rename(columns={'Alpha-3 code-1': 'Alpha-3 code'}, inplace=True)
         # replace empty values with NaN and convert the latitude and longitude columns to float64 type
@@ -158,10 +145,12 @@ async def country_downloader(source_id=None, source_url=None, params_type=None, 
         # create a list of tasks to download the country data for each country code and wait for all tasks to complete
         tasks = []
         for index, row in country_codes_df.iterrows():
+            print('row', f"{source_url}{row['Alpha-3 code'].lower()}")
             row = country_codes_df.iloc[index]
             logger.info(f"Downloading {row['Alpha-3 code']} from {source_url + row['Alpha-3 code'].lower()}")
+
             text_response_task = asyncio.create_task(
-                simple_url_download(source_url + row['Alpha-3 code'].lower(), timeout=DEFAULT_TIMEOUT))
+                simple_url_download(f"{source_url}{row['Alpha-3 code'].lower()}", timeout=DEFAULT_TIMEOUT))
             tasks.append(text_response_task)
         responses = await asyncio.gather(*tasks)  # list of responses in bytes in the format [bytes, content_type]
         for i, response in enumerate(
@@ -176,6 +165,7 @@ async def country_downloader(source_id=None, source_url=None, params_type=None, 
 
         # if the params_type is BATCH_ADD, then download the data from the params_url and add the data to the country_codes_df dataframe
         if params_type == 'BATCH_ADD':
+            logger.info(f"Downloading {source_id} from {params_url}")
             text_response = await simple_url_download(params_url, timeout=DEFAULT_TIMEOUT)
             region_dataframe = pd.read_csv(io.StringIO(text_response[0].decode('utf-8')))
             selected_dataframe = region_dataframe[
@@ -193,12 +183,12 @@ async def country_downloader(source_id=None, source_url=None, params_type=None, 
         raise e
 
 
-async def cpia_downloader(source_id=None, source_url=None, params_type=None, params_url=None,
-                          params_codes=None):
-    pass
+async def cpia_downloader(**kwargs):
+    print('cpia downloader')
+    return b'cpia data', 'text/plain'
 
 
-async def call_function(function_name: str, *args, **kwargs) -> Any:
+async def call_function(function_name, *args, **kwargs) -> Any:
     """
     Asynchronously call a function by name, passing in any arguments specified.
 
@@ -218,10 +208,11 @@ async def call_function(function_name: str, *args, **kwargs) -> Any:
     result = await call_function('my_function', arg1, arg2)
     ```
     """
-    if function_name is not None:
-        return await globals()[function_name](*args, **kwargs)
+    function = globals().get(function_name)
+    if function is not None:
+        return await function(*args, **kwargs)
     else:
-        return None
+        raise ValueError(f'Function {function} is not defined or not callable')
 
 
 async def retrieval() -> None:
@@ -240,12 +231,12 @@ async def retrieval() -> None:
     await retrieval()
     ```
     """
-    storage_manager = AzureBlobStorageManager.create_instance(
+    storage_manager = await AsyncAzureBlobStorageManager.create_instance(
         connection_string=CONNECTION_STRING,
         container_name=CONTAINER_NAME,
     )
 
-    sources = storage_manager.get_source_config()
+    sources = await storage_manager.get_source_config()
     tasks = []
 
     async def upload_source_file(bytes_data: bytes = None, cont_type: str = None, save_as: str = None):
@@ -253,7 +244,7 @@ async def retrieval() -> None:
         temp_file_path = os.path.join(temp_dir.name, f'{save_as}')
         with open(temp_file_path, 'wb') as temp_file:
             temp_file.write(bytes_data)
-            storage_manager.upload(
+            await storage_manager.upload(
                 dst_path=os.path.join(ROOT_FOLDER, 'sources', 'raw', save_as),
                 src_path=temp_file_path,
                 content_type=cont_type,
@@ -267,18 +258,28 @@ async def retrieval() -> None:
             params = source_config['downloader_params']
             data, content_type = await call_function(source_config['downloader_function'],
                                                      source_id=source_id,
-                                                     source_url=source_config['url'], params_type=params['type'],
-                                                     params_url=params['url'], params_codes=params['codes'],
-                                                     storage_manager=storage_manager)
+                                                     source_url=source_config.get('url'),
+                                                     params_type=params.get('type'),
+                                                     params_url=params.get('url'),
+                                                     params_codes=params.get('codes'),
+                                                     params_file=params.get('file'),
+                                                     storage_manager=storage_manager
+                                                     )
         else:
             data, content_type = await default_http_downloader(source_id=source_id, source_url=source_config['url'])
         logger.info(f"Downloaded {source_id} from {source_config['url']}.")
         logger.info(f"Uploading {source_id} to blob storage.")
 
-        upload_task = asyncio.create_task(upload_source_file(bytes_data=data, cont_type=content_type,save_as=source_config['save_as']))
+        upload_task = asyncio.create_task(
+            upload_source_file(
+                bytes_data=data,
+                cont_type=content_type,
+                save_as=source_config['save_as'])
+        )
         logger.info(f"Uploaded {source_config['save_as']} to blob storage.")
         tasks.append(upload_task)
     await asyncio.gather(*tasks)
+    await storage_manager.close()
 
 
 if __name__ == '__main__':
@@ -290,8 +291,9 @@ if __name__ == '__main__':
     logging_stream_handler.setFormatter(
         logging.Formatter('%(asctime)s-%(filename)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s',
                           "%Y-%m-%d %H:%M:%S"))
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
     logger.name = __name__
+
     asyncio.run(retrieval())
