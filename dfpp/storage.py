@@ -378,16 +378,58 @@ class AzureBlobStorageManager:
         blob_client = self.container_client.get_blob_client(blob=blob_name)
         blob_client.delete_blob()
 
-    def download(self, blob_name: str = None, dst_path: str = None) -> None:
-        blob_client = self.container_client.get_blob_client(blob=blob_name)
-        with open(dst_path, "wb") as f:
-            data = blob_client.download_blob()
-            f.write(data.readall())
+    def download(self, blob_name: str = None, dst_path: str = None) -> Optional[bytes]:
+        """
+        Downloads a file from Azure Blob Storage and returns its data or saves it to a local file.
 
-    def upload(self, dst_path: str = None, src_path: str = None) -> None:
+        Args:
+            blob_name (str, optional): The name of the blob to download. Defaults to None.
+            dst_path (str, optional): The local path to save the downloaded file. If not provided, the file data is returned instead of being saved to a file. Defaults to None.
+
+        Returns:
+            bytes or None: The data of the downloaded file, or None if a dst_path argument is provided.
+        """
+        blob_client = self.container_client.get_blob_client(blob=blob_name)
+        data = blob_client.download_blob()
+
+        if dst_path:
+            with open(dst_path, "wb") as f:
+                data.readinto(f)
+            return None
+        else:
+            return data.content_as_bytes()
+
+    def upload(
+        self,
+        dst_path: str = None,
+        src_path: str = None,
+        data: bytes = None,
+        overwrite: bool = True,
+    ) -> None:
+        """
+        Uploads a file or bytes data to Azure Blob Storage.
+
+        Args:
+            dst_path (str, optional): The path of the destination blob in Azure Blob Storage. Defaults to None.
+            src_path (str, optional): The local path of the file to upload. Either src_path or data must be provided. Defaults to None.
+            data (bytes, optional): The bytes data to upload. Either src_path or data must be provided. Defaults to None.
+            overwrite (bool, optional): Whether to overwrite the destination blob if it already exists. Defaults to True.
+
+        Raises:
+            ValueError: If neither src_path nor data are provided.
+
+        Returns:
+            None
+        """
         blob_client = self.container_client.get_blob_client(blob=dst_path)
-        with open(src_path, "rb") as f:
-            blob_client.upload_blob(data=f)
+
+        if src_path:
+            with open(src_path, "rb") as f:
+                blob_client.upload_blob(data=f, overwrite=overwrite)
+        elif data:
+            blob_client.upload_blob(data=data, overwrite=overwrite)
+        else:
+            raise ValueError("Either 'src_path' or 'data' must be provided.")
 
 
 class AsyncAzureBlobStorageManager:
