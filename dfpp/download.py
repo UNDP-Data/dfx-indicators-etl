@@ -2,14 +2,12 @@ import ast
 import io
 import logging
 import os
-import shutil
 import tempfile
 import zipfile
 from configparser import ConfigParser
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import aiohttp
-import azblob
 import numpy as np
 import pandas as pd
 from aiohttp import ClientTimeout
@@ -23,7 +21,10 @@ DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=600)
 
 
 async def simple_url_download(
-    url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5
+    url: str,
+    timeout: ClientTimeout = DEFAULT_TIMEOUT,
+    max_retries: int = 5,
+    params: Dict[str, Any] = None,
 ) -> Optional[Tuple[bytes, str]]:
     """
     Downloads the content in bytes from a given URL using the aiohttp library.
@@ -31,13 +32,14 @@ async def simple_url_download(
     :param url: The URL to download.
     :param timeout: The maximum amount of time to wait for a response from the server, in seconds.
     :param max_retries: The maximum number of times to retry the download if an error occurs.
+    :param params: Optional dictionary of URL parameters to include in the request.
     :return: a tuple containing the downloaded content and the content type, or None if the download fails.
     """
 
     for retry_count in range(max_retries):
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=timeout) as resp:
+                async with session.get(url, timeout=timeout, params=params) as resp:
                     if resp.status == 200:
                         downloaded_bytes = 0
                         chunk_size = 1024
@@ -69,6 +71,64 @@ async def simple_url_download(
 
         except Exception as e:
             logger.exception(f"Error occurred while downloading {url}: {e}")
+            if retry_count == max_retries - 1:
+                logger.warning(
+                    f"Reached maximum number of retries ({max_retries}). Giving up."
+                )
+                raise e
+
+    return None
+
+
+async def simple_url_post(
+    url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
+) -> Optional[Tuple[bytes, str]]:
+    """
+    Sends a POST request to a given URL using the aiohttp library and returns the content in bytes.
+
+    :param url: The URL to send the POST request to.
+    :param timeout: The maximum amount of time to wait for a response from the server, in seconds.
+    :param max_retries: The maximum number of times to retry the POST request if an error occurs.
+    :param kwargs: Additional arguments to pass to the session.post method (headers, params, data).
+    :return: a tuple containing the downloaded content and the content type, or None if the request fails.
+    """
+
+    print("kwargs:", kwargs)  # Print the kwargs
+
+    for retry_count in range(max_retries):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, timeout=timeout, **kwargs) as resp:
+                    if resp.status == 200:
+                        data = await resp.read()
+                        return data, resp.content_type
+                    else:
+                        logger.error(
+                            f"Failed to get response from source: {resp.status}"
+                        )
+                        return None
+        except asyncio.TimeoutError as e:
+            logger.exception(
+                f"Timeout error occurred while sending POST request to {url}."
+            )
+            if retry_count == max_retries - 1:
+                logger.warning(
+                    f"Reached maximum number of retries ({max_retries}). Giving up."
+                )
+                raise e
+
+        except aiohttp.ClientError as e:
+            logger.exception(
+                f"Client error occurred while sending POST request to {url}: {e}"
+            )
+            if retry_count == max_retries - 1:
+                logger.warning(
+                    f"Reached maximum number of retries ({max_retries}). Giving up."
+                )
+                raise e
+
+        except Exception as e:
+            logger.exception(f"Error occurred while sending POST request to {url}: {e}")
             if retry_count == max_retries - 1:
                 logger.warning(
                     f"Reached maximum number of retries ({max_retries}). Giving up."
@@ -256,140 +316,152 @@ async def cpia_downloader(
 
 
 async def get_downloader(
-    source_id: str, source_url: str, storage_manager: "AzureBlobStorageManager"
-):
-    url = ""
-    saveAs = ""
-    basePath = ""
-    userData = ""
-    source_downloaded_path = ""
-    logging.info(f"Downloading {source_id + saveAs} from {source_url}")
+    raw_source_dst: str,
+    source_id: str,
+    source_url: str,
+    save_as: str,
+    storage_manager: "AzureBlobStorageManager",
+    user_data: Dict[str, str],
+) -> None:
+    """
+    Downloads content using a GET request, and saves it to the specified Azure Blob Storage location.
+
+    :param raw_source_dst: The destination path in the Azure Blob Storage.
+    :param source_id: The identifier of the source.
+    :param source_url: The URL to download the content from.
+    :param save_as: The file name to save the downloaded content as.
+    :param storage_manager: The Azure Blob Storage Manager instance.
+    :param user_data: A dictionary containing the parameters for the GET request.
+    """
+    logging.info(f"Downloading {source_id + save_as} from {source_url}")
 
     try:
-        await storage_manager.delete_blob(basePath + saveAs)
-        logging.info(f"Deleted existing file at {basePath + saveAs}")
+        await storage_manager.delete_blob(save_as)
+        logging.info(f"Deleted existing file at {save_as}")
     except Exception as e:
         logging.error("File delete failed")
 
-    file_parts = saveAs.split("/")
-    saveAs = file_parts[-1]
+    file_parts = save_as.split("/")
+    save_as = file_parts[-1]
 
-    key, value = userData.split("=")
+    key, value = user_data.split("=")
     parameters = ast.literal_eval(value)
-    logging.info(
-        f"URL: {url}, Save As: {saveAs}, Base Path: {basePath}, Parameters: {parameters}"
-    )
+    logging.info(f"URL: {source_url}, Save As: {save_as}, Parameters: {parameters}")
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, **{key: parameters}, timeout=900) as response:
-            response_content = await response.read()
+    response_content, content_type = await simple_url_download(
+        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, params={key: parameters}
+    )
 
     await storage_manager.upload_blob(
-        data=response_content, dst_path=source_downloaded_path, overwrite=True
+        data=response_content,
+        dst_path=raw_source_dst + save_as,
+        overwrite=True,
+        content_type=content_type,
     )
-    logging.info(f"File saved to {basePath + source_downloaded_path + saveAs}")
+    logging.info(f"File saved to {raw_source_dst + save_as}")
 
 
 async def post_downloader(
-    source_id: str, source_url: str, storage_manager: "AzureBlobStorageManager"
-):
-    url = ""
-    saveAs = ""
-    basePath = ""
-    userData = ""
-    source_downloaded_path = ""
-    logging.info(f"Downloading {source_id + saveAs} from {source_url}")
+    raw_source_dst: str,
+    source_id: str,
+    source_url: str,
+    save_as: str,
+    storage_manager: "AzureBlobStorageManager",
+    user_data: Dict[str, str],
+) -> None:
+    """
+    Downloads content using a POST request, and saves it to the specified Azure Blob Storage location.
+
+    :param raw_source_dst: The destination path in the Azure Blob Storage.
+    :param source_id: The identifier of the source.
+    :param source_url: The URL to send the POST request to.
+    :param save_as: The file name to save the downloaded content as.
+    :param storage_manager: The Azure Blob Storage Manager instance.
+    :param user_data: A dictionary containing either headers, params, or data for the POST request.
+    """
+    logging.info(f"Downloading {source_id + save_as} from {source_url}")
 
     try:
-        await storage_manager.delete_blob(basePath + saveAs)
-        logging.info(f"Deleted existing file at {basePath + saveAs}")
+        await storage_manager.delete_blob(save_as)
+        logging.info(f"Deleted existing file at {save_as}")
     except Exception as e:
         logging.error("File delete failed")
 
-    file_parts = saveAs.split("/")
-    saveAs = file_parts[-1]
+    file_parts = save_as.split("/")
+    save_as = file_parts[-1]
 
-    parameters = ast.literal_eval(userData.rsplit("=")[1])
-    if userData.rsplit("=")[0] == "headers":
-        logging.info("Header")
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=parameters, timeout=900) as response:
-                response_content = await response.read()
-    elif userData.rsplit("=")[0] == "params":
-        logging.info("Parameters")
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, params=parameters, timeout=900) as response:
-                response_content = await response.read()
-    else:
-        logging.info("Data")
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, data=parameters, timeout=900) as response:
-                response_content = await response.read()
+    parameters = ast.literal_eval(user_data.rsplit("=")[1])
+    key = user_data.rsplit("=")[0]
+    kwargs = {key: parameters}
+
+    response_content, content_type = await simple_url_post(
+        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, **kwargs
+    )
 
     await storage_manager.upload_blob(
-        data=response_content, dst_path=source_downloaded_path, overwrite=True
+        data=response_content,
+        dst_path=raw_source_dst + save_as,
+        overwrite=True,
+        content_type=content_type,
     )
-    logging.info(f"File saved to {basePath + source_downloaded_path + saveAs}")
+    logging.info(f"File saved to {raw_source_dst + save_as}")
 
 
 async def get_nested_zip_downloader(
-    source_id: str, source_url: str, storage_manager: "AzureBlobStorageManager"
-):
-    url = ""
-    saveAs = ""
-    basePath = ""
-    userData = ""
-    source_downloaded_path = ""
-    logging.info(f"Downloading {source_id + saveAs} from {source_url}")
+    raw_source_dst: str,
+    source_id: str,
+    source_url: str,
+    save_as: str,
+    storage_manager: "AzureBlobStorageManager",
+    user_data: Dict[str, str],
+) -> None:
+    """
+    Downloads a nested ZIP file using a GET request, extracts its content, and saves it to the specified Azure Blob Storage location.
+
+    :param raw_source_dst: The destination path in the Azure Blob Storage.
+    :param source_id: The identifier of the source.
+    :param source_url: The URL to download the content from.
+    :param save_as: The file name to save the downloaded content as.
+    :param storage_manager: The Azure Blob Storage Manager instance.
+    :param user_data: A dictionary containing the user data to locate the required content within the nested ZIP file.
+    """
+
+    logging.info(f"Downloading {source_id + save_as} from {source_url}")
 
     try:
-        await storage_manager.delete_blob(basePath + saveAs)
-        logging.info(f"Deleted existing file at {basePath + saveAs}")
+        await storage_manager.delete_blob(save_as)
+        logging.info(f"Deleted existing file at {save_as}")
     except Exception as e:
         logging.error("File delete failed")
 
-    file_parts = saveAs.split("/")
-    saveAs = file_parts[-1]
-
-    print(url, saveAs, basePath)
-
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, timeout=900) as response:
-            response_content = await response.read()
-
-    zip_file_name = saveAs.split(".")[0] + ".zip"
-    with open(zip_file_name, "wb") as f:
-        f.write(response_content)
-
-    with zipfile.ZipFile(zip_file_name) as zip_ref:
-        zip_ref.extractall(saveAs.split(".")[0])
-
-    zip_parts = userData.replace("/", "").split(".zip")[:-1]
-    accumulated_path = saveAs.split(".")[0] + "/"
-    for part in zip_parts:
-        with zipfile.ZipFile(accumulated_path + part + ".zip") as zip_ref:
-            zip_ref.extractall(accumulated_path + part)
-        accumulated_path += part + "/"
-
-    zip_content = open(
-        saveAs.split(".")[0] + "/" + userData.replace(".zip", ""), "r"
-    ).readlines()
-
-    await storage_manager.upload_blob(
-        data="".join(zip_content),
-        dst_path=basePath + source_downloaded_path + saveAs,
-        overwrite=True,
+    response_content, content_type = await simple_url_download(
+        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5
     )
 
-    current_path = os.getcwd()
+    with zipfile.ZipFile(io.BytesIO(response_content), "r") as outer_zip:
+        zip_parts = user_data.replace("/", "").split(".zip")[:-1]
+        accumulated_path = ""
 
-    dir_to_del = saveAs.split(".")[0] + ".zip"
-    path = os.path.join(current_path, dir_to_del)
-    os.remove(path)
+        for index, part in enumerate(zip_parts):
+            with outer_zip.open(accumulated_path + part + ".zip") as inner_zip_file:
+                inner_zip_content = inner_zip_file.read()
+                if index == len(zip_parts) - 1:
+                    with zipfile.ZipFile(
+                        io.BytesIO(inner_zip_content), "r"
+                    ) as inner_zip:
+                        target_file = inner_zip.open(user_data.replace(".zip", ""))
+                        zip_content = target_file.readlines()
+                else:
+                    outer_zip = zipfile.ZipFile(io.BytesIO(inner_zip_content), "r")
+                    accumulated_path += part + "/"
 
-    dir_to_del = saveAs.split(".")[0]
-    path = os.path.join(current_path, dir_to_del)
-    shutil.rmtree(path)
+    await storage_manager.upload_blob(
+        data=b"".join(zip_content),
+        dst_path=raw_source_dst + save_as,
+        overwrite=True,
+        content_type=content_type,
+    )
+    logging.info(f"File saved to {raw_source_dst + save_as}")
 
 
 async def call_function(function_name: str, *args, **kwargs) -> Any:
@@ -438,6 +510,7 @@ async def retrieval() -> None:
         connection_string=CONNECTION_STRING,
         container_name=CONTAINER_NAME,
     )
+    RAW_SOURCE_DST = os.path.join(ROOT_FOLDER, "sources", "raw")
 
     sources = storage_manager.get_source_config()
     tasks = []
@@ -471,6 +544,7 @@ async def retrieval() -> None:
                 params_type=params["type"],
                 params_url=params["url"],
                 params_codes=params["codes"],
+                raw_source_dst=RAW_SOURCE_DST,
                 storage_manager=storage_manager,
             )
         else:

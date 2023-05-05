@@ -855,7 +855,8 @@ class AsyncAzureBlobStorageManager:
 
     async def upload(
         self,
-        dst_path: str = None,
+        dst_path: str,
+        content_type: str = None,
         src_path: str = None,
         data: bytes = None,
         overwrite: bool = True,
@@ -879,8 +880,22 @@ class AsyncAzureBlobStorageManager:
 
         if src_path:
             with open(src_path, "rb") as f:
-                await blob_client.upload_blob(data=f, overwrite=overwrite)
+                await blob_client.upload_blob(
+                    data=f,
+                    overwrite=overwrite,
+                    content_settings=ContentSettings(content_type=content_type),
+                )
         elif data:
-            await blob_client.upload_blob(data=data, overwrite=overwrite)
+            await blob_client.upload_blob(
+                data=data,
+                overwrite=overwrite,
+                content_settings=ContentSettings(content_type=content_type),
+            )
         else:
             raise ValueError("Either 'src_path' or 'data' must be provided.")
+
+    async def close(self):
+        """
+        Close the AContainerClient's underlying aiohttp.ClientSession.
+        """
+        await self.container_client.close()
