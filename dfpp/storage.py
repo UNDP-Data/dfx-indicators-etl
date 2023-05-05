@@ -428,7 +428,7 @@ class AzureBlobStorageManager:
 
         if src_path:
             with open(src_path, "rb") as f:
-                blob_client.upload_blob(data=f, overwrite=overwrite)
+                blob_client.upload_blob(data=f, overwrite=overwrite, content_settings=ContentSettings(content_type=content_type))
         elif data:
             blob_client.upload_blob(data=data, overwrite=overwrite)
         else:
@@ -856,7 +856,7 @@ class AsyncAzureBlobStorageManager:
             dst_path: str = None,
             src_path: str = None,
             data: bytes = None,
-            content_type:str=None,
+            content_type: str=None,
             overwrite: bool = True,
     ) -> None:
         """
@@ -868,6 +868,7 @@ class AsyncAzureBlobStorageManager:
             dst_path (str, optional): The path of the destination blob in Azure Blob Storage. Defaults to None.
             src_path (str, optional): The local path of the file to upload. Either src_path or data must be provided. Defaults to None.
             data (bytes, optional): The bytes data to upload. Either src_path or data must be provided. Defaults to None.
+            content_type (str, optional): The content type of the blob. Defaults to None.
             overwrite (bool, optional): Whether to overwrite the destination blob if it already exists. Defaults to True.
 
         Raises:
@@ -879,9 +880,9 @@ class AsyncAzureBlobStorageManager:
         blob_client = self.container_client.get_blob_client(blob=dst_path)
         if src_path:
             with open(src_path, "rb") as f:
-                await blob_client.upload_blob(data=f, overwrite=overwrite)
+                await blob_client.upload_blob(data=f, overwrite=overwrite, content_settings=ContentSettings(content_type=content_type))
         elif data:
-            await blob_client.upload_blob(data=data, overwrite=overwrite)
+            await blob_client.upload_blob(data=data, overwrite=overwrite, content_settings=ContentSettings(content_type=content_type))
         else:
             raise ValueError("Either 'src_path' or 'data' must be provided.")
 
