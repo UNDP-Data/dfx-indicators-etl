@@ -98,7 +98,7 @@ async def country_downloader(**kwargs):
         params_type (str): The type of operation to perform on the country codes DataFrame. Default is None.
         params_url (str): The URL within the parameters
         params_codes (str): A pipe-separated string of country codes to use as parameters for the BATCH_ADD operation. Default is None.
-
+        :param storage_manager: An instance of the AsyncAzureBlobStorageManager class.
     Returns:
         A list containing the downloaded data in CSV format and a string indicating the MIME type of the data. If an error occurs during the download, returns [None, None].
 
@@ -107,12 +107,6 @@ async def country_downloader(**kwargs):
 
     Example:
         csv_data, mime_type = await country_downloader(source_id='HDR', source_url='https://example.com/countries/', params_type='BATCH_ADD', params_url='https://example.com/params.csv', params_codes='USA|GBR|FRA')
-        :param params_codes:
-        :param params_url:
-        :param params_type:
-        :param source_url:
-        :param source_id:
-        :param storage_manager:
 
     """
     source_id = kwargs['source_id']
@@ -121,7 +115,6 @@ async def country_downloader(**kwargs):
     params_url = kwargs['params_url']
     params_codes = kwargs['params_codes']
     storage_manager = kwargs['storage_manager']
-    print('country_downloader, called!!')
     try:
 
         countries_territory_data = await storage_manager.get_utility_file('country_territory_groups.cfg')
@@ -187,13 +180,28 @@ async def country_downloader(**kwargs):
 
 
 async def cpia_downloader(**kwargs):
-    # file = kwargs['file']
-    # print('cpia downloader')
-    # data, content_type = await simple_url_download(kwargs['source_url'], timeout=DEFAULT_TIMEOUT)
-    # async with zipfile.ZipFile(io.BytesIO(data)) as zip_file:
-    #     zip_file.extractall(kwargs['save_as'].split('.')[0])
+    """
+    Download the CPIA data from the World Bank API.
+    :param source_url: The URL to download the data from.
+    :return: a tuple containing the data and the mime type
+    """
 
-    return b'cpia data', 'text/plain'
+    exception_list = ["CPIA_RLPR.csv", "CPIA_SPCA.csv", "CW_ADAPTATION.csv"]
+    source_url = kwargs.get('source_url')
+    data, content_type = await simple_url_download(source_url, timeout=DEFAULT_TIMEOUT)
+    with io.BytesIO(data) as zip_file:
+        with zipfile.ZipFile(zip_file) as zip_f:
+            if kwargs.get('source_save_as') not in exception_list:
+                for file in zip_f.namelist():
+                    if 'Metadata' not in file:
+                        csv_file_name = file
+                        break
+            else:
+                csv_file_name = kwargs.get('source_save_as')
+            with zip_f.open(csv_file_name) as f:
+                csv_data = f.read()
+                logger.info(f"Successfully downloaded {kwargs.get('source_id')}")
+                return csv_data, 'text/csv'
 
 
 async def call_function(function_name, *args, **kwargs) -> Any:
@@ -269,6 +277,7 @@ async def retrieval() -> None:
             data, content_type = await call_function(source_config['downloader_function'],
                                                      source_id=source_id,
                                                      source_url=source_config.get('url'),
+                                                     source_save_as=source_config.get('save_as'),
                                                      params_type=params.get('type'),
                                                      params_url=params.get('url'),
                                                      params_codes=params.get('codes'),
