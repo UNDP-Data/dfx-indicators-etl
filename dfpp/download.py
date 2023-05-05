@@ -1,6 +1,8 @@
 import os
 import io
 import logging
+import asyncio
+import zipfile
 from configparser import ConfigParser
 from typing import Any
 import aiohttp
@@ -14,6 +16,8 @@ CONNECTION_STRING = os.environ['AZURE_STORAGE_CONNECTION_STRING']
 CONTAINER_NAME = os.environ['CONTAINER_NAME']
 ROOT_FOLDER = os.environ['ROOT_FOLDER']
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=600)
+
+logger = logging.getLogger(__name__)
 
 
 async def simple_url_download(url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5) -> tuple[
@@ -120,7 +124,7 @@ async def country_downloader(**kwargs):
     print('country_downloader, called!!')
     try:
 
-        countries_territory_data = storage_manager.get_utility_file('country_territory_groups.cfg')
+        countries_territory_data = await storage_manager.get_utility_file('country_territory_groups.cfg')
         country_territories_data_list = []
         for key, data in countries_territory_data.items():
             data.update({'Alpha-3 code-1': key})
@@ -145,7 +149,6 @@ async def country_downloader(**kwargs):
         # create a list of tasks to download the country data for each country code and wait for all tasks to complete
         tasks = []
         for index, row in country_codes_df.iterrows():
-            print('row', f"{source_url}{row['Alpha-3 code'].lower()}")
             row = country_codes_df.iloc[index]
             logger.info(f"Downloading {row['Alpha-3 code']} from {source_url + row['Alpha-3 code'].lower()}")
 
@@ -184,7 +187,12 @@ async def country_downloader(**kwargs):
 
 
 async def cpia_downloader(**kwargs):
-    print('cpia downloader')
+    # file = kwargs['file']
+    # print('cpia downloader')
+    # data, content_type = await simple_url_download(kwargs['source_url'], timeout=DEFAULT_TIMEOUT)
+    # async with zipfile.ZipFile(io.BytesIO(data)) as zip_file:
+    #     zip_file.extractall(kwargs['save_as'].split('.')[0])
+
     return b'cpia data', 'text/plain'
 
 
@@ -252,8 +260,10 @@ async def retrieval() -> None:
             )
         temp_dir.cleanup()
 
-    for source_id, source_config in sources.items():  # sid = source id, config = source config
-        logger.info(f"Downloading {source_id} from {source_config['url']}.")
+    for source_id, source_config in sources.items():
+        print(source_id, source_config)
+        logger.info(
+            f"Downloading {source_id} from {source_config['url']} using {source_config['downloader_function']}.")
         if 'downloader_params' in source_config:
             params = source_config['downloader_params']
             data, content_type = await call_function(source_config['downloader_function'],

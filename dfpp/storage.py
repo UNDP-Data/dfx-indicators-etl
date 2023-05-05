@@ -413,6 +413,7 @@ class AzureBlobStorageManager:
             dst_path (str, optional): The path of the destination blob in Azure Blob Storage. Defaults to None.
             src_path (str, optional): The local path of the file to upload. Either src_path or data must be provided. Defaults to None.
             data (bytes, optional): The bytes data to upload. Either src_path or data must be provided. Defaults to None.
+            content_type (str, optional): The content type of the blob. Defaults to None.
             overwrite (bool, optional): Whether to overwrite the destination blob if it already exists. Defaults to True.
 
         Raises:
@@ -637,9 +638,7 @@ class AsyncAzureBlobStorageManager:
                     src_id = parser["source"].get("id")
                     cfg[src_id] = dict(parser["source"].items())
                     if "downloader_params" in parser:
-                        cfg[src_id].update(
-                            dict(parser["downloader_params"].items())
-                        )
+                        cfg[src_id]["downloader_params"] = dict(parser["downloader_params"].items())
                 else:
                     raise ConfigError(f"Invalid source")
         return cfg
