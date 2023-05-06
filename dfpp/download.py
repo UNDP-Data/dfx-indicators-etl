@@ -220,7 +220,6 @@ async def vdem_downloader(**kwargs):
         with zipfile.ZipFile(zip_file) as zip_f:
             with zip_f.open(file_name) as csv_file:
                 csv_data = csv_file.read()
-                print(type(csv_data))
     return csv_data, 'text/csv'
 
 
