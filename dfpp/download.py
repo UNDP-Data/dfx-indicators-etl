@@ -204,6 +204,26 @@ async def cpia_downloader(**kwargs):
                 return csv_data, 'text/csv'
 
 
+async def rcc_downloader(**kwargs):
+    return b'', 'text/csv'
+
+
+async def vdem_downloader(**kwargs):
+    """
+    :param url: source url to download from
+    :return:
+    """
+    url = kwargs.get('source_url')
+    file_name = kwargs.get('params_file')
+    zipped_bytes_data, content_type = await simple_url_download(url=url)
+    with io.BytesIO(zipped_bytes_data) as zip_file:
+        with zipfile.ZipFile(zip_file) as zip_f:
+            with zip_f.open(file_name) as csv_file:
+                csv_data = csv_file.read()
+                print(type(csv_data))
+    return csv_data, 'text/csv'
+
+
 async def call_function(function_name, *args, **kwargs) -> Any:
     """
     Asynchronously call a function by name, passing in any arguments specified.
