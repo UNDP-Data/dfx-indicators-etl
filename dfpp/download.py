@@ -315,153 +315,91 @@ async def cpia_downloader(
     pass
 
 
-async def get_downloader(**kwargs) -> None:
+async def get_downloader(**kwargs) -> Tuple[bytes, str]:
     """
-    Downloads content using a GET request, and saves it to the specified Azure Blob Storage location.
+    Downloads content using a GET request.
 
-    :keyword raw_source_dst: The destination path in the Azure Blob Storage.
-    :type raw_source_dst: str
-    :keyword source_id: The identifier of the source.
-    :type source_id: str
-    :keyword source_url: The URL to download the content from.
-    :type source_url: str
-    :keyword save_as: The file name to save the downloaded content as.
-    :type save_as: str
-    :keyword storage_manager: The Azure Blob Storage Manager instance.
-    :type storage_manager: AzureBlobStorageManager
-    :keyword user_data: A dictionary containing the parameters for the GET request.
-    :type user_data: Dict[str, str]
+    :param kwargs: Keyword arguments containing the following keys:
+                   source_id: The identifier of the source.
+                   source_url: The URL to download the content from.
+                   user_data: A dictionary containing the parameters for the GET request.
+    :return: A tuple containing the raw content data and content type.
     """
-    raw_source_dst = kwargs["raw_source_dst"]
-    source_id = kwargs["source_id"]
-    source_url = kwargs["source_url"]
-    save_as = kwargs["save_as"]
-    storage_manager = kwargs["storage_manager"]
-    user_data = kwargs["user_data"]
-
-    logging.info(f"Downloading {source_id + save_as} from {source_url}")
-
-    try:
-        await storage_manager.delete_blob(save_as)
-        logging.info(f"Deleted existing file at {save_as}")
-    except Exception as e:
-        logging.error("File delete failed")
-
-    file_parts = save_as.split("/")
-    save_as = file_parts[-1]
-
-    key, value = user_data.split("=")
-    parameters = ast.literal_eval(value)
-    logging.info(f"URL: {source_url}, Save As: {save_as}, Parameters: {parameters}")
-
-    response_content, content_type = await simple_url_download(
-        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, params={key: parameters}
-    )
-
-    await storage_manager.upload_blob(
-        data=response_content,
-        dst_path=raw_source_dst + save_as,
-        overwrite=True,
-        content_type=content_type,
-    )
-    logging.info(f"File saved to {raw_source_dst + save_as}")
-
-
-async def post_downloader(**kwargs) -> None:
-    """
-    Downloads content using a POST request, and saves it to the specified Azure Blob Storage location.
-
-    :keyword raw_source_dst: The destination path in the Azure Blob Storage.
-    :type raw_source_dst: str
-    :keyword source_id: The identifier of the source.
-    :type source_id: str
-    :keyword source_url: The URL to send the POST request to.
-    :type source_url: str
-    :keyword save_as: The file name to save the downloaded content as.
-    :type save_as: str
-    :keyword storage_manager: The Azure Blob Storage Manager instance.
-    :type storage_manager: AzureBlobStorageManager
-    :keyword user_data: A dictionary containing either headers, params, or data for the POST request.
-    :type user_data: Dict[str, str]
-    """
-    raw_source_dst = kwargs["raw_source_dst"]
-    source_id = kwargs["source_id"]
-    source_url = kwargs["source_url"]
-    save_as = kwargs["save_as"]
-    storage_manager = kwargs["storage_manager"]
-    user_data = kwargs["user_data"]
-    logging.info(f"Downloading {source_id + save_as} from {source_url}")
-
-    try:
-        await storage_manager.delete_blob(save_as)
-        logging.info(f"Deleted existing file at {save_as}")
-    except Exception as e:
-        logging.error("File delete failed")
-
-    file_parts = save_as.split("/")
-    save_as = file_parts[-1]
-
-    parameters = ast.literal_eval(user_data.rsplit("=")[1])
-    key = user_data.rsplit("=")[0]
-    kwargs = {key: parameters}
-
-    response_content, content_type = await simple_url_post(
-        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, **kwargs
-    )
-
-    await storage_manager.upload_blob(
-        data=response_content,
-        dst_path=raw_source_dst + save_as,
-        overwrite=True,
-        content_type=content_type,
-    )
-    logging.info(f"File saved to {raw_source_dst + save_as}")
-
-
-async def get_nested_zip_downloader(**kwargs) -> None:
-    """
-    Downloads a nested ZIP file using a GET request, extracts its content, and saves it to the specified Azure Blob Storage location.
-
-    :keyword raw_source_dst: The destination path in the Azure Blob Storage.
-    :type raw_source_dst: str
-    :keyword source_id: The identifier of the source.
-    :type source_id: str
-    :keyword source_url: The URL to download the content from.
-    :type source_url: str
-    :keyword save_as: The file name to save the downloaded content as.
-    :type save_as: str
-    :keyword storage_manager: The Azure Blob Storage Manager instance.
-    :type storage_manager: AzureBlobStorageManager
-    :keyword user_data: A dictionary containing the user data to locate the required content within the nested ZIP file.
-    :type user_data: Dict[str, str]
-    """
-    raw_source_dst = kwargs.get("raw_source_dst")
     source_id = kwargs.get("source_id")
     source_url = kwargs.get("source_url")
-    save_as = kwargs.get("save_as")
-    storage_manager = kwargs.get("storage_manager")
     user_data = kwargs.get("user_data")
 
-    logging.info(f"Downloading {source_id + save_as} from {source_url}")
+    logging.info(f"Downloading {source_id} from {source_url}")
 
-    try:
-        await storage_manager.delete_blob(save_as)
-        logging.info(f"Deleted existing file at {save_as}")
-    except Exception as e:
-        logging.error("File delete failed")
+    param_key, param_value = user_data.split("=")
+    parameters = ast.literal_eval(param_value)
+    logging.info(f"URL: {source_url}, Parameters: {parameters}")
 
-    response_content, content_type = await simple_url_download(
+    response_content, _ = await simple_url_download(
+        source_url,
+        timeout=DEFAULT_TIMEOUT,
+        max_retries=5,
+        params={param_key: parameters},
+    )
+
+    return response_content, "text/csv"
+
+
+async def post_downloader(**kwargs) -> Tuple[bytes, str]:
+    """
+    Downloads content using a POST request.
+
+    :param kwargs: Keyword arguments containing the following keys:
+                   source_id: The identifier of the source.
+                   source_url: The URL to send the POST request to.
+                   user_data: A dictionary containing either headers, params, or data for the POST request.
+    :return: A tuple containing the raw content data and content type.
+    """
+    source_id = kwargs.get("source_id")
+    source_url = kwargs.get("source_url")
+    user_data = kwargs.get("user_data")
+
+    logging.info(f"Downloading {source_id} from {source_url}")
+
+    parameters = ast.literal_eval(user_data.rsplit("=")[1])
+    request_key = user_data.rsplit("=")[0]
+    request_kwargs = {request_key: parameters}
+
+    response_content, _ = await simple_url_post(
+        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, **request_kwargs
+    )
+
+    return response_content, "text/csv"
+
+
+async def get_nested_zip_downloader(**kwargs) -> Tuple[bytes, str]:
+    """
+    Downloads a nested ZIP file using a GET request, extracts its content.
+
+    :param kwargs: Keyword arguments containing the following keys:
+                   source_id: The identifier of the source.
+                   source_url: The URL to download the content from.
+                   user_data: A dictionary containing the user data to locate the required content within the nested ZIP file.
+    :return: A tuple containing the raw content data and content type.
+    """
+    source_id = kwargs.get("source_id")
+    source_url = kwargs.get("source_url")
+    user_data = kwargs.get("user_data")
+
+    logging.info(f"Downloading {source_id} from {source_url}")
+
+    response_content, _ = await simple_url_download(
         source_url, timeout=DEFAULT_TIMEOUT, max_retries=5
     )
 
     with zipfile.ZipFile(io.BytesIO(response_content), "r") as outer_zip:
-        zip_parts = user_data.replace("/", "").split(".zip")[:-1]
-        accumulated_path = ""
+        zip_paths = user_data.replace("/", "").split(".zip")[:-1]
+        nested_path = ""
 
-        for index, part in enumerate(zip_parts):
-            with outer_zip.open(accumulated_path + part + ".zip") as inner_zip_file:
+        for index, zip_path in enumerate(zip_paths):
+            with outer_zip.open(nested_path + zip_path + ".zip") as inner_zip_file:
                 inner_zip_content = inner_zip_file.read()
-                if index == len(zip_parts) - 1:
+                if index == len(zip_paths) - 1:
                     with zipfile.ZipFile(
                         io.BytesIO(inner_zip_content), "r"
                     ) as inner_zip:
@@ -469,15 +407,9 @@ async def get_nested_zip_downloader(**kwargs) -> None:
                         zip_content = target_file.readlines()
                 else:
                     outer_zip = zipfile.ZipFile(io.BytesIO(inner_zip_content), "r")
-                    accumulated_path += part + "/"
+                    nested_path += zip_path + "/"
 
-    await storage_manager.upload_blob(
-        data=b"".join(zip_content),
-        dst_path=raw_source_dst + save_as,
-        overwrite=True,
-        content_type=content_type,
-    )
-    logging.info(f"File saved to {raw_source_dst + save_as}")
+    return b"".join(zip_content), "text/csv"
 
 
 async def call_function(function_name: str, *args, **kwargs) -> Any:
