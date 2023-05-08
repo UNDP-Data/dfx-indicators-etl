@@ -1,4 +1,5 @@
 import ast
+import csv
 import io
 import logging
 import os
@@ -317,7 +318,7 @@ async def cpia_downloader(
 
 async def get_downloader(**kwargs) -> Tuple[bytes, str]:
     """
-    Downloads content using a GET request.
+    Downloads content using a GET request, and returns it as a CSV.
 
     :param kwargs: Keyword arguments containing the following keys:
                    source_id: The identifier of the source.
@@ -331,23 +332,32 @@ async def get_downloader(**kwargs) -> Tuple[bytes, str]:
 
     logging.info(f"Downloading {source_id} from {source_url}")
 
-    param_key, param_value = user_data.split("=")
-    parameters = ast.literal_eval(param_value)
+    key, value = user_data.split("=")
+    parameters = ast.literal_eval(value)
     logging.info(f"URL: {source_url}, Parameters: {parameters}")
 
-    response_content, _ = await simple_url_download(
-        source_url,
-        timeout=DEFAULT_TIMEOUT,
-        max_retries=5,
-        params={param_key: parameters},
+    response_content, content_type = await simple_url_download(
+        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, params={key: parameters}
     )
 
-    return response_content, "text/csv"
+    # Convert the content to a CSV format
+    output_csv = io.StringIO()
+    csv_writer = csv.writer(output_csv)
+    for line in response_content.decode("utf-8").splitlines():
+        csv_writer.writerow([line.strip()])
+
+    # Get the CSV content and set the content type as CSV
+    csv_content = output_csv.getvalue().encode("utf-8")
+    content_type = "text/csv"
+
+    logging.info(f"Successfully downloaded {source_id} from {source_url}")
+
+    return csv_content, content_type
 
 
 async def post_downloader(**kwargs) -> Tuple[bytes, str]:
     """
-    Downloads content using a POST request.
+    Downloads content using a POST request, and returns it as a CSV.
 
     :param kwargs: Keyword arguments containing the following keys:
                    source_id: The identifier of the source.
@@ -362,19 +372,31 @@ async def post_downloader(**kwargs) -> Tuple[bytes, str]:
     logging.info(f"Downloading {source_id} from {source_url}")
 
     parameters = ast.literal_eval(user_data.rsplit("=")[1])
-    request_key = user_data.rsplit("=")[0]
-    request_kwargs = {request_key: parameters}
+    key = user_data.rsplit("=")[0]
+    kwargs = {key: parameters}
 
-    response_content, _ = await simple_url_post(
-        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, **request_kwargs
+    response_content, content_type = await simple_url_post(
+        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, **kwargs
     )
 
-    return response_content, "text/csv"
+    # Convert the content to a CSV format
+    output_csv = io.StringIO()
+    csv_writer = csv.writer(output_csv)
+    for line in response_content.decode("utf-8").splitlines():
+        csv_writer.writerow([line.strip()])
+
+    # Get the CSV content and set the content type as CSV
+    csv_content = output_csv.getvalue().encode("utf-8")
+    content_type = "text/csv"
+
+    logging.info(f"Successfully downloaded {source_id} from {source_url}")
+
+    return csv_content, content_type
 
 
 async def get_nested_zip_downloader(**kwargs) -> Tuple[bytes, str]:
     """
-    Downloads a nested ZIP file using a GET request, extracts its content.
+    Downloads a nested ZIP file using a GET request, extracts its content, and returns it as a CSV.
 
     :param kwargs: Keyword arguments containing the following keys:
                    source_id: The identifier of the source.
@@ -388,7 +410,7 @@ async def get_nested_zip_downloader(**kwargs) -> Tuple[bytes, str]:
 
     logging.info(f"Downloading {source_id} from {source_url}")
 
-    response_content, _ = await simple_url_download(
+    response_content, content_type = await simple_url_download(
         source_url, timeout=DEFAULT_TIMEOUT, max_retries=5
     )
 
@@ -404,12 +426,25 @@ async def get_nested_zip_downloader(**kwargs) -> Tuple[bytes, str]:
                         io.BytesIO(inner_zip_content), "r"
                     ) as inner_zip:
                         target_file = inner_zip.open(user_data.replace(".zip", ""))
-                        zip_content = target_file.readlines()
+                        file_lines = target_file.readlines()
                 else:
                     outer_zip = zipfile.ZipFile(io.BytesIO(inner_zip_content), "r")
                     nested_path += zip_path + "/"
 
-    return b"".join(zip_content), "text/csv"
+    # Convert the lines to a CSV format
+    output_csv = io.StringIO()
+    csv_writer = csv.writer(output_csv)
+    for line in file_lines:
+        decoded_line = line.decode("utf-8").strip()
+        csv_writer.writerow([decoded_line])
+
+    # Get the CSV content and set the content type as CSV
+    csv_content = output_csv.getvalue().encode("utf-8")
+    content_type = "text/csv"
+
+    logging.info(f"Successfully downloaded {source_id} from {source_url}")
+
+    return csv_content, content_type
 
 
 async def call_function(function_name: str, *args, **kwargs) -> Any:
