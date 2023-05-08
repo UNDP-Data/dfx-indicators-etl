@@ -371,27 +371,34 @@ async def zip_content_downloader(**kwargs) -> Tuple[bytes, str]:
         source_url, timeout=DEFAULT_TIMEOUT, max_retries=5
     )
 
-    with zipfile.ZipFile(io.BytesIO(response_content), "r") as zip_file:
-        target_file = None
+    try:
+        with zipfile.ZipFile(io.BytesIO(response_content), "r") as zip_file:
+            target_file = None
 
-        if ".zip" in params_file:
-            parts = params_file.split("/")
-            outer_zip_name, inner_path = parts[0], "/".join(parts[1:])
+            if ".zip" in params_file:
+                parts = params_file.split("/")
+                outer_zip_name, inner_path = parts[0], "/".join(parts[1:])
 
-            with zip_file.open(outer_zip_name) as outer_zip_file:
-                with zipfile.ZipFile(
-                    io.BytesIO(outer_zip_file.read()), "r"
-                ) as inner_zip:
-                    target_file = inner_zip.open(inner_path)
-        else:
-            target_file = zip_file.open(params_file)
+                with zip_file.open(outer_zip_name) as outer_zip_file:
+                    with zipfile.ZipFile(
+                        io.BytesIO(outer_zip_file.read()), "r"
+                    ) as inner_zip:
+                        target_file = inner_zip.open(inner_path)
+            else:
+                target_file = zip_file.open(params_file)
 
-        if target_file:
-            csv_content = target_file.read()
+            if target_file:
+                csv_content = target_file.read()
 
-    logging.info(f"Successfully downloaded {source_id} from {source_url}")
+                logging.info(f"Successfully downloaded {source_id} from {source_url}")
 
-    return csv_content, "text/csv"
+                return csv_content, "text/csv"
+    except zipfile.BadZipFile as e:
+        logging.error(f"BadZipFile error: {e}")
+        raise
+    except Exception as e:
+        logging.error(f"An error occurred while processing the ZIP file: {e}")
+        raise
 
 
 async def sipri_downloader(**kwargs) -> Tuple[bytes, str]:
