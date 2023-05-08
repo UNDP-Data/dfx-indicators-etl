@@ -455,13 +455,13 @@ async def sipri_downloader(**kwargs) -> Tuple[bytes, str]:
 
     :param kwargs: Keyword arguments containing the following keys:
                    source_url: The URL to send the POST request to.
-                   save_as: The file name to save the downloaded content as.
+                   source_id: The identifier of the source.
     :return: A tuple containing the raw content data and content type.
     """
     source_url = kwargs.get("source_url")
-    save_as = kwargs.get("save_as")
+    source_id = kwargs.get("source_id")
 
-    logging.info(f"Downloading {save_as} from {source_url}")
+    logging.info(f"Downloading {source_id} from {source_url}")
 
     # Set up parameters
     parameters = {
