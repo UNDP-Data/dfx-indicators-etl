@@ -319,18 +319,9 @@ async def get_downloader(**kwargs) -> Tuple[bytes, str]:
         **kwargs.get("request_params"),
     )
 
-    # Convert the content to a CSV format
-    output_csv = io.StringIO()
-    csv_writer = csv.writer(output_csv)
-    for line in response_content.decode("utf-8").splitlines():
-        csv_writer.writerow([line.strip()])
-
-    # Get the CSV content and set the content type as CSV
-    csv_content = output_csv.getvalue().encode("utf-8")
-
     logging.info(f"Successfully downloaded {source_id} from {source_url}")
 
-    return csv_content, "text/csv"
+    return response_content, "text/csv"
 
 
 async def post_downloader(**kwargs) -> Tuple[bytes, str]:
@@ -355,18 +346,9 @@ async def post_downloader(**kwargs) -> Tuple[bytes, str]:
         **kwargs.get("request_params"),
     )
 
-    # Convert the content to a CSV format
-    output_csv = io.StringIO()
-    csv_writer = csv.writer(output_csv)
-    for line in response_content.decode("utf-8").splitlines():
-        csv_writer.writerow([line.strip()])
-
-    # Get the CSV content and set the content type as CSV
-    csv_content = output_csv.getvalue().encode("utf-8")
-
     logging.info(f"Successfully downloaded {source_id} from {source_url}")
 
-    return csv_content, "text/csv"
+    return response_content, "text/csv"
 
 
 async def zip_content_downloader(**kwargs) -> Tuple[bytes, str]:
@@ -389,8 +371,6 @@ async def zip_content_downloader(**kwargs) -> Tuple[bytes, str]:
         source_url, timeout=DEFAULT_TIMEOUT, max_retries=5
     )
 
-    file_lines = []
-
     with zipfile.ZipFile(io.BytesIO(response_content), "r") as zip_file:
         target_file = None
 
@@ -407,17 +387,7 @@ async def zip_content_downloader(**kwargs) -> Tuple[bytes, str]:
             target_file = zip_file.open(params_file)
 
         if target_file:
-            file_lines = target_file.readlines()
-
-    # Convert the lines to a CSV format
-    output_csv = io.StringIO()
-    csv_writer = csv.writer(output_csv)
-    for line in file_lines:
-        decoded_line = line.decode("utf-8").strip()
-        csv_writer.writerow([decoded_line])
-
-    # Get the CSV content and set the content type as CSV
-    csv_content = output_csv.getvalue().encode("utf-8")
+            csv_content = target_file.read()
 
     logging.info(f"Successfully downloaded {source_id} from {source_url}")
 
