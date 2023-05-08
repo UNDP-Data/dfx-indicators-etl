@@ -7,9 +7,12 @@ import json
 import logging
 import os
 import tempfile
+import time
+import urllib
 import zipfile
 from configparser import ConfigParser
 from typing import Any, Optional, Tuple
+from urllib.parse import urlencode
 
 import aiohttp
 import numpy as np
@@ -27,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 async def simple_url_download(
-    url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
+        url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
 ) -> tuple[bytes, str] | tuple[None, None] | None:
     """
     Downloads the content in bytes from a given URL using the aiohttp library.
@@ -83,7 +86,7 @@ async def simple_url_download(
 
 
 async def simple_url_post(
-    url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
+        url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
 ) -> Optional[Tuple[bytes, str]]:
     """
     Sends a POST request to a given URL using the aiohttp library and returns the content in bytes.
@@ -94,8 +97,6 @@ async def simple_url_post(
     :param kwargs: Additional arguments to pass to the session.post method (headers, params, data).
     :return: a tuple containing the downloaded content and the content type, or None if the request fails.
     """
-
-    print("kwargs:", kwargs)  # Print the kwargs
 
     async with aiohttp.ClientSession() as session:
         for retry_count in range(max_retries):
@@ -229,7 +230,7 @@ async def country_downloader(**kwargs):
             *tasks
         )  # list of responses in bytes in the format [bytes, content_type]
         for i, response in enumerate(
-            responses
+                responses
         ):  # response is a list of bytes and content type as follows: [bytes, content_type]
             # if the response is not None and the length of the response is greater than 0, then convert the response to a dataframe and add the data to the country_codes_df dataframe
             if response is not None and len(response[0]) > 0:
@@ -381,7 +382,7 @@ async def zip_content_downloader(**kwargs) -> Tuple[bytes, str]:
 
                 with zip_file.open(outer_zip_name) as outer_zip_file:
                     with zipfile.ZipFile(
-                        io.BytesIO(outer_zip_file.read()), "r"
+                            io.BytesIO(outer_zip_file.read()), "r"
                     ) as inner_zip:
                         target_file = inner_zip.open(inner_path)
             else:
@@ -399,6 +400,60 @@ async def zip_content_downloader(**kwargs) -> Tuple[bytes, str]:
     except Exception as e:
         logging.error(f"An error occurred while processing the ZIP file: {e}")
         raise
+
+
+async def rcc_downloader(**kwargs) -> Tuple[bytes, str]:
+    """
+    Downloads content from RCC, and returns it as a CSV.
+    :param kwargs: keyword arguments containing the following keys:
+                   source_url: The URL to download the content from.
+                   source_id: The identifier of the source.
+    :return: A tuple containing the raw content data and content type.
+    """
+    column_names = ['emergency', 'country_name', 'region', 'iso3', 'admin_level_1',
+                    'indicator_id', 'subvariable', 'indicator_name', 'thematic',
+                    'thematic_description', 'topic', 'topic_description',
+                    'indicator_description', 'type', 'question', 'indicator_value',
+                    'nominator', 'error_margin', 'denominator', 'indicator_month',
+                    'category', 'gender', 'age_group', 'age_info', 'target_group',
+                    'indicator_matching', 'representativeness', 'limitation',
+                    'indicator_comment', 'source_id', 'organisation', 'title', 'details',
+                    'authors', 'methodology', 'sample_size', 'target_pop', 'scale',
+                    'quality_check', 'access_type', 'source_comment', 'publication_channel',
+                    'link', 'source_date', 'sample_type']
+    refresh_time = 1
+    page_limit = 50
+    offset_number = 0
+    source_url = kwargs.get("source_url")
+    df = pd.DataFrame(columns=column_names)
+
+    while True:
+        time.sleep(refresh_time)
+        parameters = {
+            'indicator_id': 'PRA003',
+            'limit': f'{page_limit}',
+            'offset': f'{offset_number}',
+            'include_header': 1
+        }
+        url = f'{source_url}?{urlencode(parameters)}'
+        print(url)
+        response_content, _ = await simple_url_download(
+            url, timeout=DEFAULT_TIMEOUT, max_retries=5
+        )
+        response_content = response_content.decode('utf-8')
+        country_df = pd.read_csv(io.StringIO(response_content))
+
+        if country_df.empty:
+            break
+        else:
+            df = pd.concat([df, country_df], ignore_index=True)
+            if len(country_df.index) < page_limit:
+                break
+            offset_number += page_limit
+
+    # Convert dataframe to csv in bytes format
+    csv_bytes = df.to_csv(index=False).encode('utf-8')
+    return csv_bytes, "text/csv"
 
 
 async def sipri_downloader(**kwargs) -> Tuple[bytes, str]:
@@ -444,10 +499,6 @@ async def sipri_downloader(**kwargs) -> Tuple[bytes, str]:
     csv_data = base64.b64decode(file_bytes)
 
     return csv_data, "text/csv"
-
-
-async def rcc_downloader(**kwargs):
-    return b"", "text/csv"
 
 
 async def vdem_downloader(**kwargs):
@@ -517,7 +568,7 @@ async def retrieval() -> None:
     tasks = []
 
     async def upload_source_file(
-        bytes_data: bytes = None, cont_type: str = None, save_as: str = None
+            bytes_data: bytes = None, cont_type: str = None, save_as: str = None
     ):
         temp_dir = tempfile.TemporaryDirectory()
         temp_file_path = os.path.join(temp_dir.name, f"{save_as}")
@@ -532,7 +583,6 @@ async def retrieval() -> None:
         temp_dir.cleanup()
 
     for source_id, source_config in sources.items():
-        print(source_id, source_config)
         logger.info(
             f"Downloading {source_id} from {source_config['url']} using {source_config['downloader_function']}."
         )
