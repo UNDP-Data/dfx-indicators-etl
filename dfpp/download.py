@@ -315,24 +315,30 @@ async def cpia_downloader(
     pass
 
 
-async def get_downloader(
-    raw_source_dst: str,
-    source_id: str,
-    source_url: str,
-    save_as: str,
-    storage_manager: "AzureBlobStorageManager",
-    user_data: Dict[str, str],
-) -> None:
+async def get_downloader(**kwargs) -> None:
     """
     Downloads content using a GET request, and saves it to the specified Azure Blob Storage location.
 
-    :param raw_source_dst: The destination path in the Azure Blob Storage.
-    :param source_id: The identifier of the source.
-    :param source_url: The URL to download the content from.
-    :param save_as: The file name to save the downloaded content as.
-    :param storage_manager: The Azure Blob Storage Manager instance.
-    :param user_data: A dictionary containing the parameters for the GET request.
+    :keyword raw_source_dst: The destination path in the Azure Blob Storage.
+    :type raw_source_dst: str
+    :keyword source_id: The identifier of the source.
+    :type source_id: str
+    :keyword source_url: The URL to download the content from.
+    :type source_url: str
+    :keyword save_as: The file name to save the downloaded content as.
+    :type save_as: str
+    :keyword storage_manager: The Azure Blob Storage Manager instance.
+    :type storage_manager: AzureBlobStorageManager
+    :keyword user_data: A dictionary containing the parameters for the GET request.
+    :type user_data: Dict[str, str]
     """
+    raw_source_dst = kwargs["raw_source_dst"]
+    source_id = kwargs["source_id"]
+    source_url = kwargs["source_url"]
+    save_as = kwargs["save_as"]
+    storage_manager = kwargs["storage_manager"]
+    user_data = kwargs["user_data"]
+
     logging.info(f"Downloading {source_id + save_as} from {source_url}")
 
     try:
@@ -361,24 +367,29 @@ async def get_downloader(
     logging.info(f"File saved to {raw_source_dst + save_as}")
 
 
-async def post_downloader(
-    raw_source_dst: str,
-    source_id: str,
-    source_url: str,
-    save_as: str,
-    storage_manager: "AzureBlobStorageManager",
-    user_data: Dict[str, str],
-) -> None:
+async def post_downloader(**kwargs) -> None:
     """
     Downloads content using a POST request, and saves it to the specified Azure Blob Storage location.
 
-    :param raw_source_dst: The destination path in the Azure Blob Storage.
-    :param source_id: The identifier of the source.
-    :param source_url: The URL to send the POST request to.
-    :param save_as: The file name to save the downloaded content as.
-    :param storage_manager: The Azure Blob Storage Manager instance.
-    :param user_data: A dictionary containing either headers, params, or data for the POST request.
+    :keyword raw_source_dst: The destination path in the Azure Blob Storage.
+    :type raw_source_dst: str
+    :keyword source_id: The identifier of the source.
+    :type source_id: str
+    :keyword source_url: The URL to send the POST request to.
+    :type source_url: str
+    :keyword save_as: The file name to save the downloaded content as.
+    :type save_as: str
+    :keyword storage_manager: The Azure Blob Storage Manager instance.
+    :type storage_manager: AzureBlobStorageManager
+    :keyword user_data: A dictionary containing either headers, params, or data for the POST request.
+    :type user_data: Dict[str, str]
     """
+    raw_source_dst = kwargs["raw_source_dst"]
+    source_id = kwargs["source_id"]
+    source_url = kwargs["source_url"]
+    save_as = kwargs["save_as"]
+    storage_manager = kwargs["storage_manager"]
+    user_data = kwargs["user_data"]
     logging.info(f"Downloading {source_id + save_as} from {source_url}")
 
     try:
@@ -407,24 +418,29 @@ async def post_downloader(
     logging.info(f"File saved to {raw_source_dst + save_as}")
 
 
-async def get_nested_zip_downloader(
-    raw_source_dst: str,
-    source_id: str,
-    source_url: str,
-    save_as: str,
-    storage_manager: "AzureBlobStorageManager",
-    user_data: Dict[str, str],
-) -> None:
+async def get_nested_zip_downloader(**kwargs) -> None:
     """
     Downloads a nested ZIP file using a GET request, extracts its content, and saves it to the specified Azure Blob Storage location.
 
-    :param raw_source_dst: The destination path in the Azure Blob Storage.
-    :param source_id: The identifier of the source.
-    :param source_url: The URL to download the content from.
-    :param save_as: The file name to save the downloaded content as.
-    :param storage_manager: The Azure Blob Storage Manager instance.
-    :param user_data: A dictionary containing the user data to locate the required content within the nested ZIP file.
+    :keyword raw_source_dst: The destination path in the Azure Blob Storage.
+    :type raw_source_dst: str
+    :keyword source_id: The identifier of the source.
+    :type source_id: str
+    :keyword source_url: The URL to download the content from.
+    :type source_url: str
+    :keyword save_as: The file name to save the downloaded content as.
+    :type save_as: str
+    :keyword storage_manager: The Azure Blob Storage Manager instance.
+    :type storage_manager: AzureBlobStorageManager
+    :keyword user_data: A dictionary containing the user data to locate the required content within the nested ZIP file.
+    :type user_data: Dict[str, str]
     """
+    raw_source_dst = kwargs.get("raw_source_dst")
+    source_id = kwargs.get("source_id")
+    source_url = kwargs.get("source_url")
+    save_as = kwargs.get("save_as")
+    storage_manager = kwargs.get("storage_manager")
+    user_data = kwargs.get("user_data")
 
     logging.info(f"Downloading {source_id + save_as} from {source_url}")
 
