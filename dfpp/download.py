@@ -369,9 +369,9 @@ async def post_downloader(**kwargs) -> Tuple[bytes, str]:
     return csv_content, "text/csv"
 
 
-async def nested_zip_downloader(**kwargs) -> Tuple[bytes, str]:
+async def zip_content_downloader(**kwargs) -> Tuple[bytes, str]:
     """
-    Downloads a nested ZIP file using a GET request, extracts its content, and returns it as a CSV.
+    Downloads a ZIP, or nested ZIP file, using a GET request, extracts its content, and returns it as a CSV.
 
     :param kwargs: Keyword arguments containing the following keys:
                    source_id: The identifier of the source.
@@ -389,22 +389,25 @@ async def nested_zip_downloader(**kwargs) -> Tuple[bytes, str]:
         source_url, timeout=DEFAULT_TIMEOUT, max_retries=5
     )
 
-    with zipfile.ZipFile(io.BytesIO(response_content), "r") as outer_zip:
-        zip_paths = params_file.replace("/", "").split(".zip")[:-1]
-        nested_path = ""
+    file_lines = []
 
-        for index, zip_path in enumerate(zip_paths):
-            with outer_zip.open(nested_path + zip_path + ".zip") as inner_zip_file:
-                inner_zip_content = inner_zip_file.read()
-                if index == len(zip_paths) - 1:
-                    with zipfile.ZipFile(
-                        io.BytesIO(inner_zip_content), "r"
-                    ) as inner_zip:
-                        target_file = inner_zip.open(params_file.replace(".zip", ""))
-                        file_lines = target_file.readlines()
-                else:
-                    outer_zip = zipfile.ZipFile(io.BytesIO(inner_zip_content), "r")
-                    nested_path += zip_path + "/"
+    with zipfile.ZipFile(io.BytesIO(response_content), "r") as zip_file:
+        target_file = None
+
+        if ".zip" in params_file:
+            parts = params_file.split("/")
+            outer_zip_name, inner_path = parts[0], "/".join(parts[1:])
+
+            with zip_file.open(outer_zip_name) as outer_zip_file:
+                with zipfile.ZipFile(
+                    io.BytesIO(outer_zip_file.read()), "r"
+                ) as inner_zip:
+                    target_file = inner_zip.open(inner_path)
+        else:
+            target_file = zip_file.open(params_file)
+
+        if target_file:
+            file_lines = target_file.readlines()
 
     # Convert the lines to a CSV format
     output_csv = io.StringIO()
