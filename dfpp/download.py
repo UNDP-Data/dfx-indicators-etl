@@ -1,70 +1,134 @@
-import os
-import io
-import logging
+import ast
 import asyncio
+import base64
+import csv
+import io
+import json
+import logging
+import os
+import tempfile
 import zipfile
 from configparser import ConfigParser
-from typing import Any
+from typing import Any, Optional, Tuple
+
 import aiohttp
 import numpy as np
 import pandas as pd
 from aiohttp import ClientTimeout
-from dfpp.storage import AsyncAzureBlobStorageManager
-import tempfile
 
-CONNECTION_STRING = os.environ['AZURE_STORAGE_CONNECTION_STRING']
-CONTAINER_NAME = os.environ['CONTAINER_NAME']
-ROOT_FOLDER = os.environ['ROOT_FOLDER']
+from dfpp.storage import AsyncAzureBlobStorageManager
+
+CONNECTION_STRING = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
+CONTAINER_NAME = os.environ["CONTAINER_NAME"]
+ROOT_FOLDER = os.environ["ROOT_FOLDER"]
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=600)
 
 logger = logging.getLogger(__name__)
 
 
-async def simple_url_download(url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5) -> tuple[
-                                                                                                               bytes, str] | \
-                                                                                                           tuple[
-                                                                                                               None, None] | None:
+async def simple_url_download(
+    url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
+) -> tuple[bytes, str] | tuple[None, None] | None:
     """
     Downloads the content in bytes from a given URL using the aiohttp library.
 
     :param url: The URL to download.
     :param timeout: The maximum amount of time to wait for a response from the server, in seconds.
     :param max_retries: The maximum number of times to retry the download if an error occurs.
+    :param params: Optional dictionary of URL parameters to include in the request.
     :return: a tuple containing the downloaded content and the content type, or None if the download fails.
     """
     async with aiohttp.ClientSession() as session:
         for retry_count in range(max_retries):
             try:
-                async with session.get(url, timeout=timeout) as resp:
+                async with session.get(url, timeout=timeout, **kwargs) as resp:
                     if resp.status == 200:
                         downloaded_bytes = 0
                         chunk_size = 1024
-                        data = b''
-                        logger.info(f'Downloading {url}')
+                        data = b""
+                        logger.info(f"Downloading {url}")
                         async for chunk in resp.content.iter_chunked(chunk_size):
                             downloaded_bytes += len(chunk)
                             data += chunk
-                        logger.info(f'Downloaded {downloaded_bytes} bytes from {url}')
+                        logger.info(f"Downloaded {downloaded_bytes} bytes from {url}")
                         return data, resp.content_type
                     else:
-                        logger.error(f'Failed to download source: {resp.status}')
-                        return None, None
+                        logger.error(f"Failed to download source: {resp.status}")
+                        return None
             except asyncio.TimeoutError as e:
-                logger.exception(f'Timeout error occurred while downloading {url}.')
+                logger.exception(f"Timeout error occurred while downloading {url}.")
                 if retry_count == max_retries - 1:
-                    logger.warning(f'Reached maximum number of retries ({max_retries}). Giving up.')
+                    logger.warning(
+                        f"Reached maximum number of retries ({max_retries}). Giving up."
+                    )
                     raise e
 
             except aiohttp.ClientError as e:
-                logger.exception(f'Client error occurred while downloading {url}: {e}')
+                logger.exception(f"Client error occurred while downloading {url}: {e}")
                 if retry_count == max_retries - 1:
-                    logger.warning(f'Reached maximum number of retries ({max_retries}). Giving up.')
+                    logger.warning(
+                        f"Reached maximum number of retries ({max_retries}). Giving up."
+                    )
                     raise e
 
             except Exception as e:
-                logger.exception(f'Error occurred while downloading {url}: {e}')
+                logger.exception(f"Error occurred while downloading {url}: {e}")
                 if retry_count == max_retries - 1:
-                    logger.warning(f'Reached maximum number of retries ({max_retries}). Giving up.')
+                    logger.warning(
+                        f"Reached maximum number of retries ({max_retries}). Giving up."
+                    )
+                    raise e
+
+    return None
+
+
+async def simple_url_post(
+    url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
+) -> Optional[Tuple[bytes, str]]:
+    """
+    Sends a POST request to a given URL using the aiohttp library and returns the content in bytes.
+
+    :param url: The URL to send the POST request to.
+    :param timeout: The maximum amount of time to wait for a response from the server, in seconds.
+    :param max_retries: The maximum number of times to retry the POST request if an error occurs.
+    :param kwargs: Additional arguments to pass to the session.post method (headers, params, data).
+    :return: a tuple containing the downloaded content and the content type, or None if the request fails.
+    """
+
+    print("kwargs:", kwargs)  # Print the kwargs
+
+    async with aiohttp.ClientSession() as session:
+        for retry_count in range(max_retries):
+            try:
+                async with session.post(url, timeout=timeout, **kwargs) as resp:
+                    if resp.status == 200:
+                        data = await resp.read()
+                        return data, resp.content_type
+                    else:
+                        logger.error(f"Failed to download source: {resp.status}")
+                        return None, None
+            except asyncio.TimeoutError as e:
+                logger.exception(f"Timeout error occurred while downloading {url}.")
+                if retry_count == max_retries - 1:
+                    logger.warning(
+                        f"Reached maximum number of retries ({max_retries}). Giving up."
+                    )
+                    raise e
+
+            except aiohttp.ClientError as e:
+                logger.exception(f"Client error occurred while downloading {url}: {e}")
+                if retry_count == max_retries - 1:
+                    logger.warning(
+                        f"Reached maximum number of retries ({max_retries}). Giving up."
+                    )
+                    raise e
+
+            except Exception as e:
+                logger.exception(f"Error occurred while downloading {url}: {e}")
+                if retry_count == max_retries - 1:
+                    logger.warning(
+                        f"Reached maximum number of retries ({max_retries}). Giving up."
+                    )
                     raise e
 
     return None
@@ -80,11 +144,11 @@ async def default_http_downloader(**kwargs):
     Returns:
         None
     """
-    source_url = kwargs['source_url']
+    source_url = kwargs["source_url"]
     try:
         return await simple_url_download(source_url)
     except Exception as e:
-        logger.error(f'Error occurred while downloading {source_url}: {e}')
+        logger.error(f"Error occurred while downloading {source_url}: {e}")
         return None, None
 
 
@@ -109,72 +173,101 @@ async def country_downloader(**kwargs):
         csv_data, mime_type = await country_downloader(source_id='HDR', source_url='https://example.com/countries/', params_type='BATCH_ADD', params_url='https://example.com/params.csv', params_codes='USA|GBR|FRA')
 
     """
-    source_id = kwargs['source_id']
-    source_url = kwargs['source_url']
-    params_type = kwargs['params_type']
-    params_url = kwargs['params_url']
-    params_codes = kwargs['params_codes']
-    storage_manager = kwargs['storage_manager']
+    source_id = kwargs["source_id"]
+    source_url = kwargs["source_url"]
+    params_type = kwargs["params_type"]
+    params_url = kwargs["params_url"]
+    params_codes = kwargs["params_codes"]
+    storage_manager = kwargs["storage_manager"]
     try:
-
-        countries_territory_data = await storage_manager.get_utility_file('country_territory_groups.cfg')
+        countries_territory_data = await storage_manager.get_utility_file(
+            "country_territory_groups.cfg"
+        )
         country_territories_data_list = []
         for key, data in countries_territory_data.items():
-            data.update({'Alpha-3 code-1': key})
+            data.update({"Alpha-3 code-1": key})
             country_territories_data_list.append(data)
         countries_territory_dataframe = pd.DataFrame(country_territories_data_list)
 
-        countries_territory_dataframe.rename(columns={'Alpha-3 code-1': 'Alpha-3 code'}, inplace=True)
+        countries_territory_dataframe.rename(
+            columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True
+        )
         # replace empty values with NaN and convert the latitude and longitude columns to float64 type
-        countries_territory_dataframe['longitude (average)'] = countries_territory_dataframe[
-            'longitude (average)'].replace(r'', np.NaN)
-        countries_territory_dataframe['latitude (average)'] = countries_territory_dataframe[
-            "latitude (average)"].astype(np.float64)
-        countries_territory_dataframe['longitude (average)'] = countries_territory_dataframe[
-            "longitude (average)"].astype(np.float64)
+        countries_territory_dataframe[
+            "longitude (average)"
+        ] = countries_territory_dataframe["longitude (average)"].replace(r"", np.NaN)
+        countries_territory_dataframe[
+            "latitude (average)"
+        ] = countries_territory_dataframe["latitude (average)"].astype(np.float64)
+        countries_territory_dataframe[
+            "longitude (average)"
+        ] = countries_territory_dataframe["longitude (average)"].astype(np.float64)
 
         # create a new dataframe with only the alpha-3 code column from the countries_territory_dataframe
-        country_codes_df = pd.DataFrame(columns=['Alpha-3 code'])
-        country_codes_df['Alpha-3 code'] = countries_territory_dataframe[
-            'Alpha-3 code']  # only has the alpha-3 code column
+        country_codes_df = pd.DataFrame(columns=["Alpha-3 code"])
+        country_codes_df["Alpha-3 code"] = countries_territory_dataframe[
+            "Alpha-3 code"
+        ]  # only has the alpha-3 code column
         logger.info("Processed country_territory_groups.json")
 
         # create a list of tasks to download the country data for each country code and wait for all tasks to complete
         tasks = []
         for index, row in country_codes_df.iterrows():
             row = country_codes_df.iloc[index]
-            logger.info(f"Downloading {row['Alpha-3 code']} from {source_url + row['Alpha-3 code'].lower()}")
+            logger.info(
+                f"Downloading {row['Alpha-3 code']} from {source_url + row['Alpha-3 code'].lower()}"
+            )
 
             text_response_task = asyncio.create_task(
-                simple_url_download(f"{source_url}{row['Alpha-3 code'].lower()}", timeout=DEFAULT_TIMEOUT))
+                simple_url_download(
+                    f"{source_url}{row['Alpha-3 code'].lower()}",
+                    timeout=DEFAULT_TIMEOUT,
+                )
+            )
             tasks.append(text_response_task)
-        responses = await asyncio.gather(*tasks)  # list of responses in bytes in the format [bytes, content_type]
+        responses = await asyncio.gather(
+            *tasks
+        )  # list of responses in bytes in the format [bytes, content_type]
         for i, response in enumerate(
-                responses):  # response is a list of bytes and content type as follows: [bytes, content_type]
-
+            responses
+        ):  # response is a list of bytes and content type as follows: [bytes, content_type]
             # if the response is not None and the length of the response is greater than 0, then convert the response to a dataframe and add the data to the country_codes_df dataframe
             if response is not None and len(response[0]) > 0:
-                country_indicators_df = pd.read_json(io.StringIO(response[0].decode('utf-8')))
+                country_indicators_df = pd.read_json(
+                    io.StringIO(response[0].decode("utf-8"))
+                )
                 for country_id, country_row in country_indicators_df.iterrows():
-                    column_name = "_".join([country_row["indicator"].rsplit(" ")[0], str(country_row["year"])])
+                    column_name = "_".join(
+                        [
+                            country_row["indicator"].rsplit(" ")[0],
+                            str(country_row["year"]),
+                        ]
+                    )
                     country_codes_df.at[i, column_name] = country_row["value"]
 
         # if the params_type is BATCH_ADD, then download the data from the params_url and add the data to the country_codes_df dataframe
-        if params_type == 'BATCH_ADD':
+        if params_type == "BATCH_ADD":
             logger.info(f"Downloading {source_id} from {params_url}")
-            text_response = await simple_url_download(params_url, timeout=DEFAULT_TIMEOUT)
-            region_dataframe = pd.read_csv(io.StringIO(text_response[0].decode('utf-8')))
+            text_response = await simple_url_download(
+                params_url, timeout=DEFAULT_TIMEOUT
+            )
+            region_dataframe = pd.read_csv(
+                io.StringIO(text_response[0].decode("utf-8"))
+            )
             selected_dataframe = region_dataframe[
-                region_dataframe['iso3'].isin(params_codes.split('|'))]
-            selected_dataframe['iso3'] = selected_dataframe['country']
-            selected_dataframe.rename(columns={'iso3': 'Alpha-3 code'}, inplace=True)
+                region_dataframe["iso3"].isin(params_codes.split("|"))
+            ]
+            selected_dataframe["iso3"] = selected_dataframe["country"]
+            selected_dataframe.rename(columns={"iso3": "Alpha-3 code"}, inplace=True)
             selected_dataframe = selected_dataframe[country_codes_df.columns]
-            country_codes_df = pd.concat([country_codes_df, selected_dataframe], ignore_index=True)
+            country_codes_df = pd.concat(
+                [country_codes_df, selected_dataframe], ignore_index=True
+            )
 
             # create a csv file from the country_codes_df dataframe and return the csv file as bytes
-            csv_data = country_codes_df.to_csv(index=False).encode('utf-8')
+            csv_data = country_codes_df.to_csv(index=False).encode("utf-8")
             logger.info(f"Successfully downloaded {source_id}")
-            return csv_data, 'text/csv'
+            return csv_data, "text/csv"
     except Exception as e:
         raise e
 
@@ -187,25 +280,174 @@ async def cpia_downloader(**kwargs):
     """
 
     exception_list = ["CPIA_RLPR.csv", "CPIA_SPCA.csv", "CW_ADAPTATION.csv"]
-    source_url = kwargs.get('source_url')
-    data, content_type = await simple_url_download(source_url, timeout=DEFAULT_TIMEOUT)
+    source_url = kwargs.get("source_url")
+    data, _ = await simple_url_download(source_url, timeout=DEFAULT_TIMEOUT)
     with io.BytesIO(data) as zip_file:
         with zipfile.ZipFile(zip_file) as zip_f:
-            if kwargs.get('source_save_as') not in exception_list:
+            if kwargs.get("source_save_as") not in exception_list:
                 for file in zip_f.namelist():
-                    if 'Metadata' not in file:
+                    if "Metadata" not in file:
                         csv_file_name = file
                         break
             else:
-                csv_file_name = kwargs.get('source_save_as')
+                csv_file_name = kwargs.get("source_save_as")
             with zip_f.open(csv_file_name) as f:
                 csv_data = f.read()
                 logger.info(f"Successfully downloaded {kwargs.get('source_id')}")
-                return csv_data, 'text/csv'
+                return csv_data, "text/csv"
+
+
+async def get_downloader(**kwargs) -> Tuple[bytes, str]:
+    """
+    Downloads content using a GET request, and returns it as a CSV.
+
+    :param kwargs: Keyword arguments containing the following keys:
+                   source_id: The identifier of the source.
+                   source_url: The URL to download the content from.
+                   user_data: A dictionary containing the parameters for the GET request.
+    :return: A tuple containing the raw content data and content type.
+    """
+    source_id = kwargs.get("source_id")
+    source_url = kwargs.get("source_url")
+
+    logging.info(f"Downloading {source_id} from {source_url}")
+
+    response_content, _ = await simple_url_download(
+        source_url,
+        timeout=DEFAULT_TIMEOUT,
+        max_retries=5,
+        **kwargs.get("request_params"),
+    )
+
+    logging.info(f"Successfully downloaded {source_id} from {source_url}")
+
+    return response_content, "text/csv"
+
+
+async def post_downloader(**kwargs) -> Tuple[bytes, str]:
+    """
+    Downloads content using a POST request, and returns it as a CSV.
+
+    :param kwargs: Keyword arguments containing the following keys:
+                   source_id: The identifier of the source.
+                   source_url: The URL to send the POST request to.
+                   user_data: A dictionary containing either headers, params, or data for the POST request.
+    :return: A tuple containing the raw content data and content type.
+    """
+    source_id = kwargs.get("source_id")
+    source_url = kwargs.get("source_url")
+
+    logging.info(f"Downloading {source_id} from {source_url}")
+
+    response_content, _ = await simple_url_post(
+        source_url,
+        timeout=DEFAULT_TIMEOUT,
+        max_retries=5,
+        **kwargs.get("request_params"),
+    )
+
+    logging.info(f"Successfully downloaded {source_id} from {source_url}")
+
+    return response_content, "text/csv"
+
+
+async def zip_content_downloader(**kwargs) -> Tuple[bytes, str]:
+    """
+    Downloads a ZIP, or nested ZIP file, using a GET request, extracts its content, and returns it as a CSV.
+
+    :param kwargs: Keyword arguments containing the following keys:
+                   source_id: The identifier of the source.
+                   source_url: The URL to download the content from.
+                   params_file: A string containing the file path to locate the required content within the nested ZIP file.
+    :return: A tuple containing the raw content data and content type.
+    """
+    source_id = kwargs.get("source_id")
+    source_url = kwargs.get("source_url")
+    params_file = kwargs.get("params_file")
+
+    logging.info(f"Downloading {source_id} from {source_url}")
+
+    response_content, _ = await simple_url_download(
+        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5
+    )
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(response_content), "r") as zip_file:
+            target_file = None
+
+            if ".zip" in params_file:
+                parts = params_file.split("/")
+                outer_zip_name, inner_path = parts[0], "/".join(parts[1:])
+
+                with zip_file.open(outer_zip_name) as outer_zip_file:
+                    with zipfile.ZipFile(
+                        io.BytesIO(outer_zip_file.read()), "r"
+                    ) as inner_zip:
+                        target_file = inner_zip.open(inner_path)
+            else:
+                target_file = zip_file.open(params_file)
+
+            if target_file:
+                csv_content = target_file.read()
+
+                logging.info(f"Successfully downloaded {source_id} from {source_url}")
+
+                return csv_content, "text/csv"
+    except zipfile.BadZipFile as e:
+        logging.error(f"BadZipFile error: {e}")
+        raise
+    except Exception as e:
+        logging.error(f"An error occurred while processing the ZIP file: {e}")
+        raise
+
+
+async def sipri_downloader(**kwargs) -> Tuple[bytes, str]:
+    """
+    Downloads content using a custom POST request logic from SIPRI, and returns the raw data and content type.
+
+    :param kwargs: Keyword arguments containing the following keys:
+                   source_url: The URL to send the POST request to.
+                   source_id: The identifier of the source.
+    :return: A tuple containing the raw content data and content type.
+    """
+    source_url = kwargs.get("source_url")
+    source_id = kwargs.get("source_id")
+
+    logging.info(f"Downloading {source_id} from {source_url}")
+
+    # Set up parameters
+    parameters = {
+        "regionalTotals": False,
+        "currencyFY": False,
+        "currencyCY": False,
+        "constantUSD": False,
+        "currentUSD": False,
+        "shareOfGDP": False,
+        "perCapita": False,
+        "shareGovt": True,
+        "regionDataDetails": False,
+        "getLiveData": False,
+        "yearFrom": None,
+        "yearTo": None,
+        "yearList": [2016, 2021],
+        "countryList": [],
+    }
+
+    # Execute the POST request
+    response_content, _ = await simple_url_post(
+        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, json=parameters
+    )
+
+    # Process the response
+    data = json.loads(response_content)
+    file_bytes = bytes(data["Value"], "utf8")
+    csv_data = base64.b64decode(file_bytes)
+
+    return csv_data, "text/csv"
 
 
 async def rcc_downloader(**kwargs):
-    return b'', 'text/csv'
+    return b"", "text/csv"
 
 
 async def vdem_downloader(**kwargs):
@@ -213,14 +455,14 @@ async def vdem_downloader(**kwargs):
     :param url: source url to download from
     :return:
     """
-    url = kwargs.get('source_url')
-    file_name = kwargs.get('params_file')
+    url = kwargs.get("source_url")
+    file_name = kwargs.get("params_file")
     zipped_bytes_data, content_type = await simple_url_download(url=url)
     with io.BytesIO(zipped_bytes_data) as zip_file:
         with zipfile.ZipFile(zip_file) as zip_f:
             with zip_f.open(file_name) as csv_file:
                 csv_data = csv_file.read()
-    return csv_data, 'text/csv'
+    return csv_data, "text/csv"
 
 
 async def call_function(function_name, *args, **kwargs) -> Any:
@@ -247,7 +489,7 @@ async def call_function(function_name, *args, **kwargs) -> Any:
     if function is not None:
         return await function(*args, **kwargs)
     else:
-        raise ValueError(f'Function {function} is not defined or not callable')
+        raise ValueError(f"Function {function} is not defined or not callable")
 
 
 async def retrieval() -> None:
@@ -274,37 +516,44 @@ async def retrieval() -> None:
     sources = await storage_manager.get_source_config()
     tasks = []
 
-    async def upload_source_file(bytes_data: bytes = None, cont_type: str = None, save_as: str = None):
+    async def upload_source_file(
+        bytes_data: bytes = None, cont_type: str = None, save_as: str = None
+    ):
         temp_dir = tempfile.TemporaryDirectory()
-        temp_file_path = os.path.join(temp_dir.name, f'{save_as}')
-        with open(temp_file_path, 'wb') as temp_file:
+        temp_file_path = os.path.join(temp_dir.name, f"{save_as}")
+        with open(temp_file_path, "wb") as temp_file:
             temp_file.write(bytes_data)
             await storage_manager.upload(
-                dst_path=os.path.join(ROOT_FOLDER, 'sources', 'raw', save_as),
+                dst_path=os.path.join(ROOT_FOLDER, "sources", "raw", save_as),
                 src_path=temp_file_path,
                 content_type=cont_type,
-                overwrite=True
+                overwrite=True,
             )
         temp_dir.cleanup()
 
     for source_id, source_config in sources.items():
         print(source_id, source_config)
         logger.info(
-            f"Downloading {source_id} from {source_config['url']} using {source_config['downloader_function']}.")
-        if 'downloader_params' in source_config:
-            params = source_config['downloader_params']
-            data, content_type = await call_function(source_config['downloader_function'],
-                                                     source_id=source_id,
-                                                     source_url=source_config.get('url'),
-                                                     source_save_as=source_config.get('save_as'),
-                                                     params_type=params.get('type'),
-                                                     params_url=params.get('url'),
-                                                     params_codes=params.get('codes'),
-                                                     params_file=params.get('file'),
-                                                     storage_manager=storage_manager
-                                                     )
+            f"Downloading {source_id} from {source_config['url']} using {source_config['downloader_function']}."
+        )
+        if "downloader_params" in source_config:
+            params = source_config["downloader_params"]
+            data, content_type = await call_function(
+                source_config["downloader_function"],
+                source_id=source_id,
+                source_url=source_config.get("url"),
+                source_save_as=source_config.get("save_as"),
+                params_type=params.get("type"),
+                params_url=params.get("url"),
+                params_codes=params.get("codes"),
+                params_file=params.get("file"),
+                request_params=params.get("request_params"),
+                storage_manager=storage_manager,
+            )
         else:
-            data, content_type = await default_http_downloader(source_id=source_id, source_url=source_config['url'])
+            data, content_type = await default_http_downloader(
+                source_id=source_id, source_url=source_config["url"]
+            )
         logger.info(f"Downloaded {source_id} from {source_config['url']}.")
         logger.info(f"Uploading {source_id} to blob storage.")
 
@@ -312,7 +561,8 @@ async def retrieval() -> None:
             upload_source_file(
                 bytes_data=data,
                 cont_type=content_type,
-                save_as=source_config['save_as'])
+                save_as=source_config["save_as"],
+            )
         )
         logger.info(f"Uploaded {source_config['save_as']} to blob storage.")
         tasks.append(upload_task)
@@ -320,15 +570,18 @@ async def retrieval() -> None:
     await storage_manager.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import asyncio
 
     logging.basicConfig()
-    logger = logging.getLogger('azure.storage.blob')
+    logger = logging.getLogger("azure.storage.blob")
     logging_stream_handler = logging.StreamHandler()
     logging_stream_handler.setFormatter(
-        logging.Formatter('%(asctime)s-%(filename)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s',
-                          "%Y-%m-%d %H:%M:%S"))
+        logging.Formatter(
+            "%(asctime)s-%(filename)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s",
+            "%Y-%m-%d %H:%M:%S",
+        )
+    )
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
