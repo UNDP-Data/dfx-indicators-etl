@@ -1,6 +1,8 @@
 import ast
+import base64
 import csv
 import io
+import json
 import logging
 import os
 import tempfile
@@ -394,7 +396,7 @@ async def post_downloader(**kwargs) -> Tuple[bytes, str]:
     return csv_content, content_type
 
 
-async def get_nested_zip_downloader(**kwargs) -> Tuple[bytes, str]:
+async def nested_zip_downloader(**kwargs) -> Tuple[bytes, str]:
     """
     Downloads a nested ZIP file using a GET request, extracts its content, and returns it as a CSV.
 
@@ -445,6 +447,53 @@ async def get_nested_zip_downloader(**kwargs) -> Tuple[bytes, str]:
     logging.info(f"Successfully downloaded {source_id} from {source_url}")
 
     return csv_content, content_type
+
+
+async def sipri_downloader(**kwargs) -> Tuple[bytes, str]:
+    """
+    Downloads content using a custom POST request logic from SIPRI, and returns the raw data and content type.
+
+    :param kwargs: Keyword arguments containing the following keys:
+                   source_url: The URL to send the POST request to.
+                   save_as: The file name to save the downloaded content as.
+    :return: A tuple containing the raw content data and content type.
+    """
+    source_url = kwargs.get("source_url")
+    save_as = kwargs.get("save_as")
+
+    logging.info(f"Downloading {save_as} from {source_url}")
+
+    # Set up parameters
+    parameters = {
+        "regionalTotals": False,
+        "currencyFY": False,
+        "currencyCY": False,
+        "constantUSD": False,
+        "currentUSD": False,
+        "shareOfGDP": False,
+        "perCapita": False,
+        "shareGovt": True,
+        "regionDataDetails": False,
+        "getLiveData": False,
+        "yearFrom": None,
+        "yearTo": None,
+        "yearList": [2016, 2021],
+        "countryList": [],
+    }
+
+    # Execute the POST request
+    response_content, _ = await simple_url_post(
+        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, json=parameters
+    )
+
+    # Process the response
+    data = json.loads(response_content)
+    file_bytes = bytes(data["Value"], "utf8")
+    csv_data = base64.b64decode(file_bytes)
+
+    # Return the raw data and content type
+    content_type = "text/csv"
+    return csv_data, content_type
 
 
 async def call_function(function_name: str, *args, **kwargs) -> Any:
