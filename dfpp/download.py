@@ -281,7 +281,7 @@ async def cpia_downloader(**kwargs):
 
     exception_list = ["CPIA_RLPR.csv", "CPIA_SPCA.csv", "CW_ADAPTATION.csv"]
     source_url = kwargs.get("source_url")
-    data, content_type = await simple_url_download(source_url, timeout=DEFAULT_TIMEOUT)
+    data, _ = await simple_url_download(source_url, timeout=DEFAULT_TIMEOUT)
     with io.BytesIO(data) as zip_file:
         with zipfile.ZipFile(zip_file) as zip_f:
             if kwargs.get("source_save_as") not in exception_list:
@@ -317,7 +317,7 @@ async def get_downloader(**kwargs) -> Tuple[bytes, str]:
     parameters = ast.literal_eval(value)
     logging.info(f"URL: {source_url}, Parameters: {parameters}")
 
-    response_content, content_type = await simple_url_download(
+    response_content, _ = await simple_url_download(
         source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, params={key: parameters}
     )
 
@@ -329,11 +329,10 @@ async def get_downloader(**kwargs) -> Tuple[bytes, str]:
 
     # Get the CSV content and set the content type as CSV
     csv_content = output_csv.getvalue().encode("utf-8")
-    content_type = "text/csv"
 
     logging.info(f"Successfully downloaded {source_id} from {source_url}")
 
-    return csv_content, content_type
+    return csv_content, "text/csv"
 
 
 async def post_downloader(**kwargs) -> Tuple[bytes, str]:
@@ -356,7 +355,7 @@ async def post_downloader(**kwargs) -> Tuple[bytes, str]:
     key = user_data.rsplit("=")[0]
     kwargs = {key: parameters}
 
-    response_content, content_type = await simple_url_post(
+    response_content, _ = await simple_url_post(
         source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, **kwargs
     )
 
@@ -368,11 +367,10 @@ async def post_downloader(**kwargs) -> Tuple[bytes, str]:
 
     # Get the CSV content and set the content type as CSV
     csv_content = output_csv.getvalue().encode("utf-8")
-    content_type = "text/csv"
 
     logging.info(f"Successfully downloaded {source_id} from {source_url}")
 
-    return csv_content, content_type
+    return csv_content, "text/csv"
 
 
 async def nested_zip_downloader(**kwargs) -> Tuple[bytes, str]:
@@ -391,7 +389,7 @@ async def nested_zip_downloader(**kwargs) -> Tuple[bytes, str]:
 
     logging.info(f"Downloading {source_id} from {source_url}")
 
-    response_content, content_type = await simple_url_download(
+    response_content, _ = await simple_url_download(
         source_url, timeout=DEFAULT_TIMEOUT, max_retries=5
     )
 
@@ -421,11 +419,10 @@ async def nested_zip_downloader(**kwargs) -> Tuple[bytes, str]:
 
     # Get the CSV content and set the content type as CSV
     csv_content = output_csv.getvalue().encode("utf-8")
-    content_type = "text/csv"
 
     logging.info(f"Successfully downloaded {source_id} from {source_url}")
 
-    return csv_content, content_type
+    return csv_content, "text/csv"
 
 
 async def sipri_downloader(**kwargs) -> Tuple[bytes, str]:
@@ -470,9 +467,7 @@ async def sipri_downloader(**kwargs) -> Tuple[bytes, str]:
     file_bytes = bytes(data["Value"], "utf8")
     csv_data = base64.b64decode(file_bytes)
 
-    # Return the raw data and content type
-    content_type = "text/csv"
-    return csv_data, content_type
+    return csv_data, "text/csv"
 
 
 async def call_function(function_name: str, *args, **kwargs) -> Any:
