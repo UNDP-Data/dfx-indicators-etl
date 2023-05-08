@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 async def simple_url_download(
-    url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5
+    url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
 ) -> tuple[bytes, str] | tuple[None, None] | None:
     """
     Downloads the content in bytes from a given URL using the aiohttp library.
@@ -41,7 +41,7 @@ async def simple_url_download(
     async with aiohttp.ClientSession() as session:
         for retry_count in range(max_retries):
             try:
-                async with session.get(url, timeout=timeout) as resp:
+                async with session.get(url, timeout=timeout, **kwargs) as resp:
                     if resp.status == 200:
                         downloaded_bytes = 0
                         chunk_size = 1024
@@ -97,9 +97,9 @@ async def simple_url_post(
 
     print("kwargs:", kwargs)  # Print the kwargs
 
-    for retry_count in range(max_retries):
-        try:
-            async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession() as session:
+        for retry_count in range(max_retries):
+            try:
                 async with session.post(url, timeout=timeout, **kwargs) as resp:
                     if resp.status == 200:
                         data = await resp.read()
@@ -107,29 +107,29 @@ async def simple_url_post(
                     else:
                         logger.error(f"Failed to download source: {resp.status}")
                         return None, None
-        except asyncio.TimeoutError as e:
-            logger.exception(f"Timeout error occurred while downloading {url}.")
-            if retry_count == max_retries - 1:
-                logger.warning(
-                    f"Reached maximum number of retries ({max_retries}). Giving up."
-                )
-                raise e
+            except asyncio.TimeoutError as e:
+                logger.exception(f"Timeout error occurred while downloading {url}.")
+                if retry_count == max_retries - 1:
+                    logger.warning(
+                        f"Reached maximum number of retries ({max_retries}). Giving up."
+                    )
+                    raise e
 
-        except aiohttp.ClientError as e:
-            logger.exception(f"Client error occurred while downloading {url}: {e}")
-            if retry_count == max_retries - 1:
-                logger.warning(
-                    f"Reached maximum number of retries ({max_retries}). Giving up."
-                )
-                raise e
+            except aiohttp.ClientError as e:
+                logger.exception(f"Client error occurred while downloading {url}: {e}")
+                if retry_count == max_retries - 1:
+                    logger.warning(
+                        f"Reached maximum number of retries ({max_retries}). Giving up."
+                    )
+                    raise e
 
-        except Exception as e:
-            logger.exception(f"Error occurred while downloading {url}: {e}")
-            if retry_count == max_retries - 1:
-                logger.warning(
-                    f"Reached maximum number of retries ({max_retries}). Giving up."
-                )
-                raise e
+            except Exception as e:
+                logger.exception(f"Error occurred while downloading {url}: {e}")
+                if retry_count == max_retries - 1:
+                    logger.warning(
+                        f"Reached maximum number of retries ({max_retries}). Giving up."
+                    )
+                    raise e
 
     return None
 
@@ -309,16 +309,14 @@ async def get_downloader(**kwargs) -> Tuple[bytes, str]:
     """
     source_id = kwargs.get("source_id")
     source_url = kwargs.get("source_url")
-    user_data = kwargs.get("user_data")
 
     logging.info(f"Downloading {source_id} from {source_url}")
 
-    key, value = user_data.split("=")
-    parameters = ast.literal_eval(value)
-    logging.info(f"URL: {source_url}, Parameters: {parameters}")
-
     response_content, _ = await simple_url_download(
-        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, params={key: parameters}
+        source_url,
+        timeout=DEFAULT_TIMEOUT,
+        max_retries=5,
+        **kwargs.get("request_params"),
     )
 
     # Convert the content to a CSV format
@@ -347,16 +345,14 @@ async def post_downloader(**kwargs) -> Tuple[bytes, str]:
     """
     source_id = kwargs.get("source_id")
     source_url = kwargs.get("source_url")
-    user_data = kwargs.get("user_data")
 
     logging.info(f"Downloading {source_id} from {source_url}")
 
-    parameters = ast.literal_eval(user_data.rsplit("=")[1])
-    key = user_data.rsplit("=")[0]
-    kwargs = {key: parameters}
-
     response_content, _ = await simple_url_post(
-        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, **kwargs
+        source_url,
+        timeout=DEFAULT_TIMEOUT,
+        max_retries=5,
+        **kwargs.get("request_params"),
     )
 
     # Convert the content to a CSV format
@@ -380,12 +376,12 @@ async def nested_zip_downloader(**kwargs) -> Tuple[bytes, str]:
     :param kwargs: Keyword arguments containing the following keys:
                    source_id: The identifier of the source.
                    source_url: The URL to download the content from.
-                   user_data: A dictionary containing the user data to locate the required content within the nested ZIP file.
+                   params_file: A string containing the file path to locate the required content within the nested ZIP file.
     :return: A tuple containing the raw content data and content type.
     """
     source_id = kwargs.get("source_id")
     source_url = kwargs.get("source_url")
-    user_data = kwargs.get("user_data")
+    params_file = kwargs.get("params_file")
 
     logging.info(f"Downloading {source_id} from {source_url}")
 
@@ -394,7 +390,7 @@ async def nested_zip_downloader(**kwargs) -> Tuple[bytes, str]:
     )
 
     with zipfile.ZipFile(io.BytesIO(response_content), "r") as outer_zip:
-        zip_paths = user_data.replace("/", "").split(".zip")[:-1]
+        zip_paths = params_file.replace("/", "").split(".zip")[:-1]
         nested_path = ""
 
         for index, zip_path in enumerate(zip_paths):
@@ -404,7 +400,7 @@ async def nested_zip_downloader(**kwargs) -> Tuple[bytes, str]:
                     with zipfile.ZipFile(
                         io.BytesIO(inner_zip_content), "r"
                     ) as inner_zip:
-                        target_file = inner_zip.open(user_data.replace(".zip", ""))
+                        target_file = inner_zip.open(params_file.replace(".zip", ""))
                         file_lines = target_file.readlines()
                 else:
                     outer_zip = zipfile.ZipFile(io.BytesIO(inner_zip_content), "r")
@@ -517,7 +513,6 @@ async def retrieval() -> None:
         connection_string=CONNECTION_STRING,
         container_name=CONTAINER_NAME,
     )
-    RAW_SOURCE_DST = os.path.join(ROOT_FOLDER, "sources", "raw")
 
     sources = await storage_manager.get_source_config()
     tasks = []
@@ -553,6 +548,7 @@ async def retrieval() -> None:
                 params_url=params.get("url"),
                 params_codes=params.get("codes"),
                 params_file=params.get("file"),
+                request_params=params.get("request_params"),
                 storage_manager=storage_manager,
             )
         else:
