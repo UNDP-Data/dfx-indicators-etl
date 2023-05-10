@@ -291,7 +291,7 @@ async def cpia_downloader(**kwargs):
                         csv_file_name = file
                         break
             else:
-                csv_file_name = kwargs.get("source_save_as")
+                csv_file_name = kwargs.get("params_file")
             with zip_f.open(csv_file_name) as f:
                 csv_data = f.read()
                 logger.info(f"Successfully downloaded {kwargs.get('source_id')}")
@@ -587,6 +587,7 @@ async def retrieval() -> None:
             f"Downloading {source_id} from {source_config['url']} using {source_config['downloader_function']}."
         )
         if "downloader_params" in source_config:
+
             params = source_config["downloader_params"]
             data, content_type = await call_function(
                 source_config["downloader_function"],

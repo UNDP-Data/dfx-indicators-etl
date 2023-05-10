@@ -11,5 +11,9 @@ __pycache__
 # ignore .env files
 *.env
 
+# ignore python local build files
+dfpp.egg-info
+dist
+
 .pytest_cache
 *test.txt
