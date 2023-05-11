@@ -1,3 +1,4 @@
+import logging
 import sys
 import os
 import asyncio
@@ -24,4 +25,17 @@ async def main():
 
 
 if __name__ == '__main__':
+    logging.basicConfig()
+    logger = logging.getLogger("azure.storage.blob")
+    logging_stream_handler = logging.StreamHandler()
+    logging_stream_handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s-%(filename)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s",
+            "%Y-%m-%d %H:%M:%S",
+        )
+    )
+    logger.setLevel(logging.INFO)
+    logger.handlers.clear()
+    logger.addHandler(logging_stream_handler)
+    logger.name = __name__
     asyncio.run(main())

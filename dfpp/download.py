@@ -13,6 +13,7 @@ import zipfile
 from configparser import ConfigParser
 from typing import Any, Optional, Tuple
 from urllib.parse import urlencode
+from dotenv import load_dotenv
 
 import aiohttp
 import numpy as np
@@ -97,13 +98,20 @@ async def simple_url_post(
     :param kwargs: Additional arguments to pass to the session.post method (headers, params, data).
     :return: a tuple containing the downloaded content and the content type, or None if the request fails.
     """
-    params_dictionary = json.loads(kwargs.get('params').replace("'", '"'))
-    params_type = params_dictionary.get('type')
-    params_value = params_dictionary.get('value')
+
+    parameters = json.loads(kwargs.get('params').replace("'", '"'))
+    if parameters['type'] == 'json':
+        request_args = {'json': parameters['value']}
+    elif parameters['type'] == 'params':
+        request_args = {'params': parameters['value']}
+    elif parameters['type'] == 'data':
+        request_args = {'data': parameters['value']}
+    else:
+        request_args = {'headers': parameters['value']}
     async with aiohttp.ClientSession() as session:
         for retry_count in range(max_retries):
             try:
-                async with session.post(url, timeout=timeout, **{params_type: params_value}) as resp:
+                async with session.post(url, timeout=timeout, **request_args) as resp:
                     if resp.status == 200:
                         data = await resp.read()
                         return data, resp.content_type
@@ -117,7 +125,6 @@ async def simple_url_post(
                         f"Reached maximum number of retries ({max_retries}). Giving up."
                     )
                     raise e
-
             except aiohttp.ClientError as e:
                 logger.exception(f"Client error occurred while downloading {url}: {e}")
                 if retry_count == max_retries - 1:
@@ -438,7 +445,6 @@ async def rcc_downloader(**kwargs) -> Tuple[bytes, str]:
             'include_header': 1
         }
         url = f'{source_url}?{urlencode(parameters)}'
-        print(url)
         response_content, _ = await simple_url_download(
             url, timeout=DEFAULT_TIMEOUT, max_retries=5
         )
@@ -561,39 +567,35 @@ async def retrieval(connection_string=None, container_name=None) -> None:
     await retrieval()
     ```
     """
-    storage_manager = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=connection_string,
-        container_name=container_name,
-    )
-
-    sources = await storage_manager.get_source_config()
-    tasks = []
-
-    async def upload_source_file(
-            bytes_data: bytes = None, cont_type: str = None, save_as: str = None
-    ):
-        temp_dir = tempfile.TemporaryDirectory()
-        temp_file_path = os.path.join(temp_dir.name, f"{save_as}")
-        with open(temp_file_path, "wb") as temp_file:
-            print("TEMPFILE", temp_file)
-            temp_file.write(bytes_data)
-            print(save_as == None)
-            await storage_manager.upload(
-                dst_path=os.path.join(ROOT_FOLDER, "sources", "raw", save_as),
-                src_path=temp_file_path,
-                content_type=cont_type,
-                overwrite=True,
-            )
-        temp_dir.cleanup()
-
-    for source_id, source_config in sources.items():
-        logger.info(
-            f"Downloading {source_id} from {source_config['url']} using {source_config['downloader_function']}."
+    try:
+        storage_manager = await AsyncAzureBlobStorageManager.create_instance(
+            connection_string=connection_string,
+            container_name=container_name,
         )
-        if source_config['downloader_function'] == 'default_http_downloader' and source_config['save_as'] != '':
-            print(source_config['save_as'], source_config['save_as'] is None)
+
+        sources = await storage_manager.get_source_config()
+        tasks = []
+
+        async def upload_source_file(bytes_data: bytes = None, cont_type: str = None, save_as: str = None):
+            temp_dir = tempfile.TemporaryDirectory()
+            temp_file_path = os.path.join(temp_dir.name, f"{save_as}")
+            with open(temp_file_path, "wb") as temp_file:
+                temp_file.write(bytes_data)
+                await storage_manager.upload(
+                    dst_path=os.path.join(ROOT_FOLDER, "sources", "raw", save_as),
+                    src_path=temp_file_path,
+                    content_type=cont_type,
+                    overwrite=True,
+                )
+            temp_dir.cleanup()
+
+        for source_id, source_config in sources.items():
+            logger.info(
+                f"Downloading {source_id} from {source_config['url']} using {source_config['downloader_function']}."
+            )
+
+            # if source_config['id'] != 'SDG_MR':
             if source_config['source_type'] != "Manual":
-                # if "downloader_params" in source_config:
                 params = source_config["downloader_params"]
                 data, content_type = await call_function(
                     source_config["downloader_function"],
@@ -607,10 +609,6 @@ async def retrieval(connection_string=None, container_name=None) -> None:
                     request_params=params.get("request_params"),
                     storage_manager=storage_manager,
                 )
-                # else:
-                #     data, content_type = await default_http_downloader(
-                #         source_id=source_id, source_url=source_config["url"]
-                #     )
                 logger.info(f"Downloaded {source_id} from {source_config['url']}.")
                 logger.info(f"Uploading {source_id} to blob storage.")
                 upload_task = asyncio.create_task(
@@ -623,12 +621,20 @@ async def retrieval(connection_string=None, container_name=None) -> None:
                 logger.info(f"Uploaded {source_config['save_as']} to blob storage.")
                 tasks.append(upload_task)
 
-    await asyncio.gather(*tasks)
-    await storage_manager.close()
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(result)
+        await storage_manager.close()
+    except Exception as e:
+        logger.error(e)
+        raise e
 
 
 if __name__ == "__main__":
     import asyncio
+    import logging
+    load_dotenv(dotenv_path='/home/thuha/Desktop/UNDP/dfp/dv-data-pipeline/.env')
 
     logging.basicConfig()
     logger = logging.getLogger("azure.storage.blob")
@@ -643,5 +649,7 @@ if __name__ == "__main__":
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
     logger.name = __name__
-
-    asyncio.run(retrieval())
+    asyncio.run(retrieval(
+        connection_string=os.getenv("AZURE_STORAGE_CONNECTION_STRING"),
+        container_name=os.getenv("CONTAINER_NAME"),
+    ))
