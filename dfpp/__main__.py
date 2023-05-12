@@ -26,7 +26,9 @@ async def main():
 
 if __name__ == '__main__':
     logging.basicConfig()
-    logger = logging.getLogger("azure.storage.blob")
+    azlogger = logging.getLogger('azure.core.pipeline.policies.http_logging_policy')
+    azlogger.setLevel(logging.WARNING)
+    logger = logging.getLogger()
     logging_stream_handler = logging.StreamHandler()
     logging_stream_handler.setFormatter(
         logging.Formatter(

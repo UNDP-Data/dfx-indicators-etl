@@ -42,10 +42,19 @@ async def simple_url_download(
     :param params: Optional dictionary of URL parameters to include in the request.
     :return: a tuple containing the downloaded content and the content type, or None if the download fails.
     """
+    if kwargs.get('type') == 'json':
+        request_args = {'json': kwargs.get('value')}
+    elif kwargs.get('type') == 'params':
+        request_args = {'params': kwargs.get('value')}
+    elif kwargs.get('type') == 'data':
+        request_args = {'data': kwargs.get('value')}
+    else:
+        request_args = {'headers': kwargs.get('value')}
+
     async with aiohttp.ClientSession() as session:
         for retry_count in range(max_retries):
             try:
-                async with session.get(url, timeout=timeout, **kwargs) as resp:
+                async with session.get(url, timeout=timeout, **request_args) as resp:
                     if resp.status == 200:
                         downloaded_bytes = 0
                         chunk_size = 1024
@@ -100,11 +109,11 @@ async def simple_url_post(
     """
 
     parameters = json.loads(kwargs.get('params').replace("'", '"'))
-    if parameters['type'] == 'json':
+    if parameters.get('type') == 'json':
         request_args = {'json': parameters['value']}
-    elif parameters['type'] == 'params':
+    elif parameters.get('type') == 'params':
         request_args = {'params': parameters['value']}
-    elif parameters['type'] == 'data':
+    elif parameters.get('type') == 'data':
         request_args = {'data': parameters['value']}
     else:
         request_args = {'headers': parameters['value']}
@@ -154,7 +163,7 @@ async def default_http_downloader(**kwargs):
     Returns:
         None
     """
-    source_url = kwargs["source_url"]
+    source_url = kwargs.get("source_url")
     try:
         return await simple_url_download(source_url)
     except Exception as e:
@@ -319,14 +328,13 @@ async def get_downloader(**kwargs) -> Tuple[bytes, str]:
     """
     source_id = kwargs.get("source_id")
     source_url = kwargs.get("source_url")
-
     logging.info(f"Downloading {source_id} from {source_url}")
-
+    request_params = eval(kwargs.get("request_params"))
     response_content, _ = await simple_url_download(
         source_url,
         timeout=DEFAULT_TIMEOUT,
         max_retries=5,
-        **kwargs.get("request_params"),
+        **request_params,
     )
 
     logging.info(f"Successfully downloaded {source_id} from {source_url}")
@@ -348,7 +356,6 @@ async def post_downloader(**kwargs) -> Tuple[bytes, str]:
     source_url = kwargs.get("source_url")
 
     logging.info(f"Downloading {source_id} from {source_url}")
-    request_params = kwargs.get('request_params')
     response_content, _ = await simple_url_post(
         source_url,
         timeout=DEFAULT_TIMEOUT,
@@ -593,9 +600,12 @@ async def retrieval(connection_string=None, container_name=None) -> None:
             logger.info(
                 f"Downloading {source_id} from {source_config['url']} using {source_config['downloader_function']}."
             )
-
-            # if source_config['id'] != 'SDG_MR':
+            SKIP_IDS = ['MDP_META', 'UNDP_GII', 'ACCTOI']
+            if source_id in SKIP_IDS:
+                continue
             if source_config['source_type'] != "Manual":
+                if source_config.get('save_as') is None:
+                    source_config['save_as'] = f"{source_id}.csv"
                 params = source_config["downloader_params"]
                 data, content_type = await call_function(
                     source_config["downloader_function"],
@@ -620,7 +630,8 @@ async def retrieval(connection_string=None, container_name=None) -> None:
                 )
                 logger.info(f"Uploaded {source_config['save_as']} to blob storage.")
                 tasks.append(upload_task)
-
+            else:
+                logger.debug(f"Skipping {source_id} as it is a manual source.")
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for result in results:
             if isinstance(result, Exception):
@@ -628,6 +639,7 @@ async def retrieval(connection_string=None, container_name=None) -> None:
         await storage_manager.close()
     except Exception as e:
         logger.error(e)
+        # storage_manager.close()
         raise e
 
 
