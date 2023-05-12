@@ -107,7 +107,6 @@ async def simple_url_post(
     :param kwargs: Additional arguments to pass to the session.post method (headers, params, data).
     :return: a tuple containing the downloaded content and the content type, or None if the request fails.
     """
-
     parameters = json.loads(kwargs.get('params').replace("'", '"'))
     if parameters.get('type') == 'json':
         request_args = {'json': parameters['value']}
@@ -117,10 +116,11 @@ async def simple_url_post(
         request_args = {'data': parameters['value']}
     else:
         request_args = {'headers': parameters['value']}
+
     async with aiohttp.ClientSession() as session:
         for retry_count in range(max_retries):
             try:
-                async with session.post(url, timeout=timeout, **request_args) as resp:
+                async with session.post(url, timeout=timeout, **request_args, verify_ssl=False) as resp:
                     if resp.status == 200:
                         data = await resp.read()
                         return data, resp.content_type
@@ -503,9 +503,11 @@ async def sipri_downloader(**kwargs) -> Tuple[bytes, str]:
         "countryList": [],
     }
 
+    formatted_parameters = {'params': json.dumps({'type': 'json', 'value': parameters}, separators=(',', ':'),
+                                                 default=lambda x: x.__dict__)}
     # Execute the POST request
     response_content, _ = await simple_url_post(
-        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, json=parameters
+        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, **formatted_parameters
     )
 
     # Process the response
@@ -597,12 +599,12 @@ async def retrieval(connection_string=None, container_name=None) -> None:
             temp_dir.cleanup()
 
         for source_id, source_config in sources.items():
+            # SKIP_IDS = ['MDP_META', 'UNDP_GII', 'ACCTOI']
+            # if source_id not in SKIP_IDS:
+            #     continue
             logger.info(
                 f"Downloading {source_id} from {source_config['url']} using {source_config['downloader_function']}."
             )
-            SKIP_IDS = ['MDP_META', 'UNDP_GII', 'ACCTOI']
-            if source_id in SKIP_IDS:
-                continue
             if source_config['source_type'] != "Manual":
                 if source_config.get('save_as') is None:
                     source_config['save_as'] = f"{source_id}.csv"
@@ -646,7 +648,8 @@ async def retrieval(connection_string=None, container_name=None) -> None:
 if __name__ == "__main__":
     import asyncio
     import logging
-    load_dotenv(dotenv_path='/home/thuha/Desktop/UNDP/dfp/dv-data-pipeline/.env')
+
+    load_dotenv(dotenv_path='.env')
 
     logging.basicConfig()
     logger = logging.getLogger("azure.storage.blob")
