@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dfpp"
+
+version = "0.0.1"
+description = "UNDP's Data Futures Platform Backend Pipeline"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "aiohttp",
+    "aiosignal",
+    "async-timeout",
+    "attrs",
+    "azure-core",
+    "azure-storage-blob",
+    "certifi",
+    "cffi",
+    "charset-normalizer",
+    "cryptography",
+    "frozenlist",
+    "idna",
+    "isodate",
+    "multidict",
+    "numpy",
+    "pandas",
+    "pycparser",
+    "python-dateutil",
+    "pytz",
+    "requests",
+    "six",
+    "tqdm",
+    "typing_extensions",
+    "tzdata",
+    "urllib3",
+    "yarl"
+]
+
+[tool.setuptools.packages.find]
+where = ["./"]
+
+[tool.distutils.bdist_wheel]
+universal = true

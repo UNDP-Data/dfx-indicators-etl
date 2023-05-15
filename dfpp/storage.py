@@ -23,7 +23,7 @@ class AzureBlobStorageManager:
         Initializes the container client for Azure Blob Storage.
         """
         self.delimiter = "/"
-        self.ROOT_FOLDER = os.environ["ROOT_FOLDER"]
+        self.ROOT_FOLDER = os.getenv("ROOT_FOLDER")
 
         if AzureBlobStorageManager._instance is not None:
             raise Exception(
@@ -112,7 +112,7 @@ class AzureBlobStorageManager:
                 )
                 content = stream.readall()
                 content_str = content.decode("utf-8")
-                parser = configparser.ConfigParser()
+                parser = configparser.ConfigParser(interpolation=None)
                 parser.read_string(content_str)
                 if "indicator" in parser:
                     indicator_list.append(parser["indicator"].get("id"))
@@ -147,7 +147,7 @@ class AzureBlobStorageManager:
                 )
                 content = stream.readall()
                 content_str = content.decode("utf-8")
-                parser = configparser.ConfigParser()
+                parser = configparser.ConfigParser(interpolation=None)
                 parser.read_string(content_str)
                 if "source" in parser:
                     source_list.append(parser["source"].get("id"))
@@ -181,7 +181,7 @@ class AzureBlobStorageManager:
                 )
                 content = stream.readall()
                 content_str = content.decode("utf-8")
-                parser = configparser.ConfigParser()
+                parser = configparser.ConfigParser(interpolation=None)
                 parser.read_string(content_str)
                 if "source" in parser:
                     src_id = parser["source"].get("id")
@@ -221,7 +221,7 @@ class AzureBlobStorageManager:
                 )
                 content = stream.readall()
                 content_str = content.decode("utf-8")
-                parser = configparser.ConfigParser()
+                parser = configparser.ConfigParser(interpolation=None)
                 parser.read_string(content_str)
                 if "indicator" in parser:
                     src_id = parser["indicator"].get("source_id")
@@ -261,7 +261,7 @@ class AzureBlobStorageManager:
                 )
                 content = stream.readall()
                 content_str = content.decode("utf-8")
-                parser = configparser.ConfigParser()
+                parser = configparser.ConfigParser(interpolation=None)
                 parser.read_string(content_str)
                 config_dict = {
                     section: dict(parser.items(section))
@@ -468,7 +468,7 @@ class AsyncAzureBlobStorageManager:
         """
         self.container_client = container_client
         self.delimiter = "/"
-        self.ROOT_FOLDER = os.environ["ROOT_FOLDER"]
+        self.ROOT_FOLDER = os.getenv("ROOT_FOLDER")
 
     @classmethod
     async def create_instance(
@@ -576,7 +576,7 @@ class AsyncAzureBlobStorageManager:
                 )
                 content = await stream.readall()
                 content_str = content.decode("utf-8")
-                parser = configparser.ConfigParser()
+                parser = configparser.ConfigParser(interpolation=None)
                 parser.read_string(content_str)
                 if "indicator" in parser:
                     indicator_list.append(parser["indicator"].get("id"))
@@ -611,7 +611,7 @@ class AsyncAzureBlobStorageManager:
                 )
                 content = await stream.readall()
                 content_str = content.decode("utf-8")
-                parser = configparser.ConfigParser()
+                parser = configparser.ConfigParser(interpolation=None)
                 parser.read_string(content_str)
                 if "source" in parser:
                     source_list.append(parser["source"].get("id"))
@@ -645,7 +645,7 @@ class AsyncAzureBlobStorageManager:
                 )
                 content = await stream.readall()
                 content_str = content.decode("utf-8")
-                parser = configparser.ConfigParser()
+                parser = configparser.ConfigParser(interpolation=None)
                 parser.read_string(content_str)
                 if "source" in parser:
                     src_id = parser["source"].get("id")
@@ -685,7 +685,7 @@ class AsyncAzureBlobStorageManager:
                 )
                 content = await stream.readall()
                 content_str = content.decode("utf-8")
-                parser = configparser.ConfigParser()
+                parser = configparser.ConfigParser(interpolation=None)
                 parser.read_string(content_str)
                 if "indicator" in parser:
                     src_id = parser["indicator"].get("source_id")
@@ -725,7 +725,7 @@ class AsyncAzureBlobStorageManager:
                 )
                 content = await stream.readall()
                 content_str = content.decode("utf-8")
-                parser = configparser.ConfigParser()
+                parser = configparser.ConfigParser(interpolation=None)
                 parser.read_string(content_str)
                 config_dict = {
                     section: dict(parser.items(section))
