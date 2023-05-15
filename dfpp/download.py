@@ -637,7 +637,7 @@ async def retrieval(connection_string=None, container_name=None) -> None:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for result in results:
             if isinstance(result, Exception):
-                logger.error(result)
+                logger.error("Retrieval failed to complete due to the following error", result)
         await storage_manager.close()
     except Exception as e:
         logger.error(e)
