@@ -641,7 +641,6 @@ async def retrieval(connection_string=None, container_name=None) -> None:
         await storage_manager.close()
     except Exception as e:
         logger.error(e)
-        # storage_manager.close()
         raise e
 
 
@@ -649,7 +648,7 @@ if __name__ == "__main__":
     import asyncio
     import logging
 
-    load_dotenv(dotenv_path='.env')
+    load_dotenv(dotenv_path='./.env')
 
     logging.basicConfig()
     logger = logging.getLogger("azure.storage.blob")
