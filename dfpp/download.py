@@ -607,7 +607,7 @@ async def retrieval(connection_string=None, container_name=None) -> None:
             )
             if source_config['source_type'] != "Manual":
                 if source_config.get('save_as') is None:
-                    source_config['save_as'] = f"{source_id}.csv"
+                    source_config['save_as'] = f"{source_id}.{source_config['downloader_function'].split('.')[-1]}"
                 params = source_config["downloader_params"]
                 data, content_type = await call_function(
                     source_config["downloader_function"],
