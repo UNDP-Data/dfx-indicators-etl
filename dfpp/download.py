@@ -329,6 +329,7 @@ async def get_downloader(**kwargs) -> Tuple[bytes, str]:
     source_id = kwargs.get("source_id")
     source_url = kwargs.get("source_url")
     logging.info(f"Downloading {source_id} from {source_url}")
+    print(kwargs)
     request_params = eval(kwargs.get("request_params"))
     response_content, _ = await simple_url_download(
         source_url,
@@ -599,11 +600,12 @@ async def retrieval(connection_string=None, container_name=None) -> None:
             temp_dir.cleanup()
 
         for source_id, source_config in sources.items():
-            # SKIP_IDS = ['MDP_META', 'UNDP_GII', 'ACCTOI']
+            # SKIP_IDS = ['MDP_META', 'HERITAGE_ID', 'GLOBAL_DATA_FSI']
+            # # SKIP_IDS = ['ISABO']
             # if source_id not in SKIP_IDS:
             #     continue
             logger.info(
-                f"Downloading {source_id} from {source_config['url']} using {source_config['downloader_function']}."
+                f"Starting download of {source_id} from {source_config['url']} using {source_config['downloader_function']}."
             )
             if source_config['source_type'] != "Manual":
                 if source_config.get('save_as') is None:

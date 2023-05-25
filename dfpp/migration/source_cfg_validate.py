@@ -27,7 +27,6 @@ def check_retrieval_user_data(config_dir):
             else:
                 source_id = config.get("source", "id", fallback=None)
                 print(f"Valid configuration in {cfg_file}. Source ID: {source_id}")
-                file_count += 1
         else:
             print(f"Missing 'downloader_params' section in {cfg_file}")
     print(f"Total cfg files: {total_files}, validated: {validated_file_count}")
