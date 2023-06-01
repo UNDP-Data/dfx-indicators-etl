@@ -29,4 +29,4 @@ async def upload_missing_manual_files_from_old_pipeline():
 
 
 if __name__ == "__main__":
-    asyncio.run(upload_missing_manual_files_from_old_repo())
+    asyncio.run(upload_missing_manual_files_from_old_pipeline())
