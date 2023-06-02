@@ -1,17 +1,9 @@
 import io
-import os
 from datetime import datetime
 import re
 import pandas as pd
 import numpy as np
-
 from dfpp.utils import change_iso3_to_system_region_iso3, fix_iso_country_codes, add_country_code, add_region_code
-
-downloads = os.path.join(os.path.expanduser("~"), "Downloads")
-
-
-def add_region_code_to_csv():
-    pass
 
 
 def acctoi_transform_preprocessing(bytes_data: bytes = None):
@@ -39,33 +31,28 @@ def cpi_transform_preprocessing(bytes_data: bytes = None):
 
 
 def cpia_rlpr_transform_preprocessing(bytes_data: bytes = None):
-    source_df = pd.read_csv(os.path.join(downloads, "CPIA_RLPR.csv"))
-    # source_df = pd.read_csv(io.BytesIO(bytes_data))
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
     source_df.replace("..", np.nan, inplace=True)
     source_df.rename(columns={"Country Name": "Country", "Country Code": "Alpha-3 code"}, inplace=True)
     return source_df
 
 
 def cpia_spca_transform_preprocessing(bytes_data: bytes = None):
-    source_df = pd.read_csv(os.path.join(downloads, "CPIA_SPCA.csv"))
-    # source_df = pd.read_csv(io.BytesIO(bytes_data))
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
     source_df.rename(columns={"Country Name": "Country", "Country Code": "Alpha-3 code"}, inplace=True)
     return source_df
 
 
 def cpia_transform_preprocessing(bytes_data: bytes = None):
-    source_df = pd.read_csv(os.path.join(downloads, "CPIA.csv"))
-    # source_df = pd.read_csv(io.BytesIO(bytes_data))
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
     source_df.replace("..", np.nan, inplace=True)
     source_df.rename(columns={"Country Name": "Country", "Country Code": "Alpha-3 code"}, inplace=True)
     return source_df
 
 
 def cw_ndc_transform_preprocessing(bytes_data: bytes = None):
-    source_df = pd.read_csv(os.path.join(downloads, "CW_NDC.csv"))
-
-    # source_df = pd.read_csv(io.BytesIO(bytes_data))
-    # source_df.rename(columns={"Country Name": "Country", "Country Code": "Alpha-3 code"}, inplace=True)
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
+    source_df.rename(columns={"Country Name": "Country", "Country Code": "Alpha-3 code"}, inplace=True)
 
     def reorganize_number_ranges(text):
         pattern = re.compile(r'(-?\d+)-(-?\d+)')
@@ -173,29 +160,7 @@ def cw_t2_transform_preprocessing(bytes_data: bytes = None):
 
 
 def eb_wbdb_transform_preprocessing(bytes_data: bytes = None):
-    source_df = pd.read_excel(os.path.join(downloads, "EB_WBDB.xlsx"), sheet_name="DB Data (As of DB20)", header=3)
-    # source_df = pd.read_csv(io.BytesIO(bytes_data))
-    group_df = source_df.groupby('DB Year')
-    print(group_df.columns)
-    group_column_mapping = {}
-    year_col_mapping = {
-        2016: '(DB17-20 methodology)',
-        2014: '(DB15 methodology)',
-        2010: '(DB10-14 methodology)'
-    }
-    # for year in group_df.groups.keys():
-    #     for db_year in year_col_mapping.keys():
-    #         if int(year) >= db_year:
-    #             indicator_suffix = year_col_mapping[db_year]
-    #             print(indicator_suffix)
-    #             # if (" ".join([indicator_mapping[indicator], indicator_suffix])) not in group_column_mapping.keys():
-    #             #     group_column_mapping[" ".join([indicator_mapping[indicator], indicator_suffix])] = []
-    #             # group_column_mapping[" ".join([indicator_mapping[indicator], indicator_suffix])].append(year)
-    #             # break
-    # for key in group_column_mapping.keys():
-    #     df = pd.concat(group_df.get_group(year) for year in group_column_mapping[key])
-    #     df['DB Year'] = df['DB Year'].apply(lambda x: datetime.strptime(str(int(float(x))), '%Y'))
-    # print(source_df.columns)
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
     return source_df[["Ease of doing business score (DB17-20 methodology)", "Year"]]
 
 
@@ -228,7 +193,6 @@ def gii_transform_preprocessing(bytes_data: bytes = None):
 
 def global_data_fsi_transform_preprocessing(bytes_data: bytes = None):
     source_df = pd.read_csv(io.BytesIO(bytes_data))
-    year = source_df.iloc[0]["Year of Year"]
     return source_df
 
 
@@ -769,25 +733,5 @@ def who_rl_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-# def check_existence_of_functions():
-#     import sys
-#     indicator_csv = pd.read_csv("migration/test/indicator_list.csv")
-#     function_list = [func for func in dir(sys.modules[__name__]) if callable(getattr(sys.modules[__name__], func))]
-#     missing_functions = [func for func in indicator_csv["preprocessing"].to_list() if func not in function_list]
-#
-#     # missing_functions = [func for func in function_list if func not in indicator_csv["preprocessing"].to_list()]
-#     def find_ilo():
-#         iloz = []
-#         for func in missing_functions:
-#             if 'ilo' not in func:
-#                 iloz.append(func)
-#         return iloz
-#
-#     undone_list = list(set(find_ilo()))
-#     print(undone_list, len(undone_list))
-
-
 if __name__ == "__main__":
     pass
-    # check_existence_of_functions()
-    # print(df.head())
