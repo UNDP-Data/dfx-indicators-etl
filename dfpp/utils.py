@@ -159,7 +159,7 @@ async def change_iso3_to_system_region_iso3(source_df, iso3_col):
         """
     temp_col = iso3_col + '_RegionDim'
     source_df[temp_col] = source_df[iso3_col]
-    source_df = add_region_code(source_df, temp_col, iso3_col)
+    source_df = await add_region_code(source_df, temp_col, iso3_col)
     source_df[iso3_col] = source_df[KEY_COL]
     drop_list = [temp_col]
     if iso3_col != KEY_COL:

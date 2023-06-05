@@ -7,7 +7,7 @@ from dfpp.utils import change_iso3_to_system_region_iso3, fix_iso_country_codes,
 import pycountry
 
 
-def acctoi_transform_preprocessing(bytes_data: bytes = None):
+async def acctoi_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the ACCTOI transform.
 
@@ -33,7 +33,7 @@ def acctoi_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def bti_project_transform_preprocessing(bytes_data: bytes = None):
+async def bti_project_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the BTI project transform.
 
@@ -60,7 +60,7 @@ def bti_project_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def cpi_transform_preprocessing(bytes_data: bytes = None):
+async def cpi_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the CPI transform.
 
@@ -83,7 +83,7 @@ def cpi_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def cpia_rlpr_transform_preprocessing(bytes_data: bytes = None):
+async def cpia_rlpr_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the CPIA RLPR transform.
 
@@ -106,7 +106,7 @@ def cpia_rlpr_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def cpia_spca_transform_preprocessing(bytes_data: bytes = None):
+async def cpia_spca_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the CPIA SPCA transform.
 
@@ -126,7 +126,7 @@ def cpia_spca_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def cpia_transform_preprocessing(bytes_data: bytes = None):
+async def cpia_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the CPIA transform.
 
@@ -149,7 +149,7 @@ def cpia_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def cw_ndc_transform_preprocessing(bytes_data: bytes = None):
+async def cw_ndc_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the CW NDC transform.
 
@@ -163,7 +163,7 @@ def cw_ndc_transform_preprocessing(bytes_data: bytes = None):
     source_df = pd.read_csv(io.BytesIO(bytes_data))
     source_df.rename(columns={"Country Name": "Country", "Country Code": "Alpha-3 code"}, inplace=True)
 
-    def reorganize_number_ranges(text):
+    async def reorganize_number_ranges(text):
         # Reorganize number ranges in the text to have consistent formatting
         pattern = re.compile(r'(-?\d+)-(-?\d+)')
         match = re.findall(pattern, text)
@@ -174,7 +174,7 @@ def cw_ndc_transform_preprocessing(bytes_data: bytes = None):
             pass
         return text
 
-    def extract_minimum_number(text):
+    async def extract_minimum_number(text):
         # Extract the minimum number from the text
         numbers = re.findall(r"-?\d+\.?\d*", text)
         numbers = [float(x) for x in numbers]
@@ -184,7 +184,7 @@ def cw_ndc_transform_preprocessing(bytes_data: bytes = None):
         else:
             return text
 
-    def extract_number_with_suffix(text):
+    async def extract_number_with_suffix(text):
         # Extract the number with suffix " Gg" from the text
         numbers = re.findall(r"-?\d+\.?\d* Gg", text)
         if len(numbers) == 1:
@@ -192,15 +192,15 @@ def cw_ndc_transform_preprocessing(bytes_data: bytes = None):
         else:
             return text
 
-    def get_number_count(text):
+    async def get_number_count(text):
         # Get the count of numbers in the text
         return len(re.findall(r"-?\d+\.?\d*", text))
 
-    def reorganize_floating_numbers(text):
+    async def reorganize_floating_numbers(text):
         # Reorganize floating point numbers in the text to have consistent formatting
         return re.sub(r'(?<!\d)\.(\d+)', r'0.\1', text)
 
-    def extract_and_change(text):
+    async def extract_and_change(text):
         # Extract the number and apply changes to the text based on the unit
         numbers = re.findall(r"-?\d+\.?\d*", text)
         if numbers:
@@ -265,7 +265,7 @@ def cw_ndc_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def cw_t2_transform_preprocessing(bytes_data: bytes = None):
+async def cw_t2_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the CW T2 transform.
 
@@ -283,7 +283,7 @@ def cw_t2_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def eb_wbdb_transform_preprocessing(bytes_data: bytes = None):
+async def eb_wbdb_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the EB WBDB transform.
 
@@ -305,8 +305,7 @@ def eb_wbdb_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def fao_transform_preprocessing(bytes_data: bytes = None):
+async def fao_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the FAO transform.
 
@@ -328,8 +327,7 @@ def fao_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def ff_dc_ce_transform_preprocessing(bytes_data: bytes = None):
+async def ff_dc_ce_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the FF-DC-CE transform.
 
@@ -353,8 +351,7 @@ def ff_dc_ce_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def ghg_ndc_transform_preprocessing(bytes_data: bytes = None):
+async def ghg_ndc_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the GHG-NDC transform.
 
@@ -372,14 +369,13 @@ def ghg_ndc_transform_preprocessing(bytes_data: bytes = None):
     source_df = source_df[(source_df["Sector"] == "Total including LUCF") & (source_df["Gas"] == "All GHG")]
 
     # Call the change_iso3_to_system_region_iso3 function to perform additional preprocessing on the DataFrame
-    source_df = change_iso3_to_system_region_iso3(source_df, "Country")
+    source_df = await change_iso3_to_system_region_iso3(source_df, "Country")
 
     # Return the preprocessed DataFrame
     return source_df
 
 
-
-def gii_transform_preprocessing(bytes_data: bytes = None):
+async def gii_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the GII transform.
 
@@ -397,7 +393,7 @@ def gii_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def global_data_fsi_transform_preprocessing(bytes_data: bytes = None):
+async def global_data_fsi_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the Global Data FSI transform.
 
@@ -415,8 +411,7 @@ def global_data_fsi_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def global_findex_database_transform_preprocessing(bytes_data: bytes = None):
+async def global_findex_database_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the Global Findex Database transform.
 
@@ -440,8 +435,7 @@ def global_findex_database_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def global_pi_transform_preprocessing(bytes_data: bytes = None):
+async def global_pi_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the Global Political Institutions transform.
 
@@ -459,8 +453,7 @@ def global_pi_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def eil_pe_transform_preprocessing(bytes_data: bytes = None):
+async def eil_pe_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the EIL PE transform.
 
@@ -487,8 +480,7 @@ def eil_pe_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def ec_edu_transform_preprocessing(bytes_data: bytes = None):
+async def ec_edu_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the EC EDU transform.
 
@@ -533,7 +525,7 @@ def ec_edu_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def hdr_transform_preprocessing(bytes_data: bytes = None):
+async def hdr_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the HDR transform.
 
@@ -548,19 +540,19 @@ def hdr_transform_preprocessing(bytes_data: bytes = None):
     source_df = pd.read_csv(io.BytesIO(bytes_data))
 
     # Perform the transformation to convert ISO country codes to system region ISO3 codes
-    source_df = change_iso3_to_system_region_iso3(source_df, "Alpha-3 code")
+    source_df = await change_iso3_to_system_region_iso3(source_df, "Alpha-3 code")
 
     # Reset the index
     source_df.reset_index(inplace=True)
 
     # Fix ISO country codes using a custom function
-    fix_iso_country_codes(source_df, "Alpha-3 code", 'HDR')
+    await fix_iso_country_codes(source_df, "Alpha-3 code", 'HDR')
 
     # Return the preprocessed DataFrame
     return source_df
 
 
-def heritage_id_transform_preprocessing(bytes_data: bytes = None):
+async def heritage_id_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the Heritage Index of Economic Freedom transform.
 
@@ -584,8 +576,7 @@ def heritage_id_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def ilo_ee_transform_preprocessing(bytes_data: bytes = None):
+async def ilo_ee_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the ILO Employment and Earnings transform.
 
@@ -609,8 +600,7 @@ def ilo_ee_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def ilo_lfs_transform_preprocessing(bytes_data: bytes = None):
+async def ilo_lfs_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the ILO Labor Force Survey (LFS) transform.
 
@@ -631,8 +621,7 @@ def ilo_lfs_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def ilo_nifl_transform_preprocessing(bytes_data: bytes = None):
+async def ilo_nifl_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the ILO National Income from Labor (NIFL) transform.
 
@@ -653,26 +642,25 @@ def ilo_nifl_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-# def ilo_nifl_edu_transform_preprocessing(bytes_data: bytes = None):
+# async def ilo_nifl_edu_transform_preprocessing(bytes_data: bytes = None):
 #     source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
 #     source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
 #     return source_df
 #
 #
-# def ilo_nifl_rt_age_transform_preprocessing(bytes_data: bytes = None):
+# async def ilo_nifl_rt_age_transform_preprocessing(bytes_data: bytes = None):
 #     source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
 #     source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
 #     return source_df
 #
 #
-# def ilo_nifl_rt_eco_transform_preprocessing(bytes_data: bytes = None):
+# async def ilo_nifl_rt_eco_transform_preprocessing(bytes_data: bytes = None):
 #     source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
 #     source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
 #     return source_df
 
 
-def imf_ifi_transform_preprocessing(bytes_data: bytes = None):
+async def imf_ifi_transform_preprocessing(bytes_data: bytes = None):
     # source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="financial assistance")
     # source_df2 = pd.read_excel(io.BytesIO(bytes_data), sheet_name="debt-relief")
     # source_df2.rename(columns={"country": "Country", "source": "Type of Emergency Financing",
@@ -689,7 +677,7 @@ def imf_ifi_transform_preprocessing(bytes_data: bytes = None):
     pass
 
 
-def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None):
+async def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the IMF World Economic Outlook (WEO) baseline transform.
 
@@ -710,15 +698,14 @@ def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def imf_weo_gdp_transform_preprocessing(bytes_data: bytes = None):
+async def imf_weo_gdp_transform_preprocessing(bytes_data: bytes = None):
     # source_df = pd.read_excel(io.BytesIO(bytes_data))
     # source_df.replace("--", np.nan, inplace=True)
     # return source_df
     pass
 
 
-def imf_weo_transform_preprocessing(bytes_data: bytes = None):
+async def imf_weo_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the IMF World Economic Outlook (WEO) transform.
 
@@ -739,7 +726,7 @@ def imf_weo_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def iec_transform_preprocessing(bytes_data: bytes = None):
+async def iec_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the International Energy Council (IEC) transform.
 
@@ -773,8 +760,7 @@ def iec_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def imsmy_transform_preprocessing(bytes_data: bytes = None):
+async def imsmy_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the International Monetary Statistics (IMSMY) transform.
 
@@ -801,17 +787,16 @@ def imsmy_transform_preprocessing(bytes_data: bytes = None):
     source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(x), '%Y'))
 
     # Add country codes to the DataFrame
-    source_df = add_country_code(source_df, "Country")
+    source_df = await add_country_code(source_df, "Country")
 
     # Add region codes to the DataFrame
-    source_df = add_region_code(source_df, "Country")
+    source_df = await add_region_code(source_df, "Country")
 
     # Return the preprocessed DataFrame
     return source_df
 
 
-
-def inequality_hdi_transform_preprocessing(bytes_data: bytes = None):
+async def inequality_hdi_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the Inequality and Human Development Index (HDI) transform.
 
@@ -835,8 +820,7 @@ def inequality_hdi_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def isabo_transform_preprocessing(bytes_data: bytes = None):
+async def isabo_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the ISABO transform.
 
@@ -869,8 +853,7 @@ def isabo_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def itu_ict_transform_preprocessing(bytes_data: bytes = None):
+async def itu_ict_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the ITU ICT transform.
 
@@ -888,8 +871,7 @@ def itu_ict_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def mdp_bpl_transform_preprocessing(bytes_data: bytes = None):
+async def mdp_bpl_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the MDP BPL transform.
 
@@ -916,12 +898,11 @@ def mdp_bpl_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-# def mdp_indicators_taf_transform_preprocessing(bytes_data: bytes= None):
+# async def mdp_indicators_taf_transform_preprocessing(bytes_data: bytes= None):
 #     source_df = pd.read_json(io.BytesIO(bytes_data))
 #     source_df
 
-def mdp_transform_preprocessing(bytes_data: bytes = None):
+async def mdp_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the MDP transform.
 
@@ -932,7 +913,8 @@ def mdp_transform_preprocessing(bytes_data: bytes = None):
         pandas.DataFrame: The preprocessed DataFrame for the MDP transform.
 
     """
-    def mdp_metadata():
+
+    async def mdp_metadata():
         return 'data'.encode('utf-8')
 
     # Read the country metadata JSON file into a DataFrame
@@ -966,8 +948,7 @@ def mdp_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def natural_capital_transform_preprocessing(bytes_data: bytes = None):
+async def natural_capital_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the natural capital transform.
 
@@ -988,8 +969,7 @@ def natural_capital_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def nature_co2_transform_preprocessing(bytes_data: bytes = None):
+async def nature_co2_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the nature CO2 transform.
 
@@ -1010,8 +990,7 @@ def nature_co2_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def nd_climate_readiness_transform_preprocessing(bytes_data: bytes = None):
+async def nd_climate_readiness_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the climate readiness transform.
 
@@ -1039,7 +1018,7 @@ def nd_climate_readiness_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def oecd_raw_mat_consumption_transform_preprocessing(bytes_data: bytes = None):
+async def oecd_raw_mat_consumption_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the OECD raw material consumption transform.
 
@@ -1063,8 +1042,7 @@ def oecd_raw_mat_consumption_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def owid_energy_data_transform_preprocessing(bytes_data: bytes = None):
+async def owid_energy_data_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the OWID energy data transform.
 
@@ -1091,7 +1069,7 @@ def owid_energy_data_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def owid_export_transform(bytes_data: bytes = None):
+async def owid_export_transform(bytes_data: bytes = None):
     """
     Preprocesses the data for the OWID export transform.
 
@@ -1118,8 +1096,7 @@ def owid_export_transform(bytes_data: bytes = None):
     return source_df
 
 
-
-def owid_oz_consumption_transform_preprocessing(bytes_data: bytes = None):
+async def owid_oz_consumption_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the OWID ozone consumption transform.
 
@@ -1153,7 +1130,7 @@ def owid_oz_consumption_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def owid_t3_transform_preprocessing(bytes_data: bytes = None):
+async def owid_t3_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the OWID T3 transform.
 
@@ -1195,8 +1172,7 @@ def owid_t3_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def owid_trade_transform_preprocessing(bytes_data: bytes = None):
+async def owid_trade_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the OWID trade transform.
 
@@ -1226,8 +1202,7 @@ def owid_trade_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def oxcgrt_rl_transform_preprocessing(bytes_data: bytes = None):
+async def oxcgrt_rl_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the OxCGRT RL transform.
 
@@ -1252,8 +1227,7 @@ def oxcgrt_rl_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def pts_transform_preprocessing(bytes_data: bytes = None):
+async def pts_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the PTS transform.
 
@@ -1277,8 +1251,7 @@ def pts_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def sdg_mr_transform_preprocessing(bytes_data: bytes = None):
+async def sdg_mr_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the SDG MR transform.
 
@@ -1296,8 +1269,7 @@ def sdg_mr_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def sdg_rap_transform_preprocessing(bytes_data: bytes = None):
+async def sdg_rap_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the SDG RAP transform.
 
@@ -1318,7 +1290,7 @@ def sdg_rap_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def sipri_transform_preprocessing(bytes_data: bytes = None):
+async def sipri_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the SIPRI transform.
 
@@ -1339,9 +1311,8 @@ def sipri_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def sme_transform_preprocessing(bytes_data: bytes = None):
-    # def get_float_values(row, divident, devisor):
+async def sme_transform_preprocessing(bytes_data: bytes = None):
+    # async def get_float_values(row, divident, devisor):
     #     devisor_val = []
     #     row.replace(" ", np.nan, inplace=True)
     #     if type(row[divident]) == type("str"):
@@ -1369,7 +1340,7 @@ def sme_transform_preprocessing(bytes_data: bytes = None):
     pass
 
 
-def undp_gii_transform_preprocessing(bytes_data: bytes = None):
+async def undp_gii_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the UNDP GII transform.
 
@@ -1393,8 +1364,7 @@ def undp_gii_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def undp_hdi_transform_preprocessing(bytes_data: bytes = None):
+async def undp_hdi_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the UNDP HDI transform.
 
@@ -1412,8 +1382,7 @@ def undp_hdi_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def undp_mpi_transform_preprocessing(bytes_data: bytes = None):
+async def undp_mpi_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the UNDP MPI transform.
 
@@ -1453,7 +1422,7 @@ def undp_mpi_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def unescwa_fr_transform_preprocessing(bytes_data: bytes = None):
+async def unescwa_fr_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the UNESCWA FR transform.
 
@@ -1468,14 +1437,14 @@ def unescwa_fr_transform_preprocessing(bytes_data: bytes = None):
     source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Sheet 1")
 
     # Multiply the 'Government fiscal support (Bn USD) 2020 & 2021' column by (10 ** 9)
-    source_df['Government fiscal support (Bn USD) 2020 & 2021'] = source_df['Government fiscal support (Bn USD) 2020 & 2021'].apply(lambda x: x * (10 ** 9))
+    source_df['Government fiscal support (Bn USD) 2020 & 2021'] = source_df[
+        'Government fiscal support (Bn USD) 2020 & 2021'].apply(lambda x: x * (10 ** 9))
 
     # Return the preprocessed DataFrame
     return source_df
 
 
-
-def unicef_dev_ontrk_transform_preprocessing(bytes_data: bytes = None):
+async def unicef_dev_ontrk_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the UNICEF Development On-Track transform.
 
@@ -1496,14 +1465,13 @@ def unicef_dev_ontrk_transform_preprocessing(bytes_data: bytes = None):
     source_df.replace(['No data'], [np.nan], inplace=True)
 
     # Perform additional preprocessing if required, e.g., changing ISO3 codes to system region ISO3 codes
-    source_df = change_iso3_to_system_region_iso3(source_df, "REF_AREA")
+    source_df = await change_iso3_to_system_region_iso3(source_df, "REF_AREA")
 
     # Return the preprocessed DataFrame
     return source_df
 
 
-
-def untp_transform_preprocessing(bytes_data: bytes = None):
+async def untp_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the United Nations Population Estimates transform.
 
@@ -1534,8 +1502,7 @@ def untp_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def vdem_transform_preprocessing(bytes_data: bytes = None):
+async def vdem_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the Varieties of Democracy transform.
 
@@ -1556,8 +1523,7 @@ def vdem_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def time_udc_transform_preprocessing(bytes_data: bytes = None):
+async def time_udc_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the Time UDC transform.
 
@@ -1578,7 +1544,7 @@ def time_udc_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def wbank_access_elec_transform_preprocessing(bytes_data: bytes = None):
+async def wbank_access_elec_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the World Bank Electricity Access transform.
 
@@ -1599,8 +1565,7 @@ def wbank_access_elec_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def wbank_info_eco_transform_preprocessing(bytes_data: bytes = None, sheet_name=None):
+async def wbank_info_eco_transform_preprocessing(bytes_data: bytes = None, sheet_name=None):
     """
     Preprocesses the data for the World Bank Economic Information transform.
 
@@ -1622,8 +1587,7 @@ def wbank_info_eco_transform_preprocessing(bytes_data: bytes = None, sheet_name=
     return source_df
 
 
-
-def wbank_info_transform_preprocessing(bytes_data: bytes = None, sheet_name=None):
+async def wbank_info_transform_preprocessing(bytes_data: bytes = None, sheet_name=None):
     """
     Preprocesses the data for the World Bank Information transform.
 
@@ -1655,8 +1619,7 @@ def wbank_info_transform_preprocessing(bytes_data: bytes = None, sheet_name=None
     return source_df
 
 
-
-def wbank_poverty_transform_preprocessing(bytes_data: bytes = None):
+async def wbank_poverty_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the World Bank Poverty transform.
 
@@ -1700,7 +1663,7 @@ def wbank_poverty_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-def wbank_energy_transform_preprocessing(bytes_data: bytes = None):
+async def wbank_energy_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the World Bank Energy transform.
 
@@ -1741,8 +1704,7 @@ def wbank_energy_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def wbank_rai_transform_preprocessing(bytes_data: bytes = None):
+async def wbank_rai_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the World Bank RAI transform.
 
@@ -1766,8 +1728,7 @@ def wbank_rai_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def wbank_t1_transform_preprocessing(bytes_data: bytes = None):
+async def wbank_t1_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the World Bank Table 1 transform.
 
@@ -1785,8 +1746,7 @@ def wbank_t1_transform_preprocessing(bytes_data: bytes = None):
     return source_df
 
 
-
-def wbdb_transform_preprocessing(bytes_data: bytes = None):
+async def wbdb_transform_preprocessing(bytes_data: bytes = None):
     # source_df = pd.read_excel(bytes_data)
     # source_df["Economy"] = source_df["Economy"].apply(lambda x: x.rsplit("*")[0] if '*' in str(x) else x)
     # source_df.dropna(subset=["Year"], inplace=True)
@@ -1795,14 +1755,14 @@ def wbdb_transform_preprocessing(bytes_data: bytes = None):
     pass
 
 
-def who_global_rl_transform_preprocessing(bytes_data: bytes = None):
+async def who_global_rl_transform_preprocessing(bytes_data: bytes = None):
     # source_df = pd.read_csv(io.BytesIO(bytes_data))
     # source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(int(x)), '%Y'))
     # return source_df
     pass
 
 
-def who_pre_edu_transform_preprocessing(bytes_data: bytes = None):
+async def who_pre_edu_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the WHO Pre-Education Statistics transform.
 
@@ -1836,13 +1796,13 @@ def who_pre_edu_transform_preprocessing(bytes_data: bytes = None):
     pivot_df.replace(['No data'], [np.nan], inplace=True)
 
     # Map ISO3 codes to system region ISO3 codes
-    pivot_df = change_iso3_to_system_region_iso3(pivot_df, "SpatialDim")
+    pivot_df = await change_iso3_to_system_region_iso3(pivot_df, "SpatialDim")
 
     # Return the preprocessed DataFrame
     return pivot_df
 
 
-def who_rl_transform_preprocessing(bytes_data: bytes = None):
+async def who_rl_transform_preprocessing(bytes_data: bytes = None):
     """
     Preprocesses the data for the WHO Right to Health transform.
 
@@ -1869,7 +1829,7 @@ def who_rl_transform_preprocessing(bytes_data: bytes = None):
     source_df["TimeDim"] = source_df["TimeDim"].apply(lambda x: datetime.strptime(str(x), '%Y'))
 
     # Map ISO3 codes to system region ISO3 codes
-    source_df = change_iso3_to_system_region_iso3(source_df, "SpatialDim")
+    source_df = await change_iso3_to_system_region_iso3(source_df, "SpatialDim")
 
     # Return the preprocessed DataFrame
     return source_df
