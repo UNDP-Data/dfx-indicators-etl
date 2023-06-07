@@ -14,6 +14,8 @@ __pycache__
 # ignore python local build files
 dfpp.egg-info
 dist
-
+indicator_cfg_files/
+source_cfg_files/
+*.csv
 .pytest_cache
 *test.txt
