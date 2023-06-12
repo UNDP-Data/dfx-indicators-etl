@@ -1,12 +1,14 @@
+import asyncio
 import io
+import os
 from datetime import datetime
 import re
 import pandas as pd
 import numpy as np
-from dfpp.utils import change_iso3_to_system_region_iso3, fix_iso_country_codes, add_country_code, add_region_code
-import pycountry
-import logging
 
+from dfpp.storage import AsyncAzureBlobStorageManager
+from dfpp.utils import change_iso3_to_system_region_iso3, fix_iso_country_codes, add_country_code, add_region_code
+import logging
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -24,6 +26,7 @@ async def acctoi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="INFRASTRUCTURE II EN")
 
@@ -34,11 +37,12 @@ async def acctoi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         source_df = source_df.replace(['…', '-', 'x[16]'], [np.nan, np.nan, np.nan])
 
         # Rename the column "Unnamed: 0" to "Country"
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"}, inplace=True)
+        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
+                         inplace=True)
 
         return source_df
     except Exception as e:
-        logger.error(f"Error in acctoi_transform_preprocessing: {e}")
+        logger.error(f"Error in acctoi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -54,6 +58,7 @@ async def bti_project_transform_preprocessing(bytes_data: bytes = None, **kwargs
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data))
 
@@ -64,11 +69,12 @@ async def bti_project_transform_preprocessing(bytes_data: bytes = None, **kwargs
         source_df = source_df.replace(['…', '-', 'x[16]'], [np.nan, np.nan, np.nan])
 
         # Rename the column with long name to "Country"
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"}, inplace=True)
+        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
+                         inplace=True)
 
         return source_df
     except Exception as e:
-        logger.error(f"Error in bti_project_transform_preprocessing: {e}")
+        logger.error(f"Error in bti_project_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -84,18 +90,20 @@ async def cpi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
         source_df = pd.read_json(io.BytesIO(bytes_data))
 
         # Rename the columns
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
+        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code",
+                                  kwargs.get("year_column"): "Year"},
                          inplace=True)
 
         # Convert the "Year" column to datetime format
-        source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(x), '%Y'))
+        source_df["year"] = source_df["year"].apply(lambda x: datetime.strptime(str(x), '%Y'))
         return source_df
     except Exception as e:
-        logger.error(f"Error in cpi_transform_preprocessing: {e}")
+        logger.error(f"Error in cpi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -111,6 +119,7 @@ async def cpia_rlpr_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
 
@@ -118,11 +127,12 @@ async def cpia_rlpr_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         source_df.replace("..", np.nan, inplace=True)
 
         # Rename the columns
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"}, inplace=True)
+        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
+                         inplace=True)
 
         return source_df
     except Exception as e:
-        logger.error(f"Error in cpia_rlpr_transform_preprocessing: {e}")
+        logger.error(f"Error in cpia_rlpr_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -138,15 +148,17 @@ async def cpia_spca_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
 
         # Rename the columns
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"}, inplace=True)
+        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
+                         inplace=True)
 
         return source_df
     except Exception as e:
-        logger.error(f"Error in cpia_spca_transform_preprocessing: {e}")
+        logger.error(f"Error in cpia_spca_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -162,6 +174,7 @@ async def cpia_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data), header=2)
 
@@ -169,11 +182,12 @@ async def cpia_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         source_df.replace("..", np.nan, inplace=True)
 
         # Rename the columns
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"}, inplace=True)
+        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
+                         inplace=True)
 
         return source_df
     except Exception as e:
-        logger.error(f"Error in cpia_transform_preprocessing: {e}")
+        logger.error(f"Error in cpia_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -189,9 +203,11 @@ async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         source_df = pd.read_csv(io.BytesIO(bytes_data))
 
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"}, inplace=True)
+        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
+                         inplace=True)
 
         async def reorganize_number_ranges(text):
             # Reorganize number ranges in the text to have consistent formatting
@@ -293,7 +309,7 @@ async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         source_df.drop_duplicates(subset=["ISO"], keep="last", inplace=True)
         return source_df
     except Exception as e:
-        logger.error(f"Error in eb_ndc_transform_preprocessing: {e}")
+        logger.error(f"Error in eb_ndc_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -309,15 +325,17 @@ async def cw_t2_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
 
         # rename the country and key columns based on the kwargs
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"}, inplace=True)
+        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
+                         inplace=True)
         # Return the DataFrame without any further preprocessing
         return source_df
     except Exception as e:
-        logger.error(f"Error in cw_t2_transform_preprocessing: {e}")
+        logger.error(f"Error in cw_t2_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -332,18 +350,35 @@ async def eb_wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         pandas.DataFrame: The preprocessed DataFrame for the EB WBDB transform.
 
     """
+    global df
+    indicator = kwargs.get("indicator")
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
-        source_df = pd.read_csv(io.BytesIO(bytes_data))
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
-                         inplace=True)
-        # Select the desired columns from the DataFrame
-        selected_columns = ["Ease of doing business score (DB17-20 methodology)", "Year"]
-        source_df = source_df[selected_columns]
+        source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="DB Data (As of DB20)", header=3)
+        year_col_mapping = {
+            2016: '(DB17-20 methodology)',
+            2014: '(DB15 methodology)',
+            2010: '(DB10-14 methodology)'
+        }
+        group_df = source_df.groupby('DB Year')
+        group_column_mapping = {}
+        for year in group_df.groups.keys():
+            for db_year in year_col_mapping.keys():
+                if int(year) >= db_year:
+                    indicator_suffix = year_col_mapping[db_year]
+                    if (" ".join([indicator, indicator_suffix])) not in group_column_mapping.keys():
+                        group_column_mapping[" ".join([indicator, indicator_suffix])] = []
+                    group_column_mapping[" ".join([indicator, indicator_suffix])].append(year)
+                    break
+            for key in group_column_mapping.keys():
+                df = pd.concat(group_df.get_group(year) for year in group_column_mapping[key])
+                df['DB Year'] = df['DB Year'].apply(lambda x: datetime.strptime(str(int(float(x))), '%Y'))
+
         # Return the preprocessed DataFrame
-        return source_df
+        return df
     except Exception as e:
-        logger.error(f"Error in eb_wbdb_transform_preprocessing: {e}")
+        logger.error(f"Error in eb_wbdb_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -359,6 +394,7 @@ async def fao_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Data")
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -369,7 +405,7 @@ async def fao_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in fao_transform_preprocessing: {e}")
+        logger.error(f"Error in fao_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -385,6 +421,7 @@ async def ff_dc_ce_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Data")
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -397,7 +434,7 @@ async def ff_dc_ce_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in ff_dc_ce_transform_preprocessing: {e}")
+        logger.error(f"Error in ff_dc_ce_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -413,6 +450,7 @@ async def ghg_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -425,7 +463,7 @@ async def ghg_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in ghg_ndc_transform_preprocessing: {e}")
+        logger.error(f"Error in ghg_ndc_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -441,6 +479,7 @@ async def gii_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -448,7 +487,7 @@ async def gii_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the DataFrame without any preprocessing
         return source_df
     except Exception as e:
-        logger.error(f"Error in gii_transform_preprocessing: {e}")
+        logger.error(f"Error in gii_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -464,6 +503,7 @@ async def global_data_fsi_transform_preprocessing(bytes_data: bytes = None, **kw
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -471,7 +511,7 @@ async def global_data_fsi_transform_preprocessing(bytes_data: bytes = None, **kw
         # Return the DataFrame without any preprocessing
         return source_df
     except Exception as e:
-        logger.error(f"Error in global_data_fsi_transform_preprocessing: {e}")
+        logger.error(f"Error in global_data_fsi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -487,6 +527,7 @@ async def global_findex_database_transform_preprocessing(bytes_data: bytes = Non
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Data", header=0, skiprows=0)
 
@@ -499,7 +540,7 @@ async def global_findex_database_transform_preprocessing(bytes_data: bytes = Non
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in global_findex_database_transform_preprocessing: {e}")
+        logger.error(f"Error in global_findex_database_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -515,6 +556,7 @@ async def global_pi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -522,7 +564,7 @@ async def global_pi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the DataFrame without any additional preprocessing
         return source_df
     except Exception as e:
-        logger.error(f"Error in global_pi_transform_preprocessing: {e}")
+        logger.error(f"Error in global_pi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -538,6 +580,7 @@ async def eil_pe_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="7.3 Official indicator", skiprows=2)
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -553,7 +596,7 @@ async def eil_pe_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in eil_pe_transform_preprocessing: {e}")
+        logger.error(f"Error in eil_pe_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -569,6 +612,7 @@ async def ec_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame, skipping rows and selecting columns
         source_df = pd.read_excel(io.BytesIO(bytes_data), skiprows=10, nrows=202, usecols=[i for i in range(0, 12)])
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -579,7 +623,6 @@ async def ec_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
         # Rename the columns
         source_df.columns = new_column_names
-
         # Drop rows with missing values in the "Source" column
         source_df.dropna(subset=['Source'], inplace=True)
 
@@ -602,7 +645,7 @@ async def ec_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in ec_edu_transform_preprocessing: {e}")
+        logger.error(f"Error in ec_edu_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -618,24 +661,16 @@ async def hdr_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
-        # Read the CSV file into a DataFrame
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         source_df = pd.read_csv(io.BytesIO(bytes_data))
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
-                         inplace=True)
-        # Perform the transformation to convert ISO country codes to system region ISO3 codes
         source_df = await change_iso3_to_system_region_iso3(source_df, "Alpha-3 code")
-
-        # Reset the index
         source_df.reset_index(inplace=True)
-
-        # Fix ISO country codes using a custom function
-        await fix_iso_country_codes(source_df, "Alpha-3 code", 'HDR')
+        # await fix_iso_country_codes(df=source_df, col="Alpha-3 code", source_id="HDR")
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
-        # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in hdr_transform_preprocessing: {e}")
+        logger.error(f"Error in hdr_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -651,21 +686,25 @@ async def heritage_id_transform_preprocessing(bytes_data: bytes = None, **kwargs
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data))
 
         # Rename columns
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"}, inplace=True)
-
-        # Convert the "Year" column to datetime format
-        source_df["Year"] = pd.to_datetime(source_df["Year"], format='%Y')
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
+
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in heritage_id_transform_preprocessing: {e}")
+        logger.error(f"Error in heritage_id_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
+
+
+async def ilo_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+    source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
+    source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
+    return source_df
 
 
 async def ilo_ee_transform_preprocessing(bytes_data: bytes = None, **kwargs):
@@ -680,6 +719,7 @@ async def ilo_ee_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
 
@@ -693,7 +733,7 @@ async def ilo_ee_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in ilo_ee_transform_preprocessing: {e}")
+        logger.error(f"Error in ilo_ee_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -709,6 +749,7 @@ async def ilo_lfs_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame, skipping the first 5 rows
         source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
 
@@ -719,7 +760,7 @@ async def ilo_lfs_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in ilo_lfs_transform_preprocessing: {e}")
+        logger.error(f"Error in ilo_lfs_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -735,6 +776,7 @@ async def ilo_nifl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame, skipping the first 5 rows
         source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
 
@@ -745,48 +787,8 @@ async def ilo_nifl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in ilo_nifl_transform_preprocessing: {e}")
+        logger.error(f"Error in ilo_nifl_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
-
-
-# async def ilo_nifl_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs):
-#     print("EETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTs", bytes_data is Nonesource_df = pd.read_excel(io.BytesIO(bytes_data), header
-#     =5)
-#     source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
-#     return source_df
-#
-#
-# async def ilo_nifl_rt_age_transform_preprocessing(bytes_data: bytes = None, **kwargs):
-#     print("EETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTs", bytes_data is Nonesource_df = pd.read_excel(io.BytesIO(bytes_data), header
-#     =5)
-#     source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
-#     return source_df
-#
-#
-# async def ilo_nifl_rt_eco_transform_preprocessing(bytes_data: bytes = None, **kwargs):
-#     print("EETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTs", bytes_data is Nonesource_df = pd.read_excel(io.BytesIO(bytes_data), header
-#     =5)
-#     source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
-#     return source_df
-
-
-async def imf_ifi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
-    # print("EETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTs", bytes_data is Nonesource_df = pd.read_excel(io.BytesIO(bytes_data), sheet_nam
-    # e="financial assistance")
-    # source_df2 = pd.read_excel(io.BytesIO(bytes_data), sheet_name="debt-relief")
-    # source_df2.rename(columns={"country": "Country", "source": "Type of Emergency Financing",
-    #                           "amount approved in SDR": "Amount Approved in SDR",
-    #                           "amount approved in USD": "Amount Approved in US$",
-    #                           "date of approval": "Date of Approval"}, inplace=True)
-    # source_df = pd.concat([source_df, source_df2], ignore_index=True)
-    # source_df['Date of Approval'] = source_df['Date of Approval'].apply(
-    #     lambda x: datetime.strptime(str(x).rsplit(" ")[0], '%Y-%m-%d'))
-    # source_df["Amount Approved in US$"] = source_df["Amount Approved in US$"].apply(
-    #     lambda x: float(x.rsplit("mill")[0].replace(",", "").replace("US$", "")) * (10 ** 6))
-    #
-    # return source_df
-    pass
-
 
 async def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None, **kwargs):
     """
@@ -800,6 +802,7 @@ async def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None, **k
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data))
 
@@ -810,7 +813,7 @@ async def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None, **k
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in imf_weo_baseline_transform_preprocessing: {e}")
+        logger.error(f"Error in imf_weo_baseline_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -834,6 +837,7 @@ async def imf_weo_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data))
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -844,7 +848,7 @@ async def imf_weo_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in imf_weo_transform_preprocessing: {e}")
+        logger.error(f"Error in imf_weo_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -860,6 +864,7 @@ async def iec_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), header=1)
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -883,7 +888,7 @@ async def iec_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in iec_transform_preprocessing: {e}")
+        logger.error(f"Error in iec_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -899,31 +904,33 @@ async def imsmy_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Table 1", header=10)
         # Replace ".." with NaN values
         source_df.replace("..", np.nan, inplace=True)
 
         # Rename the "Region, development group, country or area" column to "Country"
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
-                         inplace=True)
+
+        # source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
+        #                  inplace=True)
 
         # Remove spaces and asterisks from the "Country" column values
-        source_df["Country"] = source_df["Country"].apply(lambda x: x.replace(" ", "").replace("*", ""))
+        # source_df["Country"] = source_df["Country"].apply(lambda x: x.replace(" ", "").replace("*", ""))
 
         # Convert the "Year" column to datetime format
         source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(x), '%Y'))
 
         # Add country codes to the DataFrame
-        source_df = await add_country_code(source_df, "Country")
+        source_df = await add_country_code(source_df)
 
         # Add region codes to the DataFrame
-        source_df = await add_region_code(source_df, "Country")
+        # source_df = await add_region_code(source_df, "Country")
 
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in imsmy_transform_preprocessing: {e}")
+        logger.error(f"Error in imsmy_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -939,6 +946,7 @@ async def inequality_hdi_transform_preprocessing(bytes_data: bytes = None, **kwa
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Table 3", header=4)
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -952,7 +960,7 @@ async def inequality_hdi_transform_preprocessing(bytes_data: bytes = None, **kwa
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in inequality_hdi_transform_preprocessing: {e}")
+        logger.error(f"Error in inequality_hdi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -968,6 +976,7 @@ async def isabo_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the JSON file into a DataFrame
         source_df = pd.read_json(io.BytesIO(bytes_data))
 
@@ -992,7 +1001,7 @@ async def isabo_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in isabo_transform_preprocessing: {e}")
+        logger.error(f"Error in isabo_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1008,6 +1017,7 @@ async def itu_ict_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="i99H", header=5)
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -1015,7 +1025,7 @@ async def itu_ict_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in itu_ict_transform_preprocessing: {e}")
+        logger.error(f"Error in itu_ict_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1031,6 +1041,7 @@ async def mdp_bpl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data))
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -1047,7 +1058,7 @@ async def mdp_bpl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in mdp_bpl_transform_preprocessing: {e}")
+        logger.error(f"Error in mdp_bpl_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1067,8 +1078,17 @@ async def mdp_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         async def mdp_metadata():
-            return 'data'.encode('utf-8')
+            storage = await AsyncAzureBlobStorageManager.create_instance(
+                connection_string=os.getenv('AZURE_STORAGE_CONNECTION_STRING'),
+                container_name=os.getenv('CONTAINER_NAME'),
+                use_singleton=False
+            )
+            country_df_bytes = await storage.download(
+                blob_name=os.path.join(os.getenv('ROOT_FOLDER'), 'config', 'utilities', 'MDP_META.json'))
+            await storage.close()
+            return country_df_bytes
 
         # Read the country metadata JSON file into a DataFrame
         country_df = pd.read_json(io.BytesIO(await mdp_metadata()))
@@ -1101,7 +1121,7 @@ async def mdp_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in mdp_transform_preprocessing: {e}")
+        logger.error(f"Error in mdp_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1117,6 +1137,7 @@ async def natural_capital_transform_preprocessing(bytes_data: bytes = None, **kw
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data))
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -1127,7 +1148,7 @@ async def natural_capital_transform_preprocessing(bytes_data: bytes = None, **kw
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in natural_capital_transform_preprocessing: {e}")
+        logger.error(f"Error in natural_capital_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1143,6 +1164,7 @@ async def nature_co2_transform_preprocessing(bytes_data: bytes = None, **kwargs)
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), header=1)
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -1153,7 +1175,7 @@ async def nature_co2_transform_preprocessing(bytes_data: bytes = None, **kwargs)
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in nature_co2_transform_preprocessing: {e}")
+        logger.error(f"Error in nature_co2_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1169,6 +1191,7 @@ async def nd_climate_readiness_transform_preprocessing(bytes_data: bytes = None,
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -1186,7 +1209,7 @@ async def nd_climate_readiness_transform_preprocessing(bytes_data: bytes = None,
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in nd_climate_readiness_transform_preprocessing: {e}")
+        logger.error(f"Error in nd_climate_readiness_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1202,6 +1225,7 @@ async def oecd_raw_mat_consumption_transform_preprocessing(bytes_data: bytes = N
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -1215,7 +1239,7 @@ async def oecd_raw_mat_consumption_transform_preprocessing(bytes_data: bytes = N
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in oecd_raw_mat_consumption_transform_preprocessing: {e}")
+        logger.error(f"Error in oecd_raw_mat_consumption_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1231,6 +1255,7 @@ async def owid_energy_data_transform_preprocessing(bytes_data: bytes = None, **k
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
 
@@ -1241,13 +1266,13 @@ async def owid_energy_data_transform_preprocessing(bytes_data: bytes = None, **k
         source_df["year"] = source_df["year"].apply(lambda x: datetime.strptime(str(round(float(x))), '%Y'))
 
         # Add region codes to the DataFrame
-        source_df = await add_region_code(source_df, "country", "iso_code")
+        # source_df = await add_region_code(source_df, "country", "iso_code")
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in owid_energy_data_transform_preprocessing: {e}")
+        logger.error(f"Error in owid_energy_data_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1263,6 +1288,7 @@ async def owid_export_transform(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
 
@@ -1273,7 +1299,7 @@ async def owid_export_transform(bytes_data: bytes = None, **kwargs):
         source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(round(float(x))), '%Y'))
 
         # Add region codes to the DataFrame
-        source_df = await add_region_code(source_df, "Entity", "Code")
+        # source_df = await add_region_code(source_df, "Entity", "Code")
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
         # Return the preprocessed DataFrame
@@ -1295,6 +1321,7 @@ async def owid_oz_consumption_transform_preprocessing(bytes_data: bytes = None, 
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
 
@@ -1318,7 +1345,7 @@ async def owid_oz_consumption_transform_preprocessing(bytes_data: bytes = None, 
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in owid_oz_consumption_transform_preprocessing: {e}")
+        logger.error(f"Error in owid_oz_consumption_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1334,6 +1361,7 @@ async def owid_t3_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Mapping dictionaries for column names and formats
         indicator_mapping = {
             "pollution_deaths_fossil_fuels_owid": "Excess mortality from fossil fuels",
@@ -1355,17 +1383,16 @@ async def owid_t3_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         source_df = pd.read_csv(io.BytesIO(bytes_data))
 
         # Drop rows with missing values in the time column
-        source_df.dropna(subset=[time_column_mapping["OWID_T3"]], inplace=True)
+        source_df.dropna(subset=["Year"], inplace=True)
 
         # Convert the time column to datetime format
-        source_df[time_column_mapping["OWID_T3"]] = pd.to_datetime(source_df[time_column_mapping["OWID_T3"]],
-                                                                   format=time_format_mapping["OWID_T3"])
+        source_df["Year"] = pd.to_datetime(source_df["Year"], format="%Y")
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in owid_t3_transform_preprocessing: {e}")
+        logger.error(f"Error in owid_t3_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1381,6 +1408,7 @@ async def owid_trade_transform_preprocessing(bytes_data: bytes = None, **kwargs)
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         country_col_name = 'Entity'  # Column name for country names
         iso_col_name = 'Code'  # Column name for ISO country codes
 
@@ -1394,13 +1422,13 @@ async def owid_trade_transform_preprocessing(bytes_data: bytes = None, **kwargs)
         source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(round(float(x))), '%Y'))
 
         # Add region code to the DataFrame using the add_region_code function (assuming it exists)
-        source_df = await add_region_code(source_df, country_col_name, iso_col_name)
+        # source_df = await add_region_code(source_df, country_col_name, iso_col_name)
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in owid_trade_transform_preprocessing: {e}")
+        logger.error(f"Error in owid_trade_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1416,6 +1444,7 @@ async def oxcgrt_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
 
@@ -1430,7 +1459,7 @@ async def oxcgrt_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in oxcgrt_rl_transform_preprocessing: {e}")
+        logger.error(f"Error in oxcgrt_rl_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1446,6 +1475,7 @@ async def pts_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
 
@@ -1459,7 +1489,7 @@ async def pts_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in pts_transform_preprocessing: {e}")
+        logger.error(f"Error in pts_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1475,6 +1505,7 @@ async def sdg_mr_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Table format")
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -1482,7 +1513,7 @@ async def sdg_mr_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in sdg_mr_transform_preprocessing: {e}")
+        logger.error(f"Error in sdg_mr_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1498,6 +1529,7 @@ async def sdg_rap_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
 
@@ -1508,7 +1540,7 @@ async def sdg_rap_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in sdg_mr_transform_preprocessing: {e}")
+        logger.error(f"Error in sdg_mr_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
 
 
 async def sipri_transform_preprocessing(bytes_data: bytes = None, **kwargs):
@@ -1523,6 +1555,7 @@ async def sipri_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Share of Govt. spending", header=7)
 
@@ -1533,39 +1566,8 @@ async def sipri_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in sipri_transform_preprocessing: {e}")
+        logger.error(f"Error in sipri_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
-
-
-async def sme_transform_preprocessing(bytes_data: bytes = None, **kwargs):
-    # async def get_float_values(row, divident, deviso
-    # r):
-    #     devisor_val = []
-    #     row.replace(" ", np.nan, inplace=True)
-    #     if type(row[divident]) == type("str"):
-    #         divident_val = float(row[divident].replace(",", "").replace(" ", "").replace(":", ""))
-    #     else:
-    #         divident_val = row[divident]
-    #     for col in devisor:
-    #         if type(row[col]) == type("str"):
-    #             devisor_val.append(float(row[col].replace(",", "").replace(" ", "").replace(":", "")))
-    #         else:
-    #             devisor_val.append(row[col])
-    #     return (divident_val, devisor_val
-    #             )
-    #
-    # source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Time Series")
-    # source_df.replace(":", np.nan, inplace=True)
-    # source_df = source_df.iloc[1:]
-    # source_df.reset_index(inplace=True)
-    # source_df.rename(columns={"Country": "Country", "Country Code": "Alpha-3 code"}, inplace=True)
-    # source_unique_df = source_df.drop_duplicates(subset=["Alpha-3 code"], keep="last").set_index("Alpha-3 code")[
-    #     ["Country", ]]
-    # cols = list(set(source_df.columns))
-    # group_df = source_df.groupby("Alpha-3 code")
-    # return source_df
-    pass
-
 
 async def undp_gii_transform_preprocessing(bytes_data: bytes = None, **kwargs):
     """
@@ -1579,6 +1581,7 @@ async def undp_gii_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
 
@@ -1592,7 +1595,7 @@ async def undp_gii_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in undp_gii_transform_preprocessing: {e}")
+        logger.error(f"Error in undp_gii_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1608,6 +1611,7 @@ async def undp_hdi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -1615,7 +1619,7 @@ async def undp_hdi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in undp_hdi_transform_preprocessing: {e}")
+        logger.error(f"Error in undp_hdi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1631,6 +1635,7 @@ async def undp_mpi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame (Table 2)
         source_df = pd.read_excel(io.BytesIO(bytes_data), header=4, sheet_name="Table 2")
 
@@ -1660,7 +1665,7 @@ async def undp_mpi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in undp_mpi_transform_preprocessing: {e}")
+        logger.error(f"Error in undp_mpi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1676,6 +1681,7 @@ async def unescwa_fr_transform_preprocessing(bytes_data: bytes = None, **kwargs)
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Sheet1")
 
@@ -1687,7 +1693,7 @@ async def unescwa_fr_transform_preprocessing(bytes_data: bytes = None, **kwargs)
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in unescwa_fr_transform_preprocessing: {e}")
+        logger.error(f"Error in unescwa_fr_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1703,6 +1709,7 @@ async def unicef_dev_ontrk_transform_preprocessing(bytes_data: bytes = None, **k
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
 
@@ -1719,7 +1726,7 @@ async def unicef_dev_ontrk_transform_preprocessing(bytes_data: bytes = None, **k
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in unicef_dev_ontrk_transform_preprocessing: {e}")
+        logger.error(f"Error in unicef_dev_ontrk_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1735,6 +1742,7 @@ async def untp_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Estimates", header=16)
 
@@ -1749,13 +1757,13 @@ async def untp_transform_preprocessing(bytes_data: bytes = None, **kwargs):
             "Total Population, as of 1 January (thousands)"].apply(lambda x: x * 1000)
 
         # Perform additional preprocessing if required, e.g., adding region codes
-        source_df = await add_region_code(source_df, "Region, subregion, country or area *", "ISO3 Alpha-code")
+        # source_df = await add_region_code(source_df, "Region, subregion, country or area *", "ISO3 Alpha-code")
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in untp_transform_preprocessing: {e}")
+        logger.error(f"Error in untp_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1771,6 +1779,7 @@ async def vdem_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
 
@@ -1781,7 +1790,7 @@ async def vdem_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in vdem_transform_preprocessing: {e}")
+        logger.error(f"Error in vdem_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1797,6 +1806,7 @@ async def time_udc_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data), encoding='ISO-8859-1', skiprows=1)
 
@@ -1807,7 +1817,7 @@ async def time_udc_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in time_udc_transform_preprocessing: {e}")
+        logger.error(f"Error in time_udc_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1823,6 +1833,7 @@ async def wbank_access_elec_transform_preprocessing(bytes_data: bytes = None, **
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Data", header=0)
 
@@ -1833,7 +1844,7 @@ async def wbank_access_elec_transform_preprocessing(bytes_data: bytes = None, **
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in wbank_access_elec_transform_preprocessing: {e}")
+        logger.error(f"Error in wbank_access_elec_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1850,6 +1861,7 @@ async def wbank_info_eco_transform_preprocessing(bytes_data: bytes = None, sheet
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name=sheet_name, header=0)
 
@@ -1860,7 +1872,7 @@ async def wbank_info_eco_transform_preprocessing(bytes_data: bytes = None, sheet
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in wbank_info_eco_transform_preprocessing: {e}")
+        logger.error(f"Error in wbank_info_eco_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1877,6 +1889,7 @@ async def wbank_info_transform_preprocessing(bytes_data: bytes = None, sheet_nam
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name=sheet_name, header=13)
 
@@ -1897,7 +1910,7 @@ async def wbank_info_transform_preprocessing(bytes_data: bytes = None, sheet_nam
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in wbank_info_transform_preprocessing: {e}")
+        logger.error(f"Error in wbank_info_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1913,6 +1926,7 @@ async def wbank_poverty_transform_preprocessing(bytes_data: bytes = None, **kwar
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), header=0, skiprows=3)
 
@@ -1946,7 +1960,7 @@ async def wbank_poverty_transform_preprocessing(bytes_data: bytes = None, **kwar
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in wbank_poverty_transform_preprocessing: {e}")
+        logger.error(f"Error in wbank_poverty_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1962,6 +1976,7 @@ async def wbank_energy_transform_preprocessing(bytes_data: bytes = None, **kwarg
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Data", header=0)
 
@@ -1992,7 +2007,7 @@ async def wbank_energy_transform_preprocessing(bytes_data: bytes = None, **kwarg
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in wbank_energy_transform_preprocessing: {e}")
+        logger.error(f"Error in wbank_energy_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -2008,6 +2023,7 @@ async def wbank_rai_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="RAI Crosstab", header=2)
 
@@ -2021,7 +2037,7 @@ async def wbank_rai_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in wbank_rai_transform_preprocessing: {e}")
+        logger.error(f"Error in wbank_rai_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -2037,6 +2053,7 @@ async def wbank_t1_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Data", header=3)
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
@@ -2044,26 +2061,8 @@ async def wbank_t1_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in wbank_t1_transform_preprocessing: {e}")
+        logger.error(f"Error in wbank_t1_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
-
-
-async def wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs):
-    # print("EETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTs", bytes_data is Nonesource_df = pd.read_excel(io.BytesIO(bytes_dat
-    # a))
-    # source_df["Economy"] = source_df["Economy"].apply(lambda x: x.rsplit("*")[0] if '*' in str(x) else x)
-    # source_df.dropna(subset=["Year"], inplace=True)
-    # source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(int(x)), '%Y'))
-    # return source_df
-    pass
-
-
-async def who_global_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
-    # print("EETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTs", bytes_data is Nonesource_df = pd.read_csv(io.BytesIO(bytes_dat
-    # a))
-    # source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(int(x)), '%Y'))
-    # return source_df
-    pass
 
 
 async def who_pre_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs):
@@ -2078,6 +2077,7 @@ async def who_pre_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the JSON data into a DataFrame
         source_df = pd.read_json(io.BytesIO(bytes_data))
 
@@ -2103,11 +2103,11 @@ async def who_pre_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs
         # Map ISO3 codes to system region ISO3 codes
         pivot_df = await change_iso3_to_system_region_iso3(pivot_df, "SpatialDim")
         pivot_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
-                         inplace=True)
+                        inplace=True)
         # Return the preprocessed DataFrame
         return pivot_df
     except Exception as e:
-        logger.error(f"Error in who_pre_edu_transform_preprocessing: {e}")
+        logger.error(f"Error in who_pre_edu_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -2123,6 +2123,7 @@ async def who_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
     """
     try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the JSON data into a DataFrame
         source_df = pd.read_json(io.BytesIO(bytes_data))
 
@@ -2145,9 +2146,9 @@ async def who_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in who_rl_transform_preprocessing: {e}")
+        logger.error(f"Error in who_rl_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
 if __name__ == "__main__":
-    print(list(pycountry.countries))
+    pass
