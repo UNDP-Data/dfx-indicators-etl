@@ -1,13 +1,17 @@
 import configparser
+import logging
 import os
 from typing import Any, AsyncGenerator, Dict, Generator, List, Optional, Tuple
 
+import pandas as pd
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import ContainerClient, ContentSettings
 from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import ContainerClient as AContainerClient
 
 from dfpp.dfpp_exceptions import ConfigError, DFPSourceError
+from constants import *
+logger = logging.getLogger(__name__)
 
 
 class AzureBlobStorageManager:
@@ -23,7 +27,7 @@ class AzureBlobStorageManager:
         Initializes the container client for Azure Blob Storage.
         """
         self.delimiter = "/"
-        self.ROOT_FOLDER = os.getenv("ROOT_FOLDER")
+        self.ROOT_FOLDER = ROOT_FOLDER
 
         if AzureBlobStorageManager._instance is not None:
             raise Exception(
@@ -411,6 +415,7 @@ class AzureBlobStorageManager:
         blob_client.start_copy_from_url(
             self.container_client.primary_hostname + "/" + self.container_name + "/" + dst_blob
         )
+
     def upload(
             self,
             dst_path: str = None,
@@ -480,7 +485,7 @@ class AsyncAzureBlobStorageManager:
         """
         self.container_client = container_client
         self.delimiter = "/"
-        self.ROOT_FOLDER = os.getenv("ROOT_FOLDER")
+        self.ROOT_FOLDER = ROOT_FOLDER
 
     @classmethod
     async def create_instance(
@@ -506,20 +511,23 @@ class AsyncAzureBlobStorageManager:
         :return: An initialized instance of the AsyncAzureBlobStorageManager class.
         :rtype: AsyncAzureBlobStorageManager
         """
-        if use_singleton:
-            if cls._instance is None:
-                # Create an instance if it doesn't exist
+        try:
+            if use_singleton:
+                if cls._instance is None:
+                    # Create an instance if it doesn't exist
+                    container_client = AContainerClient.from_connection_string(
+                        conn_str=connection_string, container_name=container_name
+                    )
+                    cls._instance = cls(container_client)
+                return cls._instance
+            else:
+                # Always create a new instance
                 container_client = AContainerClient.from_connection_string(
                     conn_str=connection_string, container_name=container_name
                 )
-                cls._instance = cls(container_client)
-            return cls._instance
-        else:
-            # Always create a new instance
-            container_client = AContainerClient.from_connection_string(
-                conn_str=connection_string, container_name=container_name
-            )
-            return cls(container_client)
+                return cls(container_client)
+        except Exception as e:
+            raise e
 
     @staticmethod
     async def _initialize(container_client):
@@ -909,22 +917,25 @@ class AsyncAzureBlobStorageManager:
             Returns:
                 None
         """
-        blob_client = self.container_client.get_blob_client(blob=dst_path)
-        if src_path:
-            with open(src_path, "rb") as f:
+        try:
+            blob_client = self.container_client.get_blob_client(blob=dst_path)
+            if src_path:
+                with open(src_path, "rb") as f:
+                    await blob_client.upload_blob(
+                        data=f,
+                        overwrite=overwrite,
+                        content_settings=ContentSettings(content_type=content_type),
+                    )
+            elif data:
                 await blob_client.upload_blob(
-                    data=f,
+                    data=data,
                     overwrite=overwrite,
                     content_settings=ContentSettings(content_type=content_type),
                 )
-        elif data:
-            await blob_client.upload_blob(
-                data=data,
-                overwrite=overwrite,
-                content_settings=ContentSettings(content_type=content_type),
-            )
-        else:
-            raise ValueError("Either 'src_path' or 'data' must be provided.")
+            else:
+                raise ValueError("Either 'src_path' or 'data' must be provided.")
+        except Exception as e:
+            raise e
 
     async def copy_blob(self, src_blob: str, dst_blob: str) -> None:
         """

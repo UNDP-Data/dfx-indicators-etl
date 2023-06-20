@@ -5,6 +5,8 @@ from datetime import datetime
 import re
 import pandas as pd
 import numpy as np
+from constants import *
+import swifter
 
 from dfpp.storage import AsyncAzureBlobStorageManager
 from dfpp.utils import change_iso3_to_system_region_iso3, fix_iso_country_codes, add_country_code, add_region_code
@@ -74,7 +76,8 @@ async def bti_project_transform_preprocessing(bytes_data: bytes = None, **kwargs
 
         return source_df
     except Exception as e:
-        logger.error(f"Error in bti_project_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in bti_project_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -132,7 +135,8 @@ async def cpia_rlpr_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
         return source_df
     except Exception as e:
-        logger.error(f"Error in cpia_rlpr_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in cpia_rlpr_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -158,7 +162,8 @@ async def cpia_spca_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
         return source_df
     except Exception as e:
-        logger.error(f"Error in cpia_spca_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in cpia_spca_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -280,23 +285,28 @@ async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 
         # 26-28 -> 26 - 28
         # because 28 will be minus if this transformation is not done
-        source_df["M_TarA2"] = source_df["M_TarA2"].apply(reorganize_number_ranges)
+        source_df["M_TarA2"] = source_df["M_TarA2"].swifter.apply(
+            lambda val: asyncio.run(reorganize_number_ranges(val)))
         # If there are multiple values in M_TarA2 take the lower one
-        source_df["M_TarA2"] = source_df["M_TarA2"].apply(extract_minimum_number)
+        source_df["M_TarA2"] = source_df["M_TarA2"].swifter.apply(lambda val: asyncio.run(extract_minimum_number(val)))
 
         # ****clean column values - M_TarA3****
         for key, value in replacement_string_values.items():
             source_df["M_TarA3"] = source_df["M_TarA3"].str.replace(key, value, regex=False)
         # extract the numbers that has suffix " Gg"
-        source_df["M_TarA3"] = source_df["M_TarA3"].apply(extract_number_with_suffix)
+        source_df["M_TarA3"] = source_df["M_TarA3"].swifter.apply(
+            lambda val: asyncio.run(extract_number_with_suffix(val)))
         # calculate how many numbers are in the "M_TarA3" column cells because we drop the rows that the number count is more than 1
-        source_df["M_TarA3 Number Count"] = source_df["M_TarA3"].apply(get_number_count)
+
+        source_df["M_TarA3 Number Count"] = source_df["M_TarA3"].swifter.apply(
+            lambda val: asyncio.run(get_number_count(val)))
         # drop the rows that the number count is more than 1
         source_df = source_df[source_df["M_TarA3 Number Count"] == 1]
         # replace .23 with 0.23 otherwise it will recognize as number 23
-        source_df["M_TarA3"] = source_df["M_TarA3"].apply(reorganize_floating_numbers)
+        source_df["M_TarA3"] = source_df["M_TarA3"].swifter.apply(
+            lambda val: asyncio.run(reorganize_floating_numbers(val)))
         # extract the number and apply changes if the unit is not the standard one
-        source_df["M_TarA3"] = source_df["M_TarA3"].apply(extract_and_change)
+        source_df["M_TarA3"] = source_df["M_TarA3"].swifter.apply(lambda val: asyncio.run(extract_and_change(val)))
 
         source_df["M_TarA2"] = source_df["M_TarA2"].astype(float)
         source_df["M_TarA3"] = source_df["M_TarA3"].astype(float)
@@ -397,8 +407,8 @@ async def fao_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Data")
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
-                         inplace=True)
+        # source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
+        #                  inplace=True)
         # Extract the year from the "Time_Detail" column
         source_df["Time_Detail"] = source_df["Time_Detail"].apply(lambda x: str(x).rsplit("-")[0])
         source_df["Time_Detail"] = source_df["Time_Detail"].apply(lambda x: datetime.strptime(str(x), '%Y'))
@@ -511,7 +521,8 @@ async def global_data_fsi_transform_preprocessing(bytes_data: bytes = None, **kw
         # Return the DataFrame without any preprocessing
         return source_df
     except Exception as e:
-        logger.error(f"Error in global_data_fsi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in global_data_fsi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -540,7 +551,8 @@ async def global_findex_database_transform_preprocessing(bytes_data: bytes = Non
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in global_findex_database_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in global_findex_database_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -564,7 +576,8 @@ async def global_pi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the DataFrame without any additional preprocessing
         return source_df
     except Exception as e:
-        logger.error(f"Error in global_pi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in global_pi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -665,7 +678,7 @@ async def hdr_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         source_df = pd.read_csv(io.BytesIO(bytes_data))
         source_df = await change_iso3_to_system_region_iso3(source_df, "Alpha-3 code")
         source_df.reset_index(inplace=True)
-        # await fix_iso_country_codes(df=source_df, col="Alpha-3 code", source_id="HDR")
+        await fix_iso_country_codes(df=source_df, col="Alpha-3 code", source_id="HDR")
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
         return source_df
@@ -697,7 +710,8 @@ async def heritage_id_transform_preprocessing(bytes_data: bytes = None, **kwargs
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in heritage_id_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in heritage_id_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -790,6 +804,7 @@ async def ilo_nifl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         logger.error(f"Error in ilo_nifl_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
+
 async def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None, **kwargs):
     """
     Preprocesses the data for the IMF World Economic Outlook (WEO) baseline transform.
@@ -813,7 +828,8 @@ async def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None, **k
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in imf_weo_baseline_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in imf_weo_baseline_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -960,7 +976,8 @@ async def inequality_hdi_transform_preprocessing(bytes_data: bytes = None, **kwa
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in inequality_hdi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in inequality_hdi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1048,13 +1065,11 @@ async def mdp_bpl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
                          inplace=True)
         # Remove the first row from the DataFrame
         source_df = source_df.iloc[1:]
-
         # Extract the country name from the "countryname" column
-        source_df["countryname"] = source_df["countryname"].apply(lambda x: " ".join(x.rsplit(" ")[1:]))
-
+        source_df["Country"] = source_df["Country"].apply(lambda x: " ".join(x.rsplit(" ")[1:]))
+        # print(source_df.head())
         # Extract the year from the "period" column
         source_df["period"] = source_df["period"].apply(lambda x: datetime.strptime(str(x).rsplit(" ")[-1], '%Y'))
-
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
@@ -1079,14 +1094,15 @@ async def mdp_transform_preprocessing(bytes_data: bytes = None, **kwargs):
     """
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
+
         async def mdp_metadata():
             storage = await AsyncAzureBlobStorageManager.create_instance(
-                connection_string=os.getenv('AZURE_STORAGE_CONNECTION_STRING'),
-                container_name=os.getenv('CONTAINER_NAME'),
+                connection_string=AZURE_STORAGE_CONNECTION_STRING,
+                container_name=AZURE_STORAGE_CONTAINER_NAME,
                 use_singleton=False
             )
             country_df_bytes = await storage.download(
-                blob_name=os.path.join(os.getenv('ROOT_FOLDER'), 'config', 'utilities', 'MDP_META.json'))
+                blob_name=os.path.join(ROOT_FOLDER, 'config', 'utilities', 'MDP_META.json'))
             await storage.close()
             return country_df_bytes
 
@@ -1148,7 +1164,8 @@ async def natural_capital_transform_preprocessing(bytes_data: bytes = None, **kw
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in natural_capital_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in natural_capital_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1175,7 +1192,8 @@ async def nature_co2_transform_preprocessing(bytes_data: bytes = None, **kwargs)
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in nature_co2_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in nature_co2_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1209,7 +1227,8 @@ async def nd_climate_readiness_transform_preprocessing(bytes_data: bytes = None,
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in nd_climate_readiness_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in nd_climate_readiness_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1239,7 +1258,8 @@ async def oecd_raw_mat_consumption_transform_preprocessing(bytes_data: bytes = N
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in oecd_raw_mat_consumption_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in oecd_raw_mat_consumption_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1272,7 +1292,8 @@ async def owid_energy_data_transform_preprocessing(bytes_data: bytes = None, **k
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in owid_energy_data_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in owid_energy_data_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1345,7 +1366,8 @@ async def owid_oz_consumption_transform_preprocessing(bytes_data: bytes = None, 
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in owid_oz_consumption_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in owid_oz_consumption_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1428,7 +1450,8 @@ async def owid_trade_transform_preprocessing(bytes_data: bytes = None, **kwargs)
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in owid_trade_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in owid_trade_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1459,7 +1482,8 @@ async def oxcgrt_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in oxcgrt_rl_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in oxcgrt_rl_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1560,14 +1584,17 @@ async def sipri_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Share of Govt. spending", header=7)
 
         # Replace "..." with NaN values
-        source_df.replace(["..."], [np.nan], inplace=True)
+        source_df.replace(["...", "xxx"], [np.nan, np.nan], inplace=True)
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
+        pd.set_option('display.max_columns', None)
+        print(source_df.head())
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
         logger.error(f"Error in sipri_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
+
 
 async def undp_gii_transform_preprocessing(bytes_data: bytes = None, **kwargs):
     """
@@ -1693,7 +1720,8 @@ async def unescwa_fr_transform_preprocessing(bytes_data: bytes = None, **kwargs)
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in unescwa_fr_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in unescwa_fr_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1726,7 +1754,8 @@ async def unicef_dev_ontrk_transform_preprocessing(bytes_data: bytes = None, **k
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in unicef_dev_ontrk_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in unicef_dev_ontrk_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1844,7 +1873,8 @@ async def wbank_access_elec_transform_preprocessing(bytes_data: bytes = None, **
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in wbank_access_elec_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in wbank_access_elec_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1872,7 +1902,8 @@ async def wbank_info_eco_transform_preprocessing(bytes_data: bytes = None, sheet
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in wbank_info_eco_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in wbank_info_eco_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1910,7 +1941,8 @@ async def wbank_info_transform_preprocessing(bytes_data: bytes = None, sheet_nam
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in wbank_info_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in wbank_info_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -1939,17 +1971,6 @@ async def wbank_poverty_transform_preprocessing(bytes_data: bytes = None, **kwar
         # Create a dictionary to hold the column renaming information
         column_rename = {}
 
-        # Iterate over the columns and assign new column names
-        for column in source_df.columns:
-            if column == 'mdpoor_i1':
-                column_rename[column] = 'Multidimensional poverty headcount ratio (%)'
-            elif column == 'economy':
-                column_rename[column] = 'Country'
-            elif column == 'code':
-                column_rename[column] = 'Alpha-3 code'
-            else:
-                column_rename[column] = str(column)
-
         # Rename the columns using the column_rename dictionary
         source_df.rename(columns=column_rename, inplace=True)
 
@@ -1960,7 +1981,8 @@ async def wbank_poverty_transform_preprocessing(bytes_data: bytes = None, **kwar
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in wbank_poverty_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in wbank_poverty_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -2007,7 +2029,8 @@ async def wbank_energy_transform_preprocessing(bytes_data: bytes = None, **kwarg
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in wbank_energy_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in wbank_energy_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -2037,7 +2060,8 @@ async def wbank_rai_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
-        logger.error(f"Error in wbank_rai_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in wbank_rai_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -2107,7 +2131,8 @@ async def who_pre_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs
         # Return the preprocessed DataFrame
         return pivot_df
     except Exception as e:
-        logger.error(f"Error in who_pre_edu_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in who_pre_edu_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
 
 
@@ -2148,6 +2173,30 @@ async def who_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
     except Exception as e:
         logger.error(f"Error in who_rl_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
+
+
+async def wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+    source_df = pd.read_excel(io.BytesIO(bytes_data))
+    source_df["Economy"] = source_df["Economy"].apply(lambda x: x.rsplit("*")[0] if '*' in str(x) else x)
+    source_df.dropna(subset=["Year"], inplace=True)
+    source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(int(x)), '%Y'))
+    return source_df
+
+
+async def ilo_sdg_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+    source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
+    source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
+    return source_df
+
+
+async def ilo_spf_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+    source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
+    source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
+    return source_df
+
+
+async def imf_ifi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+    source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="financial assistance", header=3)
 
 
 if __name__ == "__main__":

@@ -1,17 +1,12 @@
-import ast
-import asyncio
 import base64
-import csv
 import io
 import json
 import logging
 import os
 import tempfile
 import time
-import urllib
 import zipfile
-from configparser import ConfigParser
-from typing import Any, Optional, Tuple
+from typing import Any, Tuple
 from urllib.parse import urlencode
 from dotenv import load_dotenv
 
@@ -21,10 +16,8 @@ import pandas as pd
 from aiohttp import ClientTimeout
 
 from dfpp.storage import AsyncAzureBlobStorageManager
+from constants import *
 
-CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-CONTAINER_NAME = os.getenv("CONTAINER_NAME")
-ROOT_FOLDER = os.getenv("ROOT_FOLDER")
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=600)
 
 logger = logging.getLogger(__name__)
@@ -666,6 +659,6 @@ if __name__ == "__main__":
     logger.addHandler(logging_stream_handler)
     logger.name = __name__
     asyncio.run(retrieval(
-        connection_string=os.getenv("AZURE_STORAGE_CONNECTION_STRING"),
-        container_name=os.getenv("CONTAINER_NAME"),
+        connection_string=AZURE_STORAGE_CONNECTION_STRING,
+        container_name=AZURE_STORAGE_CONTAINER_NAME,
     ))
