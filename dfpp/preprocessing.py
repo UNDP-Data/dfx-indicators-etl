@@ -1587,8 +1587,6 @@ async def sipri_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         source_df.replace(["...", "xxx"], [np.nan, np.nan], inplace=True)
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
-        pd.set_option('display.max_columns', None)
-        print(source_df.head())
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
