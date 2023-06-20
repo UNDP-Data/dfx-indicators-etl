@@ -1,16 +1,15 @@
 import asyncio
 import io
-import os
+import logging
+from tempfile import TemporaryDirectory
 import pandas as pd
 from dfpp.storage import AsyncAzureBlobStorageManager
+from dfpp.constants import *
+
+logger = logging.getLogger(__name__)
 
 
-KEY_COL = "Alpha-3 code"
-COUNTRY_COL = "Country"
-country_lookup_path = "DataFuturePlatform/pipeline/config/utilities/country_lookup.xlsx"
-
-
-async def add_country_code(source_df):
+async def add_country_code(source_df, country_name_column=None):
     """
     Adds country codes to a DataFrame based on a country lookup table.
 
@@ -19,24 +18,29 @@ async def add_country_code(source_df):
 
     Returns:
         pandas.DataFrame: The source DataFrame with country codes added.
+        :param source_df:
+        :param country_key_column:
+        :param country_name_column:
 
     """
     storage = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=os.getenv('AZURE_STORAGE_CONNECTION_STRING'),
-        container_name=os.getenv('CONTAINER_NAME'),
+        connection_string=AZURE_STORAGE_CONNECTION_STRING,
+        container_name=AZURE_STORAGE_CONTAINER_NAME,
     )
-    country_lookup_bytes = await storage.download(country_lookup_path)
+    country_lookup_bytes = await storage.download(blob_name=COUNTRY_LOOKUP_CSV_PATH)
     country_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_lookup")
-
-    country_df.set_index("Country", inplace=True)
-    country_df.dropna(subset=[KEY_COL], inplace=True)
-    source_df = source_df.join(country_df[KEY_COL])
+    if country_name_column != country_df.index.name:
+        country_df.set_index(country_name_column, inplace=True)
+        country_df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
+    if country_name_column != source_df.index.name:
+        source_df.set_index(country_name_column, inplace=True)
+    source_df = source_df.join(country_df[STANDARD_KEY_COLUMN])
     source_df.reset_index(inplace=True)
     await storage.close()
     return source_df
 
 
-async def add_region_code(source_df, region_name_col, region_key_col=None):
+async def add_region_code(source_df=None, region_name_col=None, region_key_col=None):
     """
     Adds region codes to a DataFrame based on a lookup table.
 
@@ -55,42 +59,43 @@ async def add_region_code(source_df, region_name_col, region_key_col=None):
             or the region lookup table.
 
         """
-    storage = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=os.getenv('AZURE_STORAGE_CONNECTION_STRING'),
-        container_name=os.getenv('CONTAINER_NAME'),
-    )
-    country_lookup_bytes = await storage.download(country_lookup_path)
-    region_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="region_lookup")
-    region_df = region_df.drop_duplicates(subset=["Region"], keep='last')
-    region_df.dropna(subset=["Region"], inplace=True)
-
-    if "Region" != region_df.index.name:
-        region_df['Region'] = region_df['Region'].str.replace(' ', '')
+    try:
+        storage = await AsyncAzureBlobStorageManager.create_instance(
+            connection_string=AZURE_STORAGE_CONNECTION_STRING,
+            container_name=AZURE_STORAGE_CONTAINER_NAME,
+        )
+        country_lookup_bytes = await storage.download(blob_name=COUNTRY_LOOKUP_CSV_PATH)
+        region_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="region_lookup")
         region_df = region_df.drop_duplicates(subset=["Region"], keep='last')
-        region_df.set_index("Region", inplace=True)
-        region_df.dropna(subset=[KEY_COL], inplace=True)
+        region_df.dropna(subset=["Region"], inplace=True)
+        if "Region" != region_df.index.name:
+            region_df['Region'] = region_df['Region'].str.replace(' ', '')
+            region_df = region_df.drop_duplicates(subset=["Region"], keep='last')
+            region_df.set_index("Region", inplace=True)
+            region_df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
 
-    if region_name_col != source_df.index.name:
-        source_df[region_name_col] = source_df[region_name_col].str.replace(' ', '')
-        source_df.set_index(region_name_col, inplace=True)
+        if region_name_col != source_df.index.name:
+            source_df[region_name_col] = source_df[region_name_col].str.replace(' ', '')
+            source_df.set_index(region_name_col, inplace=True)
+        if region_key_col is None:
+            col_list = source_df.columns.to_list()
+            if STANDARD_KEY_COLUMN in col_list:
+                source_df.update(region_df[STANDARD_KEY_COLUMN])
 
-    if region_key_col is None:
-        col_list = source_df.columns.to_list()
-        if KEY_COL in col_list:
-            source_df.update(region_df[KEY_COL])
+            else:
+                source_df = source_df.join(region_df[STANDARD_KEY_COLUMN])
 
         else:
-            source_df = source_df.join(region_df[KEY_COL])
+            region_df.rename(columns={STANDARD_KEY_COLUMN: region_key_col}, inplace=True)
+            source_df.update(region_df[region_key_col])
+            source_df.rename(columns={region_key_col: STANDARD_KEY_COLUMN}, inplace=True)
 
-    else:
-        region_df.rename(columns={KEY_COL: region_key_col}, inplace=True)
-        source_df.update(region_df[region_key_col])
-        source_df.rename(columns={region_key_col: KEY_COL}, inplace=True)
-
-    source_df.reset_index(inplace=True)
-    source_df.dropna(subset=[KEY_COL], inplace=True)
-    await storage.close()
-    return source_df
+        source_df.reset_index(inplace=True)
+        source_df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
+        # await storage.close()
+        return source_df
+    except Exception as e:
+        print(e)
 
 
 async def add_alpha_code_3_column(source_df, country_col):
@@ -109,24 +114,24 @@ async def add_alpha_code_3_column(source_df, country_col):
 
         """
     storage = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=os.getenv('AZURE_STORAGE_CONNECTION_STRING'),
-        container_name=os.getenv('CONTAINER_NAME'),
+        connection_string=AZURE_STORAGE_CONNECTION_STRING,
+        container_name=AZURE_STORAGE_CONTAINER_NAME,
     )
-    country_lookup_bytes = await storage.download(country_lookup_path)
+    country_lookup_bytes = await storage.download(COUNTRY_LOOKUP_CSV_PATH)
     country_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_lookup")
     country_df = country_df.rename(columns={'Country': country_col})
     await storage.close()
     return pd.merge(source_df, country_df[['Alpha-3 code', country_col]], on=[country_col], how='left')
 
 
-async def fix_iso_country_codes(df, col, sourceId=None):
+async def fix_iso_country_codes(df: pd.DataFrame = None, col: str = None, source_id=None):
     """
     Fixes ISO country codes in a DataFrame based on a country code lookup table.
 
     Args:
         df (pandas.DataFrame): The DataFrame to fix the ISO country codes in.
         col (str): The name of the column containing ISO country codes in `df`.
-        sourceId (str, optional): The source ID for which to fix the ISO country codes.
+        source_id (str, optional): The source ID for which to fix the ISO country codes.
             If provided, only rows with a matching source ID will be updated. Defaults to None.
 
     Returns:
@@ -134,14 +139,14 @@ async def fix_iso_country_codes(df, col, sourceId=None):
 
         """
     storage = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=os.getenv('AZURE_STORAGE_CONNECTION_STRING'),
-        container_name=os.getenv('CONTAINER_NAME'),
+        connection_string=AZURE_STORAGE_CONNECTION_STRING,
+        container_name=AZURE_STORAGE_CONTAINER_NAME,
     )
-    country_lookup_bytes = await storage.download(country_lookup_path)
+    country_lookup_bytes = await storage.download(COUNTRY_LOOKUP_CSV_PATH)
     country_code_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_code_lookup")
+    print(country_code_df.head())
     for index, row in country_code_df.iterrows():
-        print(sourceId, row.get("Only For Souce ID"), row['ISO 3 Code'], row['UNDP ISO 3 Code'])
-        if sourceId is None or sourceId == row.get("Only For Souce ID"):
+        if source_id is None or source_id == row.get("Only For Source ID"):
             df.loc[(df[col] == row['ISO 3 Code']), col] = row['UNDP ISO 3 Code']
     await storage.close()
 
@@ -160,14 +165,73 @@ async def change_iso3_to_system_region_iso3(source_df, iso3_col):
     temp_col = iso3_col + '_RegionDim'
     source_df[temp_col] = source_df[iso3_col]
     source_df = await add_region_code(source_df, temp_col, iso3_col)
-    source_df[iso3_col] = source_df[KEY_COL]
+    source_df[iso3_col] = source_df[STANDARD_KEY_COLUMN]
     drop_list = [temp_col]
-    if iso3_col != KEY_COL:
-        drop_list.append(KEY_COL)
+    if iso3_col != STANDARD_KEY_COLUMN:
+        drop_list.append(STANDARD_KEY_COLUMN)
     return source_df.drop(columns=drop_list)
 
 
+async def get_year_columns(columns, col_prefix=None, col_suffix=None, column_substring=None):
+    year_columns = {}
+    column_map = {}
+    for column in columns:
+        column_map[column] = column
+    if column_substring is not None:
+        print("THIS IS THE COLUMN SUBSTRING: " + column_substring)
+        for column in columns:
+            column_map[column] = column_map[column].replace(column_substring, "")
+    elif col_prefix is not None or col_suffix is not None:
+        if col_prefix is not None:
+            for column in columns:
+                column_map[column] = column_map[column].rsplit(col_prefix)[-1]
+        if col_suffix is not None:
+            for column in columns:
+                column_map[column] = column_map[column].rsplit(col_suffix)[0]
+    for column in column_map:
+        try:
+            year = int(float(column_map[column]))
+            year_columns[year] = column
+        except Exception as e:
+            pass
+    return year_columns
+
+
+async def rename_indicator(indicator, year):
+    return indicator + "_" + str(int(float(year)))
+
+
+async def invert_dictionary(original_dictionary):
+    inverted_dictionary = {}
+    for dict_key in original_dictionary:
+        inverted_dictionary[original_dictionary[dict_key]] = dict_key
+    return inverted_dictionary
+
+
+async def upload_to_blob_as_csv(df=None, blob_name=None):
+    storage_manager = await AsyncAzureBlobStorageManager.create_instance(
+        connection_string=AZURE_STORAGE_CONNECTION_STRING,
+        container_name=AZURE_STORAGE_CONTAINER_NAME,
+        use_singleton=False
+    )
+    try:
+        destination_path = os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
+        with TemporaryDirectory() as temp_dir:
+            temp_file = os.path.join(temp_dir, blob_name)
+            df.to_csv(temp_file)
+            await storage_manager.upload(
+                src_path=temp_file,
+                dst_path=destination_path,
+                overwrite=True,
+                content_type="text/csv"
+            )
+        await storage_manager.close()
+        return True
+    except Exception as e:
+        logger.error("Error uploading to blob: " + str(e))
+        return False
+
+
 if __name__ == "__main__":
-    df = pd.DataFrame([{'Country': 'United States of America'}])
-    new_df = asyncio.run(add_country_code(df))
-    print(new_df)
+    test_df = pd.read_csv("./BTI_PROJECT.csv")
+    asyncio.run(upload_to_blob_as_csv(df=test_df, blob_name="BTI_PROJECT.csv"))
