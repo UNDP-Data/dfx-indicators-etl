@@ -2,6 +2,8 @@ import configparser
 import csv
 import os
 import json
+
+
 ## TODO: Update Retrieval User Data/downloader_params automatically condtionally updated
 ## right now user must manually update these
 
@@ -100,7 +102,9 @@ def csv_to_cfg(input_csv, output_dir):
                             config.set("source", "downloader_function", value)
                 elif key == "Frequency":
                     config.set("source", "frequency", value)
-
+            config.set("source", "country_iso3_column", "")
+            config.set("source", "country_name_column", "")
+            config.set("source", "datetime_column", "")
             path = os.path.join(output_dir, row["Source ID"].lower())
             if not os.path.exists(path):
                 os.makedirs(path)
@@ -114,5 +118,5 @@ def csv_to_cfg(input_csv, output_dir):
 
 if __name__ == "__main__":
     input_csv = "source_list.csv"
-    output_dir = "output_cfg_files"
+    output_dir = "source_cfg_files"
     csv_to_cfg(input_csv, output_dir)

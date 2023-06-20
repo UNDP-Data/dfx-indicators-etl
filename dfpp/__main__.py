@@ -1,10 +1,9 @@
 import logging
-import sys
-import os
 import asyncio
 import argparse
 from dotenv import load_dotenv
 from dfpp.download import retrieval
+from constants import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--run',
@@ -16,8 +15,8 @@ async def main():
     args = parser.parse_args()
     if args.env:
         load_dotenv(dotenv_path=args.env)
-        connection_string = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
-        container_name = os.getenv('CONTAINER_NAME')
+        connection_string = AZURE_STORAGE_CONNECTION_STRING
+        container_name = AZURE_STORAGE_CONTAINER_NAME
         if args.run == 'download':
             await retrieval(connection_string=connection_string, container_name=container_name)
     else:

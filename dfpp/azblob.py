@@ -61,10 +61,11 @@ async def list(connection_string: str = None, container_name=None, prefix: str =
 
 if __name__ == "__main__":
     import os
+    from constants import *
 
-    connection_string = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
-    container_name = os.environ["CONTAINER_NAME"]
-    root_folder = os.environ["ROOT_FOLDER"]
+    connection_string = AZURE_STORAGE_CONNECTION_STRING
+    container_name = AZURE_STORAGE_CONTAINER_NAME
+    root_folder = ROOT_FOLDER
     account_name = connection_string.split(";")[1].split("=")[1]
     prefix = f'{os.path.join(root_folder, "config", "sources")}'
     asyncio.run(

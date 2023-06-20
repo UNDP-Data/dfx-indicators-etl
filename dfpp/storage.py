@@ -1,13 +1,17 @@
 import configparser
+import logging
 import os
 from typing import Any, AsyncGenerator, Dict, Generator, List, Optional, Tuple
 
+import pandas as pd
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import ContainerClient, ContentSettings
 from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import ContainerClient as AContainerClient
 
 from dfpp.dfpp_exceptions import ConfigError, DFPSourceError
+from constants import *
+logger = logging.getLogger(__name__)
 
 
 class AzureBlobStorageManager:
@@ -23,7 +27,7 @@ class AzureBlobStorageManager:
         Initializes the container client for Azure Blob Storage.
         """
         self.delimiter = "/"
-        self.ROOT_FOLDER = os.getenv("ROOT_FOLDER")
+        self.ROOT_FOLDER = ROOT_FOLDER
 
         if AzureBlobStorageManager._instance is not None:
             raise Exception(
@@ -36,9 +40,9 @@ class AzureBlobStorageManager:
 
     @staticmethod
     def create_instance(
-        connection_string: str = None,
-        container_name: str = None,
-        use_singleton: bool = True,
+            connection_string: str = None,
+            container_name: str = None,
+            use_singleton: bool = True,
     ):
         """
         Creates and initializes an instance of the AzureBlobStorageManager class
@@ -65,7 +69,7 @@ class AzureBlobStorageManager:
 
     def hierarchical_list(self, prefix: str = None):
         for blob in self.container_client.walk_blobs(
-            name_starts_with=prefix, delimiter=self.delimiter
+                name_starts_with=prefix, delimiter=self.delimiter
         ):
             yield blob
 
@@ -103,9 +107,9 @@ class AzureBlobStorageManager:
         prefix = f"{self.ROOT_FOLDER}/config/sources"
         for blob in self._yield_blobs(prefix=prefix):
             if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and "indicators" in blob.name
+                    not isinstance(blob, BlobPrefix)
+                    and blob.name.endswith(".cfg")
+                    and "indicators" in blob.name
             ):
                 stream = self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -138,9 +142,9 @@ class AzureBlobStorageManager:
         prefix = f"{self.ROOT_FOLDER}/config/sources"
         for blob in self._yield_blobs(prefix=prefix):
             if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and not "indicators" in blob.name
+                    not isinstance(blob, BlobPrefix)
+                    and blob.name.endswith(".cfg")
+                    and not "indicators" in blob.name
             ):
                 stream = self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -172,9 +176,9 @@ class AzureBlobStorageManager:
         prefix = f"{self.ROOT_FOLDER}/config/sources"
         for blob in self._yield_blobs(prefix=prefix):
             if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and not "indicators" in blob.name
+                    not isinstance(blob, BlobPrefix)
+                    and blob.name.endswith(".cfg")
+                    and not "indicators" in blob.name
             ):
                 stream = self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -212,9 +216,9 @@ class AzureBlobStorageManager:
         prefix = f"{self.ROOT_FOLDER}/config/sources"
         for blob in self._yield_blobs(prefix=prefix):
             if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and "indicators" in blob.name
+                    not isinstance(blob, BlobPrefix)
+                    and blob.name.endswith(".cfg")
+                    and "indicators" in blob.name
             ):
                 stream = self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -252,9 +256,9 @@ class AzureBlobStorageManager:
         prefix = f"{self.ROOT_FOLDER}/config/utilities"
         for blob in self._yield_blobs(prefix=prefix):
             if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and utility_file == os.path.basename(blob.name)
+                    not isinstance(blob, BlobPrefix)
+                    and blob.name.endswith(".cfg")
+                    and utility_file == os.path.basename(blob.name)
             ):
                 stream = self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -272,9 +276,9 @@ class AzureBlobStorageManager:
             raise ConfigError(f"Utitlity source not valid")
 
     def get_source_files(
-        self,
-        source_type: str,
-        source_files: List[str] = None,
+            self,
+            source_type: str,
+            source_files: List[str] = None,
     ) -> Generator[bytes, None, None]:
         """
         Synchronously queries an Azure Blob Container for CSV files in a specific directory,
@@ -309,13 +313,13 @@ class AzureBlobStorageManager:
             if len(source_files) > 0:
                 for source_id in source_files:
                     if (
-                        not isinstance(blob, BlobPrefix)
-                        and (
+                            not isinstance(blob, BlobPrefix)
+                            and (
                             blob.name.endswith(".csv")
                             or blob.name.endswith(".xlsx")
                             or blob.name.endswith(".xls")
-                        )
-                        and source_id == os.path.basename(blob.name)
+                    )
+                            and source_id == os.path.basename(blob.name)
                     ):
                         stream = self.container_client.download_blob(
                             blob.name, max_concurrency=8
@@ -324,9 +328,9 @@ class AzureBlobStorageManager:
                         found_csv = True
                         yield content
             elif not isinstance(blob, BlobPrefix) and (
-                blob.name.endswith(".csv")
-                or blob.name.endswith(".xlsx")
-                or blob.name.endswith(".xls")
+                    blob.name.endswith(".csv")
+                    or blob.name.endswith(".xlsx")
+                    or blob.name.endswith(".xls")
             ):
                 stream = self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -341,7 +345,7 @@ class AzureBlobStorageManager:
             )
 
     def get_output_files(
-        self, subfolder: str
+            self, subfolder: str
     ) -> Generator[Tuple[str, bytes], None, None]:
         # ...
         """
@@ -399,13 +403,26 @@ class AzureBlobStorageManager:
         else:
             return data.content_as_bytes()
 
+    def copy_blob(self, src_blob: str, dst_blob: str) -> None:
+        """
+        Copies a blob from one location to another in Azure Blob Storage.
+
+        Args:
+            src_blob (str): The name of the source blob.
+            dst_blob (str): The name of the destination blob.
+        """
+        blob_client = self.container_client.get_blob_client(blob=src_blob)
+        blob_client.start_copy_from_url(
+            self.container_client.primary_hostname + "/" + self.container_name + "/" + dst_blob
+        )
+
     def upload(
-        self,
-        dst_path: str = None,
-        src_path: str = None,
-        data: bytes = None,
-        content_type: str = None,
-        overwrite: bool = True,
+            self,
+            dst_path: str = None,
+            src_path: str = None,
+            data: bytes = None,
+            content_type: str = None,
+            overwrite: bool = True,
     ) -> None:
         """
             Uploads a file or bytes data to Azure Blob Storage.
@@ -468,14 +485,14 @@ class AsyncAzureBlobStorageManager:
         """
         self.container_client = container_client
         self.delimiter = "/"
-        self.ROOT_FOLDER = os.getenv("ROOT_FOLDER")
+        self.ROOT_FOLDER = ROOT_FOLDER
 
     @classmethod
     async def create_instance(
-        cls: "AsyncAzureBlobStorageManager",
-        connection_string: str = None,
-        container_name: str = None,
-        use_singleton: bool = True,
+            cls: "AsyncAzureBlobStorageManager",
+            connection_string: str = None,
+            container_name: str = None,
+            use_singleton: bool = True,
     ):
         """
         Asynchronously creates and initializes an instance of the AsyncAzureBlobStorageManager class
@@ -494,20 +511,23 @@ class AsyncAzureBlobStorageManager:
         :return: An initialized instance of the AsyncAzureBlobStorageManager class.
         :rtype: AsyncAzureBlobStorageManager
         """
-        if use_singleton:
-            if cls._instance is None:
-                # Create an instance if it doesn't exist
+        try:
+            if use_singleton:
+                if cls._instance is None:
+                    # Create an instance if it doesn't exist
+                    container_client = AContainerClient.from_connection_string(
+                        conn_str=connection_string, container_name=container_name
+                    )
+                    cls._instance = cls(container_client)
+                return cls._instance
+            else:
+                # Always create a new instance
                 container_client = AContainerClient.from_connection_string(
                     conn_str=connection_string, container_name=container_name
                 )
-                cls._instance = cls(container_client)
-            return cls._instance
-        else:
-            # Always create a new instance
-            container_client = AContainerClient.from_connection_string(
-                conn_str=connection_string, container_name=container_name
-            )
-            return cls(container_client)
+                return cls(container_client)
+        except Exception as e:
+            raise e
 
     @staticmethod
     async def _initialize(container_client):
@@ -527,7 +547,7 @@ class AsyncAzureBlobStorageManager:
 
     async def hierarchical_list(self, prefix: str = None):
         async for blob in self.container_client.walk_blobs(
-            name_starts_with=prefix, delimiter=self.delimiter
+                name_starts_with=prefix, delimiter=self.delimiter
         ):
             yield blob
 
@@ -545,7 +565,7 @@ class AsyncAzureBlobStorageManager:
         filtered_blobs = []
         name_starts_with = f"{prefix}/{filter}"
         async for blob in self.container_client.list_blobs(
-            name_starts_with=name_starts_with
+                name_starts_with=name_starts_with
         ):
             filtered_blobs.append(blob)
         return filtered_blobs
@@ -567,9 +587,9 @@ class AsyncAzureBlobStorageManager:
         prefix = f"{self.ROOT_FOLDER}/config/sources"
         async for blob in self._yield_blobs(prefix=prefix):
             if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and "indicators" in blob.name
+                    not isinstance(blob, BlobPrefix)
+                    and blob.name.endswith(".cfg")
+                    and "indicators" in blob.name
             ):
                 stream = await self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -602,9 +622,9 @@ class AsyncAzureBlobStorageManager:
         prefix = f"{self.ROOT_FOLDER}/config/sources"
         async for blob in self._yield_blobs(prefix=prefix):
             if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and not "indicators" in blob.name
+                    not isinstance(blob, BlobPrefix)
+                    and blob.name.endswith(".cfg")
+                    and not "indicators" in blob.name
             ):
                 stream = await self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -636,9 +656,9 @@ class AsyncAzureBlobStorageManager:
         prefix = f"{self.ROOT_FOLDER}/config/sources"
         async for blob in self._yield_blobs(prefix=prefix):
             if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and not "indicators" in blob.name
+                    not isinstance(blob, BlobPrefix)
+                    and blob.name.endswith(".cfg")
+                    and not "indicators" in blob.name
             ):
                 stream = await self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -676,9 +696,9 @@ class AsyncAzureBlobStorageManager:
         prefix = f"{self.ROOT_FOLDER}/config/sources"
         async for blob in self._yield_blobs(prefix=prefix):
             if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and "indicators" in blob.name
+                    not isinstance(blob, BlobPrefix)
+                    and blob.name.endswith(".cfg")
+                    and "indicators" in blob.name
             ):
                 stream = await self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -716,9 +736,9 @@ class AsyncAzureBlobStorageManager:
         prefix = f"{self.ROOT_FOLDER}/config/utilities"
         async for blob in self._yield_blobs(prefix=prefix):
             if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and utility_file == os.path.basename(blob.name)
+                    not isinstance(blob, BlobPrefix)
+                    and blob.name.endswith(".cfg")
+                    and utility_file == os.path.basename(blob.name)
             ):
                 stream = await self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -736,9 +756,9 @@ class AsyncAzureBlobStorageManager:
             raise ConfigError(f"Utitlity source not valid")
 
     async def get_source_files(
-        self,
-        source_type: str,
-        source_files: List[str] = None,
+            self,
+            source_type: str,
+            source_files: List[str] = None,
     ) -> AsyncGenerator[bytes, None]:
         """
         Asynchronously queries an Azure Blob Container for CSV files in a specific directory,
@@ -773,13 +793,13 @@ class AsyncAzureBlobStorageManager:
             if len(source_files) > 0:
                 for source_id in source_files:
                     if (
-                        not isinstance(blob, BlobPrefix)
-                        and (
+                            not isinstance(blob, BlobPrefix)
+                            and (
                             blob.name.endswith(".csv")
                             or blob.name.endswith(".xlsx")
                             or blob.name.endswith(".xls")
-                        )
-                        and source_id == os.path.basename(blob.name)
+                    )
+                            and source_id == os.path.basename(blob.name)
                     ):
                         stream = await self.container_client.download_blob(
                             blob.name, max_concurrency=8
@@ -788,9 +808,9 @@ class AsyncAzureBlobStorageManager:
                         found_csv = True
                         yield content
             elif not isinstance(blob, BlobPrefix) and (
-                blob.name.endswith(".csv")
-                or blob.name.endswith(".xlsx")
-                or blob.name.endswith(".xls")
+                    blob.name.endswith(".csv")
+                    or blob.name.endswith(".xlsx")
+                    or blob.name.endswith(".xls")
             ):
                 stream = await self.container_client.download_blob(
                     blob.name, max_concurrency=8
@@ -805,7 +825,7 @@ class AsyncAzureBlobStorageManager:
             )
 
     async def get_output_files(
-        self, subfolder: str
+            self, subfolder: str
     ) -> AsyncGenerator[Tuple[str, bytes], None]:
         # ...
         """
@@ -843,7 +863,7 @@ class AsyncAzureBlobStorageManager:
         await blob_client.delete_blob()
 
     async def download(
-        self, blob_name: str = None, dst_path: str = None
+            self, blob_name: str = None, dst_path: str = None
     ) -> Optional[bytes]:
         """
         Downloads a file from Azure Blob Storage and returns its data or saves it to a local file.
@@ -856,22 +876,28 @@ class AsyncAzureBlobStorageManager:
             bytes or None: The data of the downloaded file, or None if a dst_path argument is provided.
         """
         blob_client = self.container_client.get_blob_client(blob=blob_name)
-        data = await blob_client.download_blob()
+        chunk_list = []
+        stream = await blob_client.download_blob()
+        async for chunk in stream.chunks():
+            chunk_list.append(chunk)
+
+        # data = await blob_client.download_blob().chunks()
+        data = b"".join(chunk_list)
 
         if dst_path:
-            with open(dst_path, "wb") as f:
-                await data.readinto(f)
+            async with open(dst_path, "wb") as f:
+                f.write(data)
             return None
         else:
-            return await data.content_as_bytes()
+            return data
 
     async def upload(
-        self,
-        dst_path: str = None,
-        src_path: str = None,
-        data: bytes = None,
-        content_type: str = None,
-        overwrite: bool = True,
+            self,
+            dst_path: str = None,
+            src_path: str = None,
+            data: bytes = None,
+            content_type: str = None,
+            overwrite: bool = True,
     ) -> None:
         """
             Uploads a file or bytes data to Azure Blob Storage.
@@ -891,22 +917,40 @@ class AsyncAzureBlobStorageManager:
             Returns:
                 None
         """
-        blob_client = self.container_client.get_blob_client(blob=dst_path)
-        if src_path:
-            with open(src_path, "rb") as f:
+        try:
+            blob_client = self.container_client.get_blob_client(blob=dst_path)
+            if src_path:
+                with open(src_path, "rb") as f:
+                    await blob_client.upload_blob(
+                        data=f,
+                        overwrite=overwrite,
+                        content_settings=ContentSettings(content_type=content_type),
+                    )
+            elif data:
                 await blob_client.upload_blob(
-                    data=f,
+                    data=data,
                     overwrite=overwrite,
                     content_settings=ContentSettings(content_type=content_type),
                 )
-        elif data:
-            await blob_client.upload_blob(
-                data=data,
-                overwrite=overwrite,
-                content_settings=ContentSettings(content_type=content_type),
-            )
-        else:
-            raise ValueError("Either 'src_path' or 'data' must be provided.")
+            else:
+                raise ValueError("Either 'src_path' or 'data' must be provided.")
+        except Exception as e:
+            raise e
+
+    async def copy_blob(self, src_blob: str, dst_blob: str) -> None:
+        """
+        Copies a blob from one location to another within the same container.
+
+        Args:
+            src_blob (str): The name of the source blob.
+            dst_blob (str): The name of the destination blob.
+
+        Returns:
+            None
+        """
+        src_blob_client = self.container_client.get_blob_client(blob=src_blob)
+        dst_blob_client = self.container_client.get_blob_client(blob=dst_blob)
+        await dst_blob_client.start_copy_from_url(src_blob_client.url)
 
     async def close(self) -> None:
         """
