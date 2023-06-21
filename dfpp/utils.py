@@ -92,10 +92,10 @@ async def add_region_code(source_df=None, region_name_col=None, region_key_col=N
 
         source_df.reset_index(inplace=True)
         source_df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
-        # await storage.close()
+        await storage.close()
         return source_df
     except Exception as e:
-        print(e)
+        logger.error("Error in add_region_code: {}".format(e))
 
 
 async def add_alpha_code_3_column(source_df, country_col):
@@ -144,7 +144,6 @@ async def fix_iso_country_codes(df: pd.DataFrame = None, col: str = None, source
     )
     country_lookup_bytes = await storage.download(COUNTRY_LOOKUP_CSV_PATH)
     country_code_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_code_lookup")
-    print(country_code_df.head())
     for index, row in country_code_df.iterrows():
         if source_id is None or source_id == row.get("Only For Source ID"):
             df.loc[(df[col] == row['ISO 3 Code']), col] = row['UNDP ISO 3 Code']
@@ -177,8 +176,8 @@ async def get_year_columns(columns, col_prefix=None, col_suffix=None, column_sub
     column_map = {}
     for column in columns:
         column_map[column] = column
+        column_map[column] = column
     if column_substring is not None:
-        print("THIS IS THE COLUMN SUBSTRING: " + column_substring)
         for column in columns:
             column_map[column] = column_map[column].replace(column_substring, "")
     elif col_prefix is not None or col_suffix is not None:
