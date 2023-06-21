@@ -403,6 +403,19 @@ class AzureBlobStorageManager:
         else:
             return data.content_as_bytes()
 
+    def check_blob_exists(self, blob_name: str) -> bool:
+        """
+        Checks whether a blob exists in Azure Blob Storage.
+
+        Args:
+            blob_name (str): The name of the blob to check.
+
+        Returns:
+            bool: True if the blob exists, False otherwise.
+        """
+        blob_client = self.container_client.get_blob_client(blob=blob_name)
+        return blob_client.exists()
+
     def copy_blob(self, src_blob: str, dst_blob: str) -> None:
         """
         Copies a blob from one location to another in Azure Blob Storage.
@@ -936,6 +949,17 @@ class AsyncAzureBlobStorageManager:
                 raise ValueError("Either 'src_path' or 'data' must be provided.")
         except Exception as e:
             raise e
+
+    async def check_blob_exists(self, blob_name: str) -> bool:
+        """
+        Checks if a blob exists in the container.
+        Args:
+            blob_name (str): The name of the blob to check.
+        Returns:
+            bool: True if the blob exists, False otherwise.
+        """
+        blob_client = self.container_client.get_blob_client(blob=blob_name)
+        return await blob_client.exists()
 
     async def copy_blob(self, src_blob: str, dst_blob: str) -> None:
         """

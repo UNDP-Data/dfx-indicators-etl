@@ -9,3 +9,5 @@ COUNTRY_LOOKUP_CSV_PATH = "DataFuturePlatform/pipeline/config/utilities/country_
 AZURE_STORAGE_CONNECTION_STRING = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
 AZURE_STORAGE_CONTAINER_NAME = os.getenv('CONTAINER_NAME')
 ROOT_FOLDER = os.getenv('ROOT_FOLDER')
+SOURCE_CONFIG_ROOT_FOLDER = "DataFuturePlatform/pipeline/config/sources"
+INDICATOR_CONFIG_ROOT_FOLDER = "DataFuturePlatform/pipeline/config/indicators"
