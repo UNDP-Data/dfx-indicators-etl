@@ -1,3 +1,7 @@
+import sys
+if sys.version_info.minor == 8 and sys.version_info.major == 3:
+    from __future__ import annotations
+
 import base64
 import io
 import json
