@@ -2,7 +2,7 @@ import pandas as pd
 
 from dfpp.constants import STANDARD_KEY_COLUMN, STANDARD_COUNTRY_COLUMN
 from dfpp.utils import get_year_columns, rename_indicator, invert_dictionary, add_country_code, add_region_code, \
-    upload_to_blob_as_csv
+    update_base_file
 
 
 async def type1_transform(**kwargs):
@@ -93,7 +93,7 @@ async def type1_transform(**kwargs):
         df = df[[key_column, country_column] + indicator_cols]
 
     save_as = base_filename + ".csv"
-    return await upload_to_blob_as_csv(df=df, blob_name=save_as)
+    return await update_base_file(df=df, blob_name=save_as)
 
 
 async def type2_transform(**kwargs):
@@ -185,7 +185,7 @@ async def type2_transform(**kwargs):
                 df.at[group] = key_group
         df.reset_index(inplace=True)
     save_as = base_filename + ".csv"
-    return await upload_to_blob_as_csv(df=df, blob_name=save_as)
+    return await update_base_file(df=df, blob_name=save_as)
 
 
 async def type3_transform(**kwargs):
@@ -306,4 +306,4 @@ async def type3_transform(**kwargs):
 
         unique_index_df.reset_index(inplace=True)
 
-    return await upload_to_blob_as_csv(df=unique_index_df, blob_name=base_filename + ".csv")
+    return await update_base_file(df=unique_index_df, blob_name=base_filename + ".csv")
