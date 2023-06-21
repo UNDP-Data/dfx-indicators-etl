@@ -5,7 +5,7 @@ from datetime import datetime
 import re
 import pandas as pd
 import numpy as np
-from constants import *
+from dfpp.constants import *
 import swifter
 
 from dfpp.storage import AsyncAzureBlobStorageManager
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-async def acctoi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def acctoi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the ACCTOI transform.
 
@@ -48,7 +48,7 @@ async def acctoi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def bti_project_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def bti_project_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the BTI project transform.
 
@@ -81,7 +81,7 @@ async def bti_project_transform_preprocessing(bytes_data: bytes = None, **kwargs
         # raise e
 
 
-async def cpi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def cpi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the CPI transform.
 
@@ -110,7 +110,7 @@ async def cpi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def cpia_rlpr_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def cpia_rlpr_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the CPIA RLPR transform.
 
@@ -140,7 +140,7 @@ async def cpia_rlpr_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def cpia_spca_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def cpia_spca_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the CPIA SPCA transform.
 
@@ -167,7 +167,7 @@ async def cpia_spca_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def cpia_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def cpia_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the CPIA transform.
 
@@ -196,7 +196,7 @@ async def cpia_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the CW NDC transform.
 
@@ -323,7 +323,7 @@ async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def cw_t2_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def cw_t2_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the CW T2 transform.
 
@@ -349,7 +349,7 @@ async def cw_t2_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def eb_wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def eb_wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the EB WBDB transform.
 
@@ -392,7 +392,7 @@ async def eb_wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def fao_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def fao_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the FAO transform.
 
@@ -419,7 +419,7 @@ async def fao_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def ff_dc_ce_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def ff_dc_ce_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the FF-DC-CE transform.
 
@@ -448,7 +448,7 @@ async def ff_dc_ce_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def ghg_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def ghg_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the GHG-NDC transform.
 
@@ -477,7 +477,7 @@ async def ghg_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def gii_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def gii_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the GII transform.
 
@@ -501,7 +501,7 @@ async def gii_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def global_data_fsi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def global_data_fsi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the Global Data FSI transform.
 
@@ -526,7 +526,7 @@ async def global_data_fsi_transform_preprocessing(bytes_data: bytes = None, **kw
         # raise e
 
 
-async def global_findex_database_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def global_findex_database_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the Global Findex Database transform.
 
@@ -556,7 +556,7 @@ async def global_findex_database_transform_preprocessing(bytes_data: bytes = Non
         # raise e
 
 
-async def global_pi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def global_pi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the Global Political Institutions transform.
 
@@ -581,7 +581,7 @@ async def global_pi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def eil_pe_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def eil_pe_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the EIL PE transform.
 
@@ -613,7 +613,7 @@ async def eil_pe_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def ec_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def ec_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the EC EDU transform.
 
@@ -662,7 +662,7 @@ async def ec_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def hdr_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def hdr_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the HDR transform.
 
@@ -687,7 +687,7 @@ async def hdr_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def heritage_id_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def heritage_id_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the Heritage Index of Economic Freedom transform.
 
@@ -715,13 +715,13 @@ async def heritage_id_transform_preprocessing(bytes_data: bytes = None, **kwargs
         # raise e
 
 
-async def ilo_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def ilo_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
     source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
     return source_df
 
 
-async def ilo_ee_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def ilo_ee_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the ILO Employment and Earnings transform.
 
@@ -751,7 +751,7 @@ async def ilo_ee_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def ilo_lfs_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def ilo_lfs_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the ILO Labor Force Survey (LFS) transform.
 
@@ -778,7 +778,7 @@ async def ilo_lfs_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def ilo_nifl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def ilo_nifl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the ILO National Income from Labor (NIFL) transform.
 
@@ -805,7 +805,7 @@ async def ilo_nifl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the IMF World Economic Outlook (WEO) baseline transform.
 
@@ -833,15 +833,25 @@ async def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None, **k
         # raise e
 
 
-async def imf_weo_gdp_transform_preprocessing(bytes_data: bytes = None, **kwargs):
-    # print("EETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTs", bytes_data is Nonesource_df = pd.read_excel(io.BytesIO(bytes_dat
-    # a))
-    # source_df.replace("--", np.nan, inplace=True)
-    # return source_df
+async def imf_weo_gdp_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
+    """
+    :param bytes_data:
+    :param kwargs:
+    :return:
+    """
+    try:
+        logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
+        # Read the Excel file into a DataFrame
+        source_df = pd.read_excel(io.BytesIO(bytes_data))
+        source_df.replace("--", np.nan, inplace=True)
+        return source_df
+    except Exception as e:
+        logger.error(f"Error in imf_weo_gdp_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        # raise e
     pass
 
 
-async def imf_weo_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def imf_weo_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the IMF World Economic Outlook (WEO) transform.
 
@@ -868,7 +878,7 @@ async def imf_weo_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def iec_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def iec_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the International Energy Council (IEC) transform.
 
@@ -908,7 +918,7 @@ async def iec_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def imsmy_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def imsmy_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the International Monetary Statistics (IMSMY) transform.
 
@@ -950,7 +960,7 @@ async def imsmy_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def inequality_hdi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def inequality_hdi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the Inequality and Human Development Index (HDI) transform.
 
@@ -981,7 +991,7 @@ async def inequality_hdi_transform_preprocessing(bytes_data: bytes = None, **kwa
         # raise e
 
 
-async def isabo_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def isabo_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the ISABO transform.
 
@@ -1022,7 +1032,7 @@ async def isabo_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def itu_ict_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def itu_ict_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the ITU ICT transform.
 
@@ -1046,7 +1056,7 @@ async def itu_ict_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def mdp_bpl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def mdp_bpl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the MDP BPL transform.
 
@@ -1081,7 +1091,7 @@ async def mdp_bpl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
 #     source_df = pd.read_json(io.BytesIO(bytes_data))
 #     source_df
 
-async def mdp_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def mdp_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the MDP transform.
 
@@ -1141,7 +1151,7 @@ async def mdp_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def natural_capital_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def natural_capital_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the natural capital transform.
 
@@ -1169,7 +1179,7 @@ async def natural_capital_transform_preprocessing(bytes_data: bytes = None, **kw
         # raise e
 
 
-async def nature_co2_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def nature_co2_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the nature CO2 transform.
 
@@ -1197,7 +1207,7 @@ async def nature_co2_transform_preprocessing(bytes_data: bytes = None, **kwargs)
         # raise e
 
 
-async def nd_climate_readiness_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def nd_climate_readiness_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the climate readiness transform.
 
@@ -1232,7 +1242,7 @@ async def nd_climate_readiness_transform_preprocessing(bytes_data: bytes = None,
         # raise e
 
 
-async def oecd_raw_mat_consumption_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def oecd_raw_mat_consumption_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the OECD raw material consumption transform.
 
@@ -1263,7 +1273,7 @@ async def oecd_raw_mat_consumption_transform_preprocessing(bytes_data: bytes = N
         # raise e
 
 
-async def owid_energy_data_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def owid_energy_data_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the OWID energy data transform.
 
@@ -1297,7 +1307,7 @@ async def owid_energy_data_transform_preprocessing(bytes_data: bytes = None, **k
         # raise e
 
 
-async def owid_export_transform(bytes_data: bytes = None, **kwargs):
+async def owid_export_transform(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the OWID export transform.
 
@@ -1330,7 +1340,7 @@ async def owid_export_transform(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def owid_oz_consumption_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def owid_oz_consumption_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the OWID ozone consumption transform.
 
@@ -1371,7 +1381,7 @@ async def owid_oz_consumption_transform_preprocessing(bytes_data: bytes = None, 
         # raise e
 
 
-async def owid_t3_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def owid_t3_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the OWID T3 transform.
 
@@ -1418,7 +1428,7 @@ async def owid_t3_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def owid_trade_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def owid_trade_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the OWID trade transform.
 
@@ -1455,7 +1465,7 @@ async def owid_trade_transform_preprocessing(bytes_data: bytes = None, **kwargs)
         # raise e
 
 
-async def oxcgrt_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def oxcgrt_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the OxCGRT RL transform.
 
@@ -1487,7 +1497,7 @@ async def oxcgrt_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def pts_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def pts_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the PTS transform.
 
@@ -1517,7 +1527,7 @@ async def pts_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def sdg_mr_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def sdg_mr_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the SDG MR transform.
 
@@ -1541,7 +1551,7 @@ async def sdg_mr_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def sdg_rap_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def sdg_rap_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the SDG RAP transform.
 
@@ -1567,7 +1577,7 @@ async def sdg_rap_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         logger.error(f"Error in sdg_mr_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
 
 
-async def sipri_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def sipri_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the SIPRI transform.
 
@@ -1594,7 +1604,7 @@ async def sipri_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def undp_gii_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def undp_gii_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the UNDP GII transform.
 
@@ -1624,7 +1634,7 @@ async def undp_gii_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def undp_hdi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def undp_hdi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the UNDP HDI transform.
 
@@ -1648,7 +1658,7 @@ async def undp_hdi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def undp_mpi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def undp_mpi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the UNDP MPI transform.
 
@@ -1694,7 +1704,7 @@ async def undp_mpi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def unescwa_fr_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def unescwa_fr_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the UNESCWA FR transform.
 
@@ -1723,7 +1733,7 @@ async def unescwa_fr_transform_preprocessing(bytes_data: bytes = None, **kwargs)
         # raise e
 
 
-async def unicef_dev_ontrk_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def unicef_dev_ontrk_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the UNICEF Development On-Track transform.
 
@@ -1757,7 +1767,7 @@ async def unicef_dev_ontrk_transform_preprocessing(bytes_data: bytes = None, **k
         # raise e
 
 
-async def untp_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def untp_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the United Nations Population Estimates transform.
 
@@ -1794,7 +1804,7 @@ async def untp_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def vdem_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def vdem_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the Varieties of Democracy transform.
 
@@ -1821,7 +1831,7 @@ async def vdem_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def time_udc_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def time_udc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the Time UDC transform.
 
@@ -1848,7 +1858,7 @@ async def time_udc_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def wbank_access_elec_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def wbank_access_elec_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the World Bank Electricity Access transform.
 
@@ -1876,7 +1886,7 @@ async def wbank_access_elec_transform_preprocessing(bytes_data: bytes = None, **
         # raise e
 
 
-async def wbank_info_eco_transform_preprocessing(bytes_data: bytes = None, sheet_name=None, **kwargs):
+async def wbank_info_eco_transform_preprocessing(bytes_data: bytes = None, sheet_name=None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the World Bank Economic Information transform.
 
@@ -1905,7 +1915,7 @@ async def wbank_info_eco_transform_preprocessing(bytes_data: bytes = None, sheet
         # raise e
 
 
-async def wbank_info_transform_preprocessing(bytes_data: bytes = None, sheet_name=None, **kwargs):
+async def wbank_info_transform_preprocessing(bytes_data: bytes = None, sheet_name=None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the World Bank Information transform.
 
@@ -1944,7 +1954,7 @@ async def wbank_info_transform_preprocessing(bytes_data: bytes = None, sheet_nam
         # raise e
 
 
-async def wbank_poverty_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def wbank_poverty_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the World Bank Poverty transform.
 
@@ -1984,7 +1994,7 @@ async def wbank_poverty_transform_preprocessing(bytes_data: bytes = None, **kwar
         # raise e
 
 
-async def wbank_energy_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def wbank_energy_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the World Bank Energy transform.
 
@@ -2032,7 +2042,7 @@ async def wbank_energy_transform_preprocessing(bytes_data: bytes = None, **kwarg
         # raise e
 
 
-async def wbank_rai_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def wbank_rai_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the World Bank RAI transform.
 
@@ -2063,7 +2073,7 @@ async def wbank_rai_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def wbank_t1_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def wbank_t1_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the World Bank Table 1 transform.
 
@@ -2087,7 +2097,7 @@ async def wbank_t1_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def who_pre_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def who_pre_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the WHO Pre-Education Statistics transform.
 
@@ -2134,7 +2144,7 @@ async def who_pre_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs
         # raise e
 
 
-async def who_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def who_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the data for the WHO Right to Health transform.
 
@@ -2173,7 +2183,7 @@ async def who_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs):
         # raise e
 
 
-async def wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     source_df = pd.read_excel(io.BytesIO(bytes_data))
     source_df["Economy"] = source_df["Economy"].apply(lambda x: x.rsplit("*")[0] if '*' in str(x) else x)
     source_df.dropna(subset=["Year"], inplace=True)
@@ -2181,20 +2191,31 @@ async def wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs):
     return source_df
 
 
-async def ilo_sdg_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def ilo_sdg_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
     source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
     return source_df
 
 
-async def ilo_spf_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def ilo_spf_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
     source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
     return source_df
 
 
-async def imf_ifi_transform_preprocessing(bytes_data: bytes = None, **kwargs):
+async def imf_ifi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="financial assistance", header=3)
+    source_df2=pd.read_excel(io.BytesIO(bytes_data), sheet_name="debt-relief")
+    source_df2.rename(columns={"country": "Country", "source": "Type of Emergency Financing",
+                               "amount approved in SDR": "Amount Approved in SDR",
+                               "amount approved in USD": "Amount Approved in US$",
+                               "date of approval": "Date of Approval"}, inplace=True)
+    source_df = pd.concat([source_df, source_df2], ignore_index=True)
+    source_df['Date of Approval'] = source_df['Date of Approval'].apply(
+        lambda x: datetime.strptime(str(x).rsplit(" ")[0], '%Y-%m-%d'))
+    source_df["Amount Approved in US$"] = source_df["Amount Approved in US$"].apply(
+        lambda x: float(x.rsplit("mill")[0].replace(",", "").replace("US$", "")) * (10 ** 6))
+    return source_df
 
 
 if __name__ == "__main__":

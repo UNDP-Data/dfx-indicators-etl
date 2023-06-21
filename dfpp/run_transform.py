@@ -1,9 +1,10 @@
 from configparser import ConfigParser, RawConfigParser
-from preprocessing import *
-from constants import *
+from dfpp.preprocessing import *  # too many to list
+from dfpp.storage import AsyncAzureBlobStorageManager
+from dfpp.constants import AZURE_STORAGE_CONNECTION_STRING, AZURE_STORAGE_CONTAINER_NAME, ROOT_FOLDER, SOURCE_CONFIG_ROOT_FOLDER, INDICATOR_CONFIG_ROOT_FOLDER
 
 # This is importing all transform functions from transform_functions.py. DO NOT REMOVE EVEN IF IDE SAYS IT IS UNUSED
-from transform_functions import *
+from dfpp.transform_functions import type1_transform, type2_transform, type3_transform
 
 
 indicator_parser = ConfigParser(interpolation=None)
