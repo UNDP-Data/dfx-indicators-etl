@@ -1,9 +1,12 @@
 import logging
 import asyncio
 import argparse
+from asyncio import sleep
+
 from dotenv import load_dotenv
 from dfpp.download import retrieval
 from dfpp.constants import *
+from dfpp.run_transform import transform_sources
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--run',
@@ -19,6 +22,18 @@ async def main():
         container_name = AZURE_STORAGE_CONTAINER_NAME
         if args.run == 'download':
             await retrieval(connection_string=connection_string, container_name=container_name)
+        if args.run == 'transform':
+            await transform_sources()
+        if args.run == 'pipeline':
+            logging.info('Starting pipeline....')
+            await sleep(5)
+            logging.info('Downloading data....')
+            await retrieval(connection_string=connection_string, container_name=container_name)
+            logging.info('Downloading Data Complete....')
+            logging.info('Transforming data....')
+            await sleep(5)
+            await transform_sources()
+            logging.info('Transforming Data Complete....')
     else:
         raise Exception('Environment Variable Not Found')
 
