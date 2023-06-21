@@ -10,7 +10,7 @@ from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import ContainerClient as AContainerClient
 
 from dfpp.dfpp_exceptions import ConfigError, DFPSourceError
-from constants import *
+from dfpp.constants import *
 logger = logging.getLogger(__name__)
 
 

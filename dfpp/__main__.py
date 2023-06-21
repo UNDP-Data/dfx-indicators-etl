@@ -3,7 +3,7 @@ import asyncio
 import argparse
 from dotenv import load_dotenv
 from dfpp.download import retrieval
-from constants import *
+from dfpp.constants import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--run',
