@@ -2,6 +2,8 @@ import asyncio
 import io
 import logging
 from tempfile import TemporaryDirectory
+
+import numpy as np
 import pandas as pd
 from dfpp.storage import AsyncAzureBlobStorageManager
 from dfpp.constants import *
@@ -206,6 +208,41 @@ async def invert_dictionary(original_dictionary):
         inverted_dictionary[original_dictionary[dict_key]] = dict_key
     return inverted_dictionary
 
+async def country_group_dataframe():
+    storage_manager = await AsyncAzureBlobStorageManager.create_instance(
+        connection_string=AZURE_STORAGE_CONNECTION_STRING,
+        container_name=AZURE_STORAGE_CONTAINER_NAME,
+        use_singleton=False
+    )
+    df = pd.read_json(io.BytesIO(await storage_manager.download(
+        blob_name=os.path.join(
+            ROOT_FOLDER,
+            'config',
+            'utilities',
+            'country_territory_groups.json'
+        )
+    )))
+    df.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
+    df['Longitude (average)'] = df['Longitude (average)'].replace(r'', np.NaN)
+    df['Latitude (average)'] = df["Latitude (average)"].astype(np.float64)
+    df['Longitude (average)'] = df["Longitude (average)"].astype(np.float64)
+
+    df_aggregates = pd.read_json(io.BytesIO(await storage_manager.download(
+        blob_name=os.path.join(
+            ROOT_FOLDER,
+            'config',
+            'utilities',
+            'aggregate_territory_groups.json'
+        ))))
+    df_aggregates.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
+    df_aggregates['Longitude (average)'] = df_aggregates['Longitude (average)'].replace(r'', np.NaN)
+    df_aggregates['Latitude (average)'] = df_aggregates["Latitude (average)"].astype(np.float64)
+    df_aggregates['Longitude (average)'] = df_aggregates["Longitude (average)"].astype(np.float64)
+
+    df = pd.concat([df, df_aggregates], ignore_index=True)
+    await storage_manager.close()
+    return df
+
 
 async def upload_to_blob_as_csv(df=None, blob_name=None):
     storage_manager = await AsyncAzureBlobStorageManager.create_instance(
@@ -214,10 +251,41 @@ async def upload_to_blob_as_csv(df=None, blob_name=None):
         use_singleton=False
     )
     try:
+        df.reset_index(inplace=True)
+        df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
+        blob_exists = await storage_manager.check_blob_exists(
+            blob_name=os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
+        )
+        key_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
+        country_group_df = await country_group_dataframe()
+        if blob_exists:
+            logger.info("Base file exists. Updating...")
+            base_file_bytes = await storage_manager.download(
+                blob_name=os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name),
+                dst_path=None
+            )
+            base_file_df = pd.read_csv(io.BytesIO(base_file_bytes))
+            base_file_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
+        else:
+            logger.info("Base file does not exist. Creating...")
+            base_file_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
+
+            base_file_df[STANDARD_KEY_COLUMN] = country_group_df[STANDARD_KEY_COLUMN]
+        base_file_df = base_file_df[base_file_df[STANDARD_KEY_COLUMN].isin(country_group_df[STANDARD_KEY_COLUMN])]
+        key_df[STANDARD_KEY_COLUMN] = country_group_df[~country_group_df[STANDARD_KEY_COLUMN].isin(base_file_df[STANDARD_KEY_COLUMN])][STANDARD_KEY_COLUMN]
+        base_file_df = pd.concat([base_file_df, key_df], ignore_index=True)
+        base_file_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
+        df.set_index(STANDARD_KEY_COLUMN, inplace=True)
+        update_cols = list(set(base_file_df.columns.to_list()).intersection(set(df.columns.to_list())))
+        add_columns = list(set(df.columns.to_list()) - set(base_file_df.columns.to_list()))
+        base_file_df.update(df[update_cols])
+        base_file_df = base_file_df.join(df[add_columns])
+        base_file_df.reset_index(inplace=True)
         destination_path = os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
+        print(base_file_df.head())
         with TemporaryDirectory() as temp_dir:
             temp_file = os.path.join(temp_dir, blob_name)
-            df.to_csv(temp_file)
+            base_file_df.to_csv(temp_file)
             await storage_manager.upload(
                 src_path=temp_file,
                 dst_path=destination_path,
@@ -234,3 +302,4 @@ async def upload_to_blob_as_csv(df=None, blob_name=None):
 if __name__ == "__main__":
     test_df = pd.read_csv("./BTI_PROJECT.csv")
     asyncio.run(upload_to_blob_as_csv(df=test_df, blob_name="BTI_PROJECT.csv"))
+    # asyncio.run(country_group_dataframe())
