@@ -34,11 +34,17 @@ source_parser = UnescapedConfigParser(
 
 
 async def read_indicator_list():
-    indicator_config_path = 'migration/indicator_cfg_files/'
+    storage_manager = await AsyncAzureBlobStorageManager.create_instance(
+        connection_string=AZURE_STORAGE_CONNECTION_STRING,
+        container_name=AZURE_STORAGE_CONTAINER_NAME,
+        use_singleton=False
+    )
     indicator_list = []
-    for file in os.listdir(indicator_config_path):
+    for blob in await storage_manager.list_blobs(prefix=INDICATOR_CONFIG_ROOT_FOLDER):
+        file = blob.name
         if file.endswith(".cfg"):
-            indicator_parser.read(indicator_config_path + file)
+            file_in_bytes = await storage_manager.download(blob_name=file, dst_path=None)
+            indicator_parser.read_string(file_in_bytes.decode('utf-8'))
             indicator_list.append({
                 "id": indicator_parser['indicator']['indicator_id'],
                 "source": indicator_parser['indicator']['source_id'],
@@ -52,6 +58,7 @@ async def read_indicator_list():
                 "column_suffix": indicator_parser['indicator'].get('column_suffix', None),
                 "year": indicator_parser['indicator'].get('year', None),
             })
+    await storage_manager.close()
     return indicator_list
 
 
@@ -63,15 +70,23 @@ async def read_source_file_for_indicator(indicator_id: str = None):
     )
     try:
         # construct the path to the source file by reading the indicator config file
-        indicator_config_path = 'migration/indicator_cfg_files/{indicator}.cfg'.format(indicator=indicator_id)
+        indicator_config_path = '{indicator_root}/{indicator}.cfg'.format(indicator_root=INDICATOR_CONFIG_ROOT_FOLDER, indicator=indicator_id)
         indicator_parser.read(indicator_config_path)
         source = indicator_parser['indicator']['source_id']
 
-        source_config_path = f'migration/source_cfg_files/{source.lower()}/{source.lower()}.cfg'
-        if not os.path.exists(source_config_path):
+        source_config_path = f'{SOURCE_CONFIG_ROOT_FOLDER}/{source.lower()}/{source.lower()}.cfg'
+        # check the blob exists in azure storage
+        source_file_exists = await storage.check_blob_exists(blob_name=source_config_path)
+        if not source_file_exists:
             logger.error(f"Source config file not found for {source}")
             return None
-        source_parser.read(source_config_path)
+        # if not os.path.exists(source_config_path):
+        #     logger.error(f"Source config file not found for {source}")
+        #     return None
+        blob_as_bytes = await storage.download(blob_name=source_config_path, dst_path=None)
+        source_parser.read_string(blob_as_bytes.decode('utf-8'))
+
+        # source_parser.read(source_config_path)
         source_file_path = os.path.join(ROOT_FOLDER, 'sources', 'raw',
                                         f"{source.upper()}.{source_parser['source']['file_format']}")
         data = await storage.download(blob_name=source_file_path, dst_path=None)
@@ -113,7 +128,7 @@ async def run_transformation_for_indicator(**kwargs):
 
     # Read the source parser configuration file
     source_id = indicator.get('source', None)
-    source_parser.read(f'migration/source_cfg_files/{source_id.lower()}/{source_id.lower()}.cfg')
+    source_parser.read(f'{SOURCE_CONFIG_ROOT_FOLDER}/{source_id.lower()}/{source_id.lower()}.cfg')
 
     # Retrieve necessary columns for transformation
     country_column = r"{}".format(source_parser['source'].get('country_name_column', None))
