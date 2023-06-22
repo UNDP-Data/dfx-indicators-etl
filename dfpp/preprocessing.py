@@ -15,6 +15,9 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+def basic_sanity(bytes_data:bytes=None):
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
+
 
 async def acctoi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
@@ -27,6 +30,9 @@ async def acctoi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         pandas.DataFrame: The preprocessed DataFrame for the ACCTOI transform.
 
     """
+
+    basic_sanity(bytes_data=bytes_data)
+
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
@@ -59,6 +65,7 @@ async def bti_project_transform_preprocessing(bytes_data: bytes = None, **kwargs
         pandas.DataFrame: The preprocessed DataFrame for the BTI project transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
@@ -92,6 +99,7 @@ async def cpi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         pandas.DataFrame: The preprocessed DataFrame for the CPI transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
@@ -121,6 +129,7 @@ async def cpia_rlpr_transform_preprocessing(bytes_data: bytes = None, **kwargs) 
         pandas.DataFrame: The preprocessed DataFrame for the CPIA RLPR transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
@@ -151,6 +160,7 @@ async def cpia_spca_transform_preprocessing(bytes_data: bytes = None, **kwargs) 
         pandas.DataFrame: The preprocessed DataFrame for the CPIA SPCA transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
@@ -178,10 +188,13 @@ async def cpia_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd
         pandas.DataFrame: The preprocessed DataFrame for the CPIA transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
+
         # Read the CSV data into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data), header=2)
+
 
         # Replace ".." with NaN values
         source_df.replace("..", np.nan, inplace=True)
@@ -193,7 +206,7 @@ async def cpia_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd
         return source_df
     except Exception as e:
         logger.error(f"Error in cpia_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -207,6 +220,7 @@ async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         pandas.DataFrame: The preprocessed DataFrame for the CW NDC transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         source_df = pd.read_csv(io.BytesIO(bytes_data))
@@ -334,6 +348,7 @@ async def cw_t2_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> p
         pandas.DataFrame: The preprocessed DataFrame for the CW T2 transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
@@ -360,6 +375,7 @@ async def eb_wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         pandas.DataFrame: The preprocessed DataFrame for the EB WBDB transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     global df
     indicator = kwargs.get("indicator")
     try:
@@ -403,6 +419,7 @@ async def fao_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         pandas.DataFrame: The preprocessed DataFrame for the FAO transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
@@ -430,6 +447,7 @@ async def ff_dc_ce_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         pandas.DataFrame: The preprocessed DataFrame for the FF-DC-CE transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
@@ -459,6 +477,7 @@ async def ghg_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         pandas.DataFrame: The preprocessed DataFrame for the GHG-NDC transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
@@ -488,6 +507,7 @@ async def gii_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         pandas.DataFrame: The preprocessed DataFrame for the GII transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
@@ -512,6 +532,7 @@ async def global_data_fsi_transform_preprocessing(bytes_data: bytes = None, **kw
         pandas.DataFrame: The preprocessed DataFrame for the Global Data FSI transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
@@ -537,6 +558,7 @@ async def global_findex_database_transform_preprocessing(bytes_data: bytes = Non
         pandas.DataFrame: The preprocessed DataFrame for the Global Findex Database transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
@@ -567,6 +589,7 @@ async def global_pi_transform_preprocessing(bytes_data: bytes = None, **kwargs) 
         pandas.DataFrame: The preprocessed DataFrame for the Global Political Institutions transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
@@ -592,6 +615,7 @@ async def eil_pe_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         pandas.DataFrame: The preprocessed DataFrame for the EIL PE transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -624,6 +648,7 @@ async def ec_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         pandas.DataFrame: The preprocessed DataFrame for the EC EDU transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame, skipping rows and selecting columns
@@ -673,6 +698,7 @@ async def hdr_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         pandas.DataFrame: The preprocessed DataFrame for the HDR transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         source_df = pd.read_csv(io.BytesIO(bytes_data))
@@ -698,6 +724,7 @@ async def heritage_id_transform_preprocessing(bytes_data: bytes = None, **kwargs
         pandas.DataFrame: The preprocessed DataFrame for the Heritage Index of Economic Freedom transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -716,6 +743,7 @@ async def heritage_id_transform_preprocessing(bytes_data: bytes = None, **kwargs
 
 
 async def ilo_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
+    basic_sanity(bytes_data=bytes_data)
     source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
     source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
     return source_df
@@ -732,6 +760,7 @@ async def ilo_ee_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         pandas.DataFrame: The preprocessed DataFrame for the ILO Employment and Earnings transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
@@ -762,6 +791,7 @@ async def ilo_lfs_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         pandas.DataFrame: The preprocessed DataFrame for the ILO LFS transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame, skipping the first 5 rows
@@ -789,6 +819,7 @@ async def ilo_nifl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         pandas.DataFrame: The preprocessed DataFrame for the ILO NIFL transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame, skipping the first 5 rows
@@ -816,6 +847,7 @@ async def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None, **k
         pandas.DataFrame: The preprocessed DataFrame for the IMF WEO baseline transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -839,6 +871,7 @@ async def imf_weo_gdp_transform_preprocessing(bytes_data: bytes = None, **kwargs
     :param kwargs:
     :return:
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -862,6 +895,7 @@ async def imf_weo_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         pandas.DataFrame: The preprocessed DataFrame for the IMF WEO transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -889,6 +923,7 @@ async def iec_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         pandas.DataFrame: The preprocessed DataFrame for the IEC transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -929,6 +964,7 @@ async def imsmy_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> p
         pandas.DataFrame: The preprocessed DataFrame for the IMSMY transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -971,6 +1007,7 @@ async def inequality_hdi_transform_preprocessing(bytes_data: bytes = None, **kwa
         pandas.DataFrame: The preprocessed DataFrame for the Inequality and HDI transform.
 
     """
+    basic_sanity(bytes_data=bytes_data)
     try:
         logger.info(f"Preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame

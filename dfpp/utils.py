@@ -3,6 +3,7 @@ import io
 import logging
 from tempfile import TemporaryDirectory
 import os
+import itertools
 import numpy as np
 import pandas as pd
 from dfpp.storage import AsyncAzureBlobStorageManager
@@ -13,6 +14,13 @@ ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
 
 logger = logging.getLogger(__name__)
 
+def chunker(iterable, size):
+    it = iter(iterable)
+    while True:
+        chunk = tuple(itertools.islice(it, size))
+        if not chunk:
+            break
+        yield chunk
 
 async def add_country_code(source_df, country_name_column=None):
     """
