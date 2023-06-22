@@ -1,3 +1,4 @@
+import asyncio
 import configparser
 import logging
 from typing import Any, AsyncGenerator, Dict, Generator, List, Optional, Tuple
@@ -7,7 +8,7 @@ from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import ContainerClient as AContainerClient
 import os
 from dfpp.dfpp_exceptions import ConfigError, DFPSourceError
-
+import math
 logger = logging.getLogger(__name__)
 ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
 
@@ -452,13 +453,11 @@ class AzureBlobStorageManager:
             Returns:
                 None
         """
+        def _progress_(current, total) -> None:
+            progress = current / total * 100
+            logger.info(f'uploaded - {progress}%')
+
         blob_client = self.container_client.get_blob_client(blob=dst_path)
-        with open(src_path, "rb") as f:
-            blob_client.upload_blob(
-                data=f,
-                overwrite=overwrite,
-                content_settings=ContentSettings(content_type=content_type),
-            )
 
         if src_path:
             with open(src_path, "rb") as f:
@@ -466,12 +465,16 @@ class AzureBlobStorageManager:
                     data=f,
                     overwrite=overwrite,
                     content_settings=ContentSettings(content_type=content_type),
+                    max_concurrency=8,
+                    progress_hook=_progress_
                 )
         elif data:
             blob_client.upload_blob(
                 data=data,
                 overwrite=overwrite,
                 content_settings=ContentSettings(content_type=content_type),
+                max_concurrency=8,
+                progress_hook=_progress_
             )
         else:
             raise ValueError("Either 'src_path' or 'data' must be provided.")
@@ -651,6 +654,61 @@ class AsyncAzureBlobStorageManager:
                     raise ConfigError(f"Invalid source")
         return source_list
 
+    async def dsource(self, blob_name):
+        logger.debug(f'Fetching source config for {blob_name}')
+        stream = await self.container_client.download_blob(
+            blob_name, max_concurrency=1
+        )
+        content = await stream.readall()
+        content_str = content.decode("utf-8")
+        parser = configparser.ConfigParser(interpolation=None)
+        parser.read_string(content_str)
+        if "source" in parser:
+            src_id = parser["source"].get("id")
+            cfg = dict(parser["source"].items())
+            if "downloader_params" in parser:
+                downloader_params = dict(
+                    parser["downloader_params"].items()
+                )
+            else:
+                downloader_params = None
+            return src_id, cfg, downloader_params
+
+    async def get_source_config_conc(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Asynchronously lists source configuration files from an Azure Blob Container,
+        and returns a dictionary containing their parsed content.
+
+        Returns:
+            Dict[str, Dict[str, Any]]: A dictionary where keys are source IDs and values are dictionaries
+                                        containing the key-value pairs of the source configuration.
+
+        Raises:
+            ConfigError: Raised if a source configuration file is invalid or has a missing "source" section.
+        """
+        cfg = {}
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.ROOT_FOLDER}/config/sources"
+        futures = []
+        async for blob in self._yield_blobs(prefix=prefix):
+            if (
+                    not isinstance(blob, BlobPrefix)
+                    and blob.name.endswith(".cfg")
+                    and not "indicators" in blob.name
+            ):
+                futures.append(asyncio.ensure_future(
+                    self.dsource(blob_name=blob.name)
+                ))
+
+
+        for fut in asyncio.as_completed(futures):
+            src_id, src_cfg, downloader_params = await fut
+            cfg[src_id] = src_cfg
+            cfg[src_id]['downloader_params'] = downloader_params
+
+        return cfg
+
+
     async def get_source_config(self) -> Dict[str, Dict[str, Any]]:
         """
         Asynchronously lists source configuration files from an Azure Blob Container,
@@ -666,7 +724,6 @@ class AsyncAzureBlobStorageManager:
         cfg = {}
         # os.path.join doesn't work for filtering returned Azure blob paths
         prefix = f"{self.ROOT_FOLDER}/config/sources"
-        print(prefix)
         async for blob in self._yield_blobs(prefix=prefix):
             if (
                     not isinstance(blob, BlobPrefix)
@@ -674,7 +731,7 @@ class AsyncAzureBlobStorageManager:
                     and not "indicators" in blob.name
             ):
                 stream = await self.container_client.download_blob(
-                    blob.name, max_concurrency=8
+                    blob.name, max_concurrency=1
                 )
                 content = await stream.readall()
                 content_str = content.decode("utf-8")
@@ -930,7 +987,14 @@ class AsyncAzureBlobStorageManager:
             Returns:
                 None
         """
+
         try:
+
+            async def _progress_(current, total) -> None:
+                progress = current / total * 100
+                rounded_progress = int(math.floor(progress))
+                logger.info(f'uploaded - {rounded_progress}%')
+
             blob_client = self.container_client.get_blob_client(blob=dst_path)
             if src_path:
                 with open(src_path, "rb") as f:
@@ -938,12 +1002,16 @@ class AsyncAzureBlobStorageManager:
                         data=f,
                         overwrite=overwrite,
                         content_settings=ContentSettings(content_type=content_type),
+                        progress_hook=_progress_
                     )
             elif data:
                 await blob_client.upload_blob(
                     data=data,
                     overwrite=overwrite,
                     content_settings=ContentSettings(content_type=content_type),
+                    progress_hook=_progress_,
+
+
                 )
             else:
                 raise ValueError("Either 'src_path' or 'data' must be provided.")
