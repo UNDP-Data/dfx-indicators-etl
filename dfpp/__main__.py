@@ -14,9 +14,23 @@ parser.add_argument('--run',
 parser.add_argument('--env', help='Path to the .env file')
 
 
-async def run_pipeline():
-    pass
-
+def run_pipeline():
+    logging.basicConfig()
+    azlogger = logging.getLogger('azure.core.pipeline.policies.http_logging_policy')
+    azlogger.setLevel(logging.WARNING)
+    logger = logging.getLogger()
+    logging_stream_handler = logging.StreamHandler()
+    logging_stream_handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s-%(filename)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s",
+            "%Y-%m-%d %H:%M:%S",
+        )
+    )
+    logger.setLevel(logging.INFO)
+    logger.handlers.clear()
+    logger.addHandler(logging_stream_handler)
+    logger.name = __name__
+    asyncio.run(main())
 async def main():
     args = parser.parse_args()
     if args.env:
@@ -42,19 +56,5 @@ async def main():
 
 
 if __name__ == '__main__':
-    logging.basicConfig()
-    azlogger = logging.getLogger('azure.core.pipeline.policies.http_logging_policy')
-    azlogger.setLevel(logging.WARNING)
-    logger = logging.getLogger()
-    logging_stream_handler = logging.StreamHandler()
-    logging_stream_handler.setFormatter(
-        logging.Formatter(
-            "%(asctime)s-%(filename)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s",
-            "%Y-%m-%d %H:%M:%S",
-        )
-    )
-    logger.setLevel(logging.INFO)
-    logger.handlers.clear()
-    logger.addHandler(logging_stream_handler)
-    logger.name = __name__
-    asyncio.run(main())
+    run_pipeline()
+
