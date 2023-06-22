@@ -11,14 +11,16 @@ import zipfile
 from typing import Any, Tuple
 from urllib.parse import urlencode
 from dotenv import load_dotenv
-
+import os
 import aiohttp
 import numpy as np
 import pandas as pd
 from aiohttp import ClientTimeout
 
 from dfpp.storage import AsyncAzureBlobStorageManager
-from dfpp.constants import *
+AZURE_STORAGE_CONNECTION_STRING=os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
+AZURE_STORAGE_CONTAINER_NAME=os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
+ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
 
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=600)
 
