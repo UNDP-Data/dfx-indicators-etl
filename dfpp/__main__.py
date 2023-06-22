@@ -50,7 +50,8 @@ async def main():
     if args.env:
         env_file = os.path.abspath(args.env)
         evars = dotenv.dotenv_values(env_file)
-        os.environ.update(evars, env_file)
+        check_evars(cfg=evars, env_file=env_file)
+        os.environ.update(evars)
         connection_string = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
         container_name = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
         if args.run == 'download':
