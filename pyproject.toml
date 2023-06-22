@@ -8,7 +8,7 @@ name = "dfpp"
 version = "0.0.1"
 description = "UNDP's Data Futures Platform Backend Pipeline"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.8"
 dependencies = [
     "aiohttp",
     "aiosignal",

@@ -14,6 +14,9 @@ parser.add_argument('--run',
 parser.add_argument('--env', help='Path to the .env file')
 
 
+async def run_pipeline():
+    pass
+
 async def main():
     args = parser.parse_args()
     if args.env:
