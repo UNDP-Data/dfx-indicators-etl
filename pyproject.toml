@@ -23,3 +23,6 @@ where = ["./"]
 
 [tool.distutils.bdist_wheel]
 universal = true
+
+[project.scripts]
+dfp_pipeline = "dfpp:__main__:main"
