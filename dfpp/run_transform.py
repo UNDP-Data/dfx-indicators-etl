@@ -1,14 +1,16 @@
 from configparser import ConfigParser, RawConfigParser
 from dfpp.preprocessing import *  # too many to list
 from dfpp.storage import AsyncAzureBlobStorageManager
-from dfpp.constants import AZURE_STORAGE_CONNECTION_STRING, AZURE_STORAGE_CONTAINER_NAME, ROOT_FOLDER, SOURCE_CONFIG_ROOT_FOLDER, INDICATOR_CONFIG_ROOT_FOLDER
+from dfpp.constants import  SOURCE_CONFIG_ROOT_FOLDER, INDICATOR_CONFIG_ROOT_FOLDER
 
 # This is importing all transform functions from transform_functions.py. DO NOT REMOVE EVEN IF IDE SAYS IT IS UNUSED
 from dfpp.transform_functions import type1_transform, type2_transform, type3_transform
 
 
 indicator_parser = ConfigParser(interpolation=None)
-
+CONNECTION_STRING=os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
+CONTAINER_NAME=os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
+ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
 
 class UnescapedConfigParser(RawConfigParser):
     """
@@ -36,8 +38,8 @@ source_parser = UnescapedConfigParser(
 
 async def read_indicator_list():
     storage_manager = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=AZURE_STORAGE_CONNECTION_STRING,
-        container_name=AZURE_STORAGE_CONTAINER_NAME,
+        connection_string=CONNECTION_STRING,
+        container_name=CONTAINER_NAME,
         use_singleton=False
     )
     indicator_list = []
@@ -65,8 +67,8 @@ async def read_indicator_list():
 
 async def read_source_file_for_indicator(indicator_id: str = None):
     storage = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=AZURE_STORAGE_CONNECTION_STRING,
-        container_name=AZURE_STORAGE_CONTAINER_NAME,
+        connection_string=CONNECTION_STRING,
+        container_name=CONTAINER_NAME,
         use_singleton=False
     )
     try:

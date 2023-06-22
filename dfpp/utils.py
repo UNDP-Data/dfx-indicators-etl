@@ -2,11 +2,14 @@ import asyncio
 import io
 import logging
 from tempfile import TemporaryDirectory
-
+import os
 import numpy as np
 import pandas as pd
 from dfpp.storage import AsyncAzureBlobStorageManager
-from dfpp.constants import *
+from dfpp.constants import COUNTRY_LOOKUP_CSV_PATH, STANDARD_KEY_COLUMN
+AZURE_STORAGE_CONNECTION_STRING=os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
+AZURE_STORAGE_CONTAINER_NAME=os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
+ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
 
 logger = logging.getLogger(__name__)
 
