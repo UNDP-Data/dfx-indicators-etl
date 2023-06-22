@@ -3,4 +3,5 @@ azure-storage-blob
 swifter
 aiohttp
 python-dotenv
+openpyxl
 

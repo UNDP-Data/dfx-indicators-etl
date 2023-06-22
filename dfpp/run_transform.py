@@ -10,14 +10,21 @@ from dfpp.storage import AsyncAzureBlobStorageManager
 from dfpp.constants import  SOURCE_CONFIG_ROOT_FOLDER, INDICATOR_CONFIG_ROOT_FOLDER
 
 # This is importing all transform functions from transform_functions.py. DO NOT REMOVE EVEN IF IDE SAYS IT IS UNUSED
-from dfpp.transform_functions import type1_transform, type2_transform, type3_transform
+from dfpp import transform_functions
 logger = logging.getLogger(__name__)
 
 # indicator_parser = ConfigParser(interpolation=None)
 CONNECTION_STRING=os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
 CONTAINER_NAME=os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
 ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
+
+
 def cfg2dict(config_object=None):
+    """
+    Copnverts a config object to dict
+    :param config_object:
+    :return:
+    """
     output_dict=dict()
     sections=config_object.sections()
     for section in sections:
@@ -161,7 +168,7 @@ async def run_transformation_for_indicator(indicator_cfg:dict=None):
     preprocessing_function_name = indicator_cfg['preprocessing']
     assert hasattr(preprocessing, preprocessing_function_name), f'Indicator {indicator_id} does not define a preprocessing fucntion'
     preprocessing_function = getattr(preprocessing, preprocessing_function_name)
-    print(preprocessing_function)
+
 
 
     # Retrieve necessary columns for transformation
@@ -188,11 +195,12 @@ async def run_transformation_for_indicator(indicator_cfg:dict=None):
     source_df.replace('..', np.NaN, inplace=True)
     source_df.dropna(inplace=True, axis=1, how="all")
 
-    transform_function = indicator_cfg.get('transform_function', None)
+    transform_function_name = indicator_cfg.get('transform_function', None)
 
-    if transform_function is not None:
+    if transform_function_name is not None:
         # If transform function is specified, run it
-        run_transform = globals()[transform_function]
+
+        run_transform = getattr(transform_functions, transform_function_name)
         source_info = source_cfg['source']
         country_column = source_info.get('country_name_column', None)
         key_column = source_info.get('country_iso3_column', None)
@@ -210,7 +218,7 @@ async def run_transformation_for_indicator(indicator_cfg:dict=None):
             key_column = source_info.get('country_iso3_column', key_column)
             source_df.rename(columns={key_column: 'Alpha-3 code'}, inplace=True)
             key_column = 'Alpha-3 code'
-        logger.info(f"Running transform function {transform_function} for indicator {indicator_id}")
+        logger.info(f"Running transform function {transform_function_name} for indicator {indicator_id}")
         return await run_transform(
             source_df=source_df,
             indicator_id=indicator_id,
