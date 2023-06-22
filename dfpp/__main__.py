@@ -4,15 +4,13 @@ import argparse
 import os
 from asyncio import sleep
 import sys
-
-import dotenv
 from dfpp.download import retrieval
 from dfpp.run_transform import transform_sources
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--run',
                     help='The function to run. options are download, standardise, and publish, or all of the functions together like pipeline')
-#parser.add_argument('--env', help='Path to the .env file')
+
 
 
 def run_pipeline():
@@ -43,12 +41,6 @@ def check_evars(cfg, env_file):
 
 async def main():
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
-
-    #if args.env:
-        # env_file = os.path.abspath(args.env)
-        # evars = dotenv.dotenv_values(env_file)
-        # check_evars(cfg=evars, env_file=env_file)
-        # os.environ.update(evars)
     connection_string = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
     container_name = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
     if args.run == 'download':
@@ -65,8 +57,6 @@ async def main():
         await sleep(5)
         await transform_sources()
         logging.info('Transforming Data Complete....')
-    # else:
-    #     raise Exception('Environment Variable Not Found')
 
 
 if __name__ == '__main__':
