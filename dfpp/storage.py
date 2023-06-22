@@ -24,7 +24,7 @@ class AzureBlobStorageManager:
         Initializes the container client for Azure Blob Storage.
         """
         self.delimiter = "/"
-        self.ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
+        self.ROOT_FOLDER = ROOT_FOLDER
 
         if AzureBlobStorageManager._instance is not None:
             raise Exception(
