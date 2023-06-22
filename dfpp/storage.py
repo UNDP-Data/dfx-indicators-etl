@@ -7,9 +7,9 @@ from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import ContainerClient as AContainerClient
 import os
 from dfpp.dfpp_exceptions import ConfigError, DFPSourceError
-ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
-logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
+ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
 
 class AzureBlobStorageManager:
     """
@@ -25,6 +25,7 @@ class AzureBlobStorageManager:
         """
         self.delimiter = "/"
         self.ROOT_FOLDER = ROOT_FOLDER
+        assert self.ROOT_FOLDER not in ('', None), f'Invalid self.ROOT_FOLDER={self.ROOT_FOLDER}'
 
         if AzureBlobStorageManager._instance is not None:
             raise Exception(
@@ -496,6 +497,7 @@ class AsyncAzureBlobStorageManager:
         self.container_client = container_client
         self.delimiter = "/"
         self.ROOT_FOLDER = ROOT_FOLDER
+        assert self.ROOT_FOLDER not in ('', None), f'Invalid self.ROOT_FOLDER={self.ROOT_FOLDER}'
 
     @classmethod
     async def create_instance(
@@ -664,6 +666,7 @@ class AsyncAzureBlobStorageManager:
         cfg = {}
         # os.path.join doesn't work for filtering returned Azure blob paths
         prefix = f"{self.ROOT_FOLDER}/config/sources"
+        print(prefix)
         async for blob in self._yield_blobs(prefix=prefix):
             if (
                     not isinstance(blob, BlobPrefix)
