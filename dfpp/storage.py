@@ -7,7 +7,7 @@ from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import ContainerClient as AContainerClient
 import os
 from dfpp.dfpp_exceptions import ConfigError, DFPSourceError
-from dfpp.constants import ROOT_FOLDER
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,7 +24,7 @@ class AzureBlobStorageManager:
         Initializes the container client for Azure Blob Storage.
         """
         self.delimiter = "/"
-        self.ROOT_FOLDER = ROOT_FOLDER
+        self.ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
 
         if AzureBlobStorageManager._instance is not None:
             raise Exception(

@@ -35,12 +35,22 @@ def run_pipeline():
     logger.addHandler(logging_stream_handler)
     logger.name = __name__
     asyncio.run(main())
+
+def check_evars(cfg, env_file):
+
+    for k, v in cfg.items():
+        assert k in cfg, f'"{k}" env. variable is not set in {env_file}'
+        v = cfg['']
+        assert v not in ['', None] , f'"k"={v} is  isnvalid'
+
+
 async def main():
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
 
     if args.env:
-        evars = dotenv.dotenv_values(os.path.abspath(args.env))
-        os.environ.update(evars)
+        env_file = os.path.abspath(args.env)
+        evars = dotenv.dotenv_values(env_file)
+        os.environ.update(evars, env_file)
         connection_string = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
         container_name = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
         if args.run == 'download':
