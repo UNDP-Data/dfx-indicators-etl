@@ -40,7 +40,7 @@ def check_evars(cfg, env_file):
 
     for k, v in cfg.items():
         assert k in cfg, f'"{k}" env. variable is not set in {env_file}'
-        v = cfg['']
+        v = cfg[k]
         assert v not in ['', None] , f'"k"={v} is  isnvalid'
 
 
