@@ -7,7 +7,7 @@ from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import ContainerClient as AContainerClient
 import os
 from dfpp.dfpp_exceptions import ConfigError, DFPSourceError
-
+ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
 logger = logging.getLogger(__name__)
 
 
