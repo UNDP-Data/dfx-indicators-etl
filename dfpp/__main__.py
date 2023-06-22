@@ -2,7 +2,7 @@ import logging
 import asyncio
 import argparse
 from asyncio import sleep
-
+import sys
 from dotenv import load_dotenv
 from dfpp.download import retrieval
 from dfpp.constants import *
@@ -32,7 +32,7 @@ def run_pipeline():
     logger.name = __name__
     asyncio.run(main())
 async def main():
-    args = parser.parse_args()
+    args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     if args.env:
         load_dotenv(dotenv_path=args.env)
         connection_string = AZURE_STORAGE_CONNECTION_STRING
