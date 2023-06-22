@@ -1,11 +1,15 @@
 import logging
 import asyncio
 import argparse
+import os
 from asyncio import sleep
 import sys
+
+import dotenv
 from dotenv import load_dotenv
 from dfpp.download import retrieval
-from dfpp.constants import *
+
+
 from dfpp.run_transform import transform_sources
 
 parser = argparse.ArgumentParser()
@@ -33,10 +37,12 @@ def run_pipeline():
     asyncio.run(main())
 async def main():
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
+
     if args.env:
-        load_dotenv(dotenv_path=args.env)
-        connection_string = AZURE_STORAGE_CONNECTION_STRING
-        container_name = AZURE_STORAGE_CONTAINER_NAME
+        evars = dotenv.dotenv_values(os.path.abspath(args.env))
+        os.environ.update(evars)
+        connection_string = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
+        container_name = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
         if args.run == 'download':
             await retrieval(connection_string=connection_string, container_name=container_name)
         if args.run == 'transform':
