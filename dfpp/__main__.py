@@ -9,7 +9,7 @@ from dfpp.run_transform import transform_sources
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--run',
-                    help='The function to run. options are download, standardise, and publish, or all of the functions together like pipeline')
+                    help='The function to run. options are download, transform, and publish, or all of the functions together like pipeline')
 
 
 
@@ -46,7 +46,7 @@ async def main():
     if args.run == 'download':
         await retrieval(connection_string=connection_string, container_name=container_name)
     if args.run == 'transform':
-        await transform_sources()
+        await transform_sources(concurrent=True)
     if args.run == 'pipeline':
         logging.info('Starting pipeline....')
         await sleep(5)

@@ -15,7 +15,8 @@ dependencies = [
     "swifter",
     'aiohttp',
     'python-dotenv',
-    'build'
+    'build',
+    'openpyxl'
 ]
 
 [tool.setuptools.packages.find]

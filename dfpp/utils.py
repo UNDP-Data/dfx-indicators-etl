@@ -3,6 +3,7 @@ import io
 import logging
 from tempfile import TemporaryDirectory
 import os
+import itertools
 import numpy as np
 import pandas as pd
 from dfpp.storage import AsyncAzureBlobStorageManager
@@ -13,6 +14,13 @@ ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
 
 logger = logging.getLogger(__name__)
 
+def chunker(iterable, size):
+    it = iter(iterable)
+    while True:
+        chunk = tuple(itertools.islice(it, size))
+        if not chunk:
+            break
+        yield chunk
 
 async def add_country_code(source_df, country_name_column=None):
     """
@@ -31,6 +39,7 @@ async def add_country_code(source_df, country_name_column=None):
     storage = await AsyncAzureBlobStorageManager.create_instance(
         connection_string=AZURE_STORAGE_CONNECTION_STRING,
         container_name=AZURE_STORAGE_CONTAINER_NAME,
+        use_singleton=False
     )
     country_lookup_bytes = await storage.download(blob_name=COUNTRY_LOOKUP_CSV_PATH)
     country_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_lookup")
@@ -68,6 +77,7 @@ async def add_region_code(source_df=None, region_name_col=None, region_key_col=N
         storage = await AsyncAzureBlobStorageManager.create_instance(
             connection_string=AZURE_STORAGE_CONNECTION_STRING,
             container_name=AZURE_STORAGE_CONTAINER_NAME,
+            use_singleton=False
         )
         country_lookup_bytes = await storage.download(blob_name=COUNTRY_LOOKUP_CSV_PATH)
         region_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="region_lookup")
@@ -100,7 +110,9 @@ async def add_region_code(source_df=None, region_name_col=None, region_key_col=N
         await storage.close()
         return source_df
     except Exception as e:
+        await storage.close()
         logger.error("Error in add_region_code: {}".format(e))
+        raise
 
 
 async def add_alpha_code_3_column(source_df, country_col):
@@ -121,6 +133,7 @@ async def add_alpha_code_3_column(source_df, country_col):
     storage = await AsyncAzureBlobStorageManager.create_instance(
         connection_string=AZURE_STORAGE_CONNECTION_STRING,
         container_name=AZURE_STORAGE_CONTAINER_NAME,
+        use_singleton=False
     )
     country_lookup_bytes = await storage.download(COUNTRY_LOOKUP_CSV_PATH)
     country_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_lookup")
@@ -146,6 +159,7 @@ async def fix_iso_country_codes(df: pd.DataFrame = None, col: str = None, source
     storage = await AsyncAzureBlobStorageManager.create_instance(
         connection_string=AZURE_STORAGE_CONNECTION_STRING,
         container_name=AZURE_STORAGE_CONTAINER_NAME,
+        use_singleton=False
     )
     country_lookup_bytes = await storage.download(COUNTRY_LOOKUP_CSV_PATH)
     country_code_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_code_lookup")
@@ -352,7 +366,7 @@ async def update_base_file(df=None, blob_name=None):
         country_group_df = await country_group_dataframe()
 
         if blob_exists:
-            logger.info("Base file exists. Updating...")
+            logger.info(f"Base file {blob_name} exists. Updating...")
             # Download the base file as bytes and read it as a DataFrame
             base_file_bytes = await storage_manager.download(
                 blob_name=os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name),
@@ -387,29 +401,25 @@ async def update_base_file(df=None, blob_name=None):
         base_file_df = base_file_df.join(df[add_columns])
 
         # Reset the index of base_file_df
-        base_file_df.reset_index(inplace=True)
+        #this will add a new int column with new indices
+        #base_file_df.reset_index(inplace=True)
 
         # Define the destination path for the CSV file
         destination_path = os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
 
-        # Save base_file_df as a temporary CSV file
-        with TemporaryDirectory() as temp_dir:
-            temp_file = os.path.join(temp_dir, blob_name)
-            base_file_df.to_csv(temp_file)
-
-            # Upload the temporary file to Azure Blob Storage
-            await storage_manager.upload(
-                src_path=temp_file,
-                dst_path=destination_path,
-                overwrite=True,
-                content_type="text/csv"
-            )
+        await storage_manager.upload(
+                    data=base_file_df.to_csv(encoding='utf-8'),
+                    dst_path=destination_path,
+                    overwrite=True,
+                    content_type="text/csv"
+        )
 
         await storage_manager.close()
-        return True
+
     except Exception as e:
-        logger.error("Error uploading to blob: " + str(e))
-        return False
+        await storage_manager.close()
+        logger.error(f"Error uploading to blob: {e}")
+        raise
 
 
 
