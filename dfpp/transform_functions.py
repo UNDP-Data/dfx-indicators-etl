@@ -1,5 +1,5 @@
 import pandas as pd
-
+pd.options.mode.chained_assignment = None
 from dfpp.constants import STANDARD_KEY_COLUMN, STANDARD_COUNTRY_COLUMN
 from dfpp.utils import get_year_columns, rename_indicator, invert_dictionary, add_country_code, add_region_code, \
     update_base_file
@@ -27,7 +27,11 @@ async def type1_transform(**kwargs):
         Transformed data uploaded to a blob as a CSV file.
     """
 
+
+
+
     df = kwargs.get("source_df")
+
     indicator_id = kwargs.get('indicator_id', None)
     base_filename = kwargs.get('base_filename', None)
     country_column = kwargs.get('country_column', None)
@@ -39,6 +43,9 @@ async def type1_transform(**kwargs):
     group_name = kwargs.get('group_name', None)
     aggregate = kwargs.get('aggregate', False)
     keep = kwargs.get('keep', 'last')
+
+
+
 
     index_col = key_column if key_column else country_column
 
@@ -93,7 +100,7 @@ async def type1_transform(**kwargs):
         df = df[[key_column, country_column] + indicator_cols]
 
     save_as = base_filename + ".csv"
-    return await update_base_file(df=df, blob_name=save_as)
+    await update_base_file(df=df, blob_name=save_as)
 
 
 async def type2_transform(**kwargs):
@@ -258,7 +265,6 @@ async def type3_transform(**kwargs):
                 country_df = country_df.resample("Y").mean()
 
             country_df.reset_index(inplace=True)
-
         country_df["Year Column"] = country_df[datetime_column].apply(lambda x: x.year)
         country_df.drop_duplicates("Year Column", keep=keep, inplace=True)
 

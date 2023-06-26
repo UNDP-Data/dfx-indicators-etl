@@ -945,6 +945,13 @@ class AsyncAzureBlobStorageManager:
         Returns:
             bytes or None: The data of the downloaded file, or None if a dst_path argument is provided.
         """
+        # _, b_name = os.path.split(blob_name)
+        #
+        # async def _progress_(current, total) -> None:
+        #     progress = current / total * 100
+        #     rounded_progress = int(math.floor(progress))
+        #     logger.info(f'{b_name} was downloaded - {rounded_progress}%')
+        logger.debug(f'Downloading {blob_name}')
         blob_client = self.container_client.get_blob_client(blob=blob_name)
         chunk_list = []
         stream = await blob_client.download_blob()
@@ -953,7 +960,7 @@ class AsyncAzureBlobStorageManager:
 
         # data = await blob_client.download_blob().chunks()
         data = b"".join(chunk_list)
-
+        logger.debug(f'Finished downloading {blob_name}')
         if dst_path:
             async with open(dst_path, "wb") as f:
                 f.write(data)
@@ -989,11 +996,12 @@ class AsyncAzureBlobStorageManager:
         """
 
         try:
+            _, blob_name = os.path.split(dst_path)
 
             async def _progress_(current, total) -> None:
                 progress = current / total * 100
                 rounded_progress = int(math.floor(progress))
-                logger.info(f'uploaded - {rounded_progress}%')
+                logger.info(f'{blob_name} was uploaded - {rounded_progress}%')
 
             blob_client = self.container_client.get_blob_client(blob=dst_path)
             if src_path:
