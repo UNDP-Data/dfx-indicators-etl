@@ -22,8 +22,8 @@ CONTAINER_NAME = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
 ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
 TMP_SOURCES = {}
 
-
 MANDATORY_SOURCE_COLUMNS = 'id', 'url', 'save_as'
+
 
 def validate_src_cfg(cfg_dict=None, cfg_file_path=None):
     """
@@ -43,12 +43,12 @@ def validate_src_cfg(cfg_dict=None, cfg_file_path=None):
         except AssertionError:
             raise
         except Exception as e:
-           pass
-
+            pass
 
         assert k in cfg_dict['source'], f'{cfg_file_path} needs to contain {k} key'
         assert isinstance(v, str), f"{cfg_file_path}'s {k} key needs to be a string. Current value is {type(v)}"
         assert v, f"{cfg_file_path}'s {k} key needs to be a valid string. Current value is {v}"
+
 
 def cfg2dict(config_object=None):
     """
@@ -133,7 +133,6 @@ async def read_indicators_config(indicator_file_contains=None, chunk_size=50):
             name=indicator_rel_path
         ))
 
-
     for chunk in chunker(tasks, 50):
         logging.info(f'Fetching configs for {len(chunk)} indicators')
         done, pending = await asyncio.wait(chunk, timeout=None, return_when=asyncio.ALL_COMPLETED)
@@ -170,7 +169,7 @@ async def read_source_file_for_indicator(indicator_source: str = None):
         source_parser.read_string(blob_as_bytes.decode('utf-8'))
         source_cfg = cfg2dict(source_parser)
 
-        validate_src_cfg(cfg_dict=source_cfg,cfg_file_path=source_config_path)
+        validate_src_cfg(cfg_dict=source_cfg, cfg_file_path=source_config_path)
 
         source_file_name = f"{indicator_source.upper()}.{source_parser['source']['file_format']}"
         if source_file_name in TMP_SOURCES:
@@ -305,7 +304,7 @@ async def transform_sources(concurrent=False):
 
     # indicator_list = await read_indicators_config(indicator_file_contains="_cpiacir.cfg")
 
-    #indicator_list = await read_indicators_config(indicator_file_contains='vdem')
+    # indicator_list = await read_indicators_config(indicator_file_contains='vdem')
     indicator_list = await read_indicators_config()
     tasks = list()
 

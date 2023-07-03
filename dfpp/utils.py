@@ -1,17 +1,18 @@
 import asyncio
 import io
+import itertools
 import logging
 import os
 import numpy as np
 import pandas as pd
 from dfpp.storage import AsyncAzureBlobStorageManager
 from dfpp.constants import COUNTRY_LOOKUP_CSV_PATH, STANDARD_KEY_COLUMN
-AZURE_STORAGE_CONNECTION_STRING=os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
-AZURE_STORAGE_CONTAINER_NAME=os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
+
+AZURE_STORAGE_CONNECTION_STRING = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
+AZURE_STORAGE_CONTAINER_NAME = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
 ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
 
 logger = logging.getLogger(__name__)
-
 
 
 async def add_country_code(source_df, country_name_column=None):
@@ -226,7 +227,6 @@ async def get_year_columns(columns, col_prefix=None, col_suffix=None, column_sub
     return year_columns
 
 
-
 async def rename_indicator(indicator, year):
     """
     Renames an indicator by appending the year to its name.
@@ -239,7 +239,6 @@ async def rename_indicator(indicator, year):
         str: The renamed indicator.
     """
     return indicator + "_" + str(int(float(year)))
-
 
 
 async def invert_dictionary(original_dictionary):
@@ -322,6 +321,14 @@ async def country_group_dataframe():
         return pd.DataFrame()  # Return an empty DataFrame if an error occurs
 
 
+def chunker(iterable, size):
+    it = iter(iterable)
+    while True:
+        chunk = tuple(itertools.islice(it, size))
+        if not chunk:
+            break
+        yield chunk
+
 
 async def update_base_file(df=None, blob_name=None):
     """
@@ -375,7 +382,9 @@ async def update_base_file(df=None, blob_name=None):
         base_file_df = base_file_df[base_file_df[STANDARD_KEY_COLUMN].isin(country_group_df[STANDARD_KEY_COLUMN])]
 
         # Select the keys from country_group_df that are not present in base_file_df
-        key_df[STANDARD_KEY_COLUMN] = country_group_df[~country_group_df[STANDARD_KEY_COLUMN].isin(base_file_df[STANDARD_KEY_COLUMN])][STANDARD_KEY_COLUMN]
+        key_df[STANDARD_KEY_COLUMN] = \
+            country_group_df[~country_group_df[STANDARD_KEY_COLUMN].isin(base_file_df[STANDARD_KEY_COLUMN])][
+                STANDARD_KEY_COLUMN]
 
         # Concatenate base_file_df and key_df
         base_file_df = pd.concat([base_file_df, key_df], ignore_index=True)
@@ -393,17 +402,17 @@ async def update_base_file(df=None, blob_name=None):
         base_file_df = base_file_df.join(df[add_columns])
 
         # Reset the index of base_file_df
-        #this will add a new int column with new indices
-        #base_file_df.reset_index(inplace=True)
+        # this will add a new int column with new indices
+        # base_file_df.reset_index(inplace=True)
 
         # Define the destination path for the CSV file
         destination_path = os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
 
         await storage_manager.upload(
-                    data=base_file_df.to_csv(encoding='utf-8'),
-                    dst_path=destination_path,
-                    overwrite=True,
-                    content_type="text/csv"
+            data=base_file_df.to_csv(encoding='utf-8'),
+            dst_path=destination_path,
+            overwrite=True,
+            content_type="text/csv"
         )
 
         await storage_manager.close()
@@ -412,7 +421,6 @@ async def update_base_file(df=None, blob_name=None):
         await storage_manager.close()
         logger.error(f"Error uploading to blob: {e}")
         raise
-
 
 
 if __name__ == "__main__":
