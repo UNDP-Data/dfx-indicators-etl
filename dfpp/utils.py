@@ -348,7 +348,7 @@ async def update_base_file(df=None, blob_name=None):
     )
     try:
         # Reset the index of the DataFrame
-        df.reset_index(inplace=True)
+        # df.reset_index(inplace=True)
 
         # Drop rows with missing values in the STANDARD_KEY_COLUMN
         df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
