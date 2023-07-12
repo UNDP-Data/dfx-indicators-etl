@@ -5,11 +5,12 @@ import os
 from asyncio import sleep
 import sys
 from dfpp.download import retrieval
+from dfpp.publish import publish
 from dfpp.run_transform import transform_sources
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--run',
-                    help='The function to run. options are download, transform, and publish, or all of the functions together like pipeline')
+                    help='The function to run. options are download, transform, and publish, or all of the functions together like `pipeline`')
 
 
 
@@ -47,6 +48,8 @@ async def main():
         await retrieval(connection_string=connection_string, container_name=container_name)
     if args.run == 'transform':
         await transform_sources(concurrent=True)
+    if args.run == 'publish':
+        await publish()
     if args.run == 'pipeline':
         logging.info('Starting pipeline....')
         await sleep(5)

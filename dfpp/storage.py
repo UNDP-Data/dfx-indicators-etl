@@ -9,8 +9,10 @@ from azure.storage.blob.aio import ContainerClient as AContainerClient
 import os
 from dfpp.dfpp_exceptions import ConfigError, DFPSourceError
 import math
+
 logger = logging.getLogger(__name__)
 ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
+
 
 class AzureBlobStorageManager:
     """
@@ -453,6 +455,7 @@ class AzureBlobStorageManager:
             Returns:
                 None
         """
+
         def _progress_(current, total) -> None:
             progress = current / total * 100
             logger.info(f'uploaded - {progress}%')
@@ -599,7 +602,7 @@ class AsyncAzureBlobStorageManager:
         """
         indicator_list = []
         # os.path.join doesn't work for filtering returned Azure blob paths
-        prefix = f"{self.ROOT_FOLDER}/config/sources"
+        prefix = f"{self.ROOT_FOLDER}/config/indicators"
         async for blob in self._yield_blobs(prefix=prefix):
             if (
                     not isinstance(blob, BlobPrefix)
@@ -614,8 +617,7 @@ class AsyncAzureBlobStorageManager:
                 parser = configparser.ConfigParser(interpolation=None)
                 parser.read_string(content_str)
                 if "indicator" in parser:
-                    indicator_list.append(parser["indicator"].get("id"))
-
+                    indicator_list.append(parser["indicator"].get("indicator_id"))
                 else:
                     raise ConfigError(f"Invalid indicator config")
         return indicator_list
@@ -700,14 +702,12 @@ class AsyncAzureBlobStorageManager:
                     self.dsource(blob_name=blob.name)
                 ))
 
-
         for fut in asyncio.as_completed(futures):
             src_id, src_cfg, downloader_params = await fut
             cfg[src_id] = src_cfg
             cfg[src_id]['downloader_params'] = downloader_params
 
         return cfg
-
 
     async def get_source_config(self) -> Dict[str, Dict[str, Any]]:
         """
@@ -1018,7 +1018,6 @@ class AsyncAzureBlobStorageManager:
                     overwrite=overwrite,
                     content_settings=ContentSettings(content_type=content_type),
                     progress_hook=_progress_,
-
 
                 )
             else:
