@@ -274,12 +274,12 @@ async def process_time_series_data(storage_manager: AsyncAzureBlobStorageManager
 
 async def generate_indicator_data(dataframe: pd.DataFrame = None, indicator_cfgs: list = None,
                                   timeseries_cols: list = None):
-    async def generate_indicator_timeseries_data(row: pd.Series = None, columns: list = None):
+    async def generate_indicator_timeseries_data(df_row=None, columns: list = None):
         """
         Generates indicator data based on the provided row and final output columns.
 
         Args:
-            row (pd.Series): The input row.
+            df_row (pd.Series): The input row.
             columns (list): The list of final output columns.
 
         Returns:
@@ -287,11 +287,6 @@ async def generate_indicator_data(dataframe: pd.DataFrame = None, indicator_cfgs
 
         """
         # logger.info("Generating indicator data for row: %s", row[STANDARD_KEY_COLUMN])
-        storage_manager = await AsyncAzureBlobStorageManager.create_instance(
-            connection_string=os.environ.get('AZURE_STORAGE_CONNECTION_STRING'),
-            container_name=os.environ.get('AZURE_STORAGE_CONTAINER_NAME'),
-            use_singleton=False
-        )
 
         data = []
         indicators = {}
@@ -301,40 +296,43 @@ async def generate_indicator_data(dataframe: pd.DataFrame = None, indicator_cfgs
                 indicator = "_".join(column.rsplit("_")[:-1])
                 indicator_year = (column.rsplit("_")[-1])
                 indicator_year = float(indicator_year)
-                if indicator_year < 1980:
+                if indicator_year < 1980:  # TODO: make this configurable, or use the indicator config
                     continue
                 if (indicator in indicator_list) and not (pd.isnull(row[column])):
                     if indicator not in indicators:
                         indicators[indicator] = []
                     indicators[indicator].append({"year": int(float((column.rsplit("_")[-1]))), "value": row[column]})
             except Exception as e:
-                pass
+                logger.warning("Error processing column %s: %s", column, str(e))
+        print(indicators)
         # indicators = sorted(indicators.items())
         # indicators = dict(OrderedDict[sorted(indicators.items())])
-        for indicator in indicators:
-            available_years = []
-            for single_dict in indicators[indicator]:
-                available_years.append((single_dict["year"]))
-            available_years.sort()
-            indicators[indicator].sort(key=lambda x: x["year"])
-
-            current_indicator = filter(lambda x: x['indicator']['indicator_id'] == indicator, indicator_cfgs)
-            current_indicator = list(current_indicator)[0]
-
-            data.append({
-                "indicator": current_indicator["indicator_name"],
-                "yearlyData": indicators[indicator]
-            })
-        await storage_manager.close()
+        # for indicator in indicators:
+        #     available_years = []
+        #     for single_dict in indicators[indicator]:
+        #         available_years.append((single_dict["year"]))
+        #     available_years.sort()
+        #     indicators[indicator].sort(key=lambda x: x["year"])
+        #
+        #     current_indicator = filter(lambda x: x['indicator']['indicator_id'] == indicator, indicator_cfgs)
+        #     current_indicator = list(current_indicator)[0]
+        #
+        #     data.append({
+        #         "indicator": current_indicator["indicator_name"],
+        #         "yearlyData": indicators[indicator]
+        #     })
         return data
 
     columns_list = dataframe.columns.to_list()
     # dataframe['indicators'] = []
     tasks = []
     for row in dataframe.iterrows():
-        task = asyncio.create_task(generate_indicator_timeseries_data(row=row, columns=columns_list))
-        tasks.append(task)
-    dataframe['indicators'] = await asyncio.gather(*tasks)
+        task = asyncio.create_task(generate_indicator_timeseries_data(df_row=row, columns=columns_list))
+        print(task)
+        # await generate_indicator_timeseries_data(df_row=row, columns=columns_list)
+    #     task = asyncio.create_task(generate_indicator_timeseries_data(row=row, columns=columns_list))
+    #     tasks.append(task)
+    # dataframe['indicators'] = await asyncio.gather(*tasks)
     # dataframe['indicators'] = dataframe.swifter.apply(lambda row: generate_indicator_timeseries_data(row=row, columns=columns_list), axis=1)
     added_indicators_list = list(set(timeseries_cols) & set(dataframe.columns.to_list()))
     print(added_indicators_list)
@@ -392,10 +390,7 @@ async def publish():
     output_df = pd.read_csv('/home/thuha/Downloads/output.csv')
     logger.info("Output dataframe:")
     if output_data_type == "timeseries":
-        indicator_cfgs = list(filter(lambda x: x['indicator'][
-                                                   'indicator_name'] == "Employement outside the Formal Sector by sex and status in employment (thousands), Total, Self-employed",
-                                     indicator_cfgs))
-        print(indicator_cfgs)
+        indicator_cfgs = list(filter(lambda x: x['indicator']['indicator_name'] == "Employement outside the Formal Sector by sex and status in employment (thousands), Total, Self-employed",indicator_cfgs))
         output_df = await process_time_series_data(
             storage_manager=storage_manager,
             dataframe=output_df,
