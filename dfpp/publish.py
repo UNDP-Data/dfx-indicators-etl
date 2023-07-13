@@ -6,9 +6,7 @@ import io
 import json
 import logging
 import os
-from datetime import datetime
 import asyncio
-from typing import OrderedDict
 import swifter
 import numpy as np
 import pandas as pd
@@ -25,17 +23,10 @@ output_data_type = 'timeseries'
 # output_data_type = 'latestavailabledata'
 
 
-
-async def read_base_files():
+async def list_base_files(storage_manager: AsyncAzureBlobStorageManager):
     """
     Read the base files from the data folder
     """
-    base_file_names = []
-    storage_manager = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=os.environ["AZURE_STORAGE_CONNECTION_STRING"],
-        container_name=os.environ["AZURE_STORAGE_CONTAINER_NAME"],
-        use_singleton=False,
-    )
     # Added `/` at the end of the base file as delimiter so as the top level folder does not appear in the results
     PATH_TO_BASE_FILES = os.path.join(
         os.environ["ROOT_FOLDER"], "output", "access_all_data", "base/"
@@ -43,27 +34,22 @@ async def read_base_files():
     base_files = await storage_manager.list_blobs(
         prefix=PATH_TO_BASE_FILES,
     )
-    for file in base_files:
-        base_file_names.append(file.name)
-    await storage_manager.close()
+    base_file_names = [file.name for file in base_files]
     return base_file_names
 
 
-async def update_and_get_output_csv():
+async def update_and_get_output_csv(storage_manager: AsyncAzureBlobStorageManager):
     """
     Update the output csv file with the latest data
     """
-    storage_manager = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=os.environ["AZURE_STORAGE_CONNECTION_STRING"],
-        container_name=os.environ["AZURE_STORAGE_CONTAINER_NAME"],
-        use_singleton=False,
-    )
 
     logger.info("Reading current stored output.csv file...")
     output_df = pd.read_csv(
         io.BytesIO(await storage_manager.download(blob_name=os.path.join(OUTPUT_FOLDER, project, 'output.csv'))))
     logger.info("Starting reading base files...")
-    base_files = await read_base_files()
+    base_files_list = await list_base_files(
+        storage_manager=storage_manager
+    )
 
     async def read_base_df(base_file):
         logger.info(f"Reading base file {base_file} to a dataframe...")
@@ -71,7 +57,7 @@ async def update_and_get_output_csv():
         return base_file_df, base_file
 
     basefile_reading_tasks = []
-    for file in base_files:
+    for file in base_files_list:
         asyncio.create_task(read_base_df(file))
         basefile_reading_tasks.append(read_base_df(file))
     base_dfs = await asyncio.gather(*basefile_reading_tasks)
@@ -90,7 +76,6 @@ async def update_and_get_output_csv():
         overwrite=True,
         content_type='text/csv',
     )
-    await storage_manager.close()
     return output_df
 
 
@@ -112,7 +97,7 @@ async def get_time_series_cols(indicator_cfgs: list = None,
 async def map_datatype(value=None):
     if value == "text":
         return "str"
-    if value == "float" or value == "int":
+    elif value in ("float", "int"):
         return "float"
     else:
         return "str"
@@ -348,8 +333,8 @@ async def process_latest_data(
         tasks.append(task)
     dataframe['data'] = await asyncio.gather(*tasks)
     # dataframe = dataframe.swifter.apply(lambda x: asyncio.run(generate_latest_data(x)), axis=1, result_type='expand')
-    added_indicator_list = list(set(indicator_list) & set(dataframe.columns.to_list()))
-    dataframe.drop(added_indicator_list, axis=1, inplace=True)
+    added_indicators_columns = list(set(indicator_list) & set(dataframe.columns.to_list()))
+    dataframe.drop(added_indicators_columns, axis=1, inplace=True)
     country_dataframe = await country_group_dataframe()
     dataframe = dataframe.merge(country_dataframe)
 
@@ -401,7 +386,9 @@ async def publish():
     indicator_cfgs = await read_indicators_config()
 
     # update and get the updated output csv
-    output_df = await update_and_get_output_csv()
+    output_df = await update_and_get_output_csv(
+        storage_manager=storage_manager,
+    )
 
     # output_df = pd.read_csv('/home/thuha/Downloads/output.csv')
 
