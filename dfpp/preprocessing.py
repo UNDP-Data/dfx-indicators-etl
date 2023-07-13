@@ -1144,12 +1144,12 @@ async def mdp_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
 
         async def mdp_metadata():
             storage = await AsyncAzureBlobStorageManager.create_instance(
-                connection_string=AZURE_STORAGE_CONNECTION_STRING,
-                container_name=AZURE_STORAGE_CONTAINER_NAME,
+                connection_string=os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
+                container_name=os.environ.get("AZURE_STORAGE_CONTAINER_NAME"),
                 use_singleton=False
             )
             country_df_bytes = await storage.download(
-                blob_name=os.path.join(ROOT_FOLDER, 'config', 'utilities', 'MDP_META.json'))
+                blob_name=os.path.join(os.environ.get("ROOT_FOLDER"), 'config', 'utilities', 'MDP_META.json'))
             await storage.close()
             return country_df_bytes
 
