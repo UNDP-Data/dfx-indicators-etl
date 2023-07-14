@@ -17,7 +17,7 @@ from dfpp.storage import AsyncAzureBlobStorageManager
 from dfpp.utils import country_group_dataframe, region_group_dataframe
 
 # AREA_TYPES = ['countries', 'regions']
-AREA_TYPES = ['countries']
+AREA_TYPES = ['regions']
 logger = logging.getLogger(__name__)
 # project = 'vaccine_equity'
 project = 'access_all_data'
@@ -400,7 +400,7 @@ async def process_latest_data(
 async def generate_output_per_indicator(storage_manager: AsyncAzureBlobStorageManager, dataframe: pd.DataFrame = None,
                                         indicator_cfgs: list = None):
     """
-        Generate output files per indicator and upload them to Azure Blob Storage.
+        Generate output JSON files per indicator and upload them to Azure Blob Storage.
 
         Args:
             storage_manager (AsyncAzureBlobStorageManager): An instance of the AsyncAzureBlobStorageManager
