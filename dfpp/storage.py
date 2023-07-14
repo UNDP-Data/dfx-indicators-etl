@@ -9,9 +9,78 @@ from azure.storage.blob.aio import ContainerClient as AContainerClient
 import os
 from dfpp.dfpp_exceptions import ConfigError, DFPSourceError
 import math
-
+import tempfile
+import ast
+import itertools
 logger = logging.getLogger(__name__)
 ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
+MANDATORY_SOURCE_COLUMNS = 'id', 'url', 'save_as'
+TMP_SOURCES = {}
+
+class UnescapedConfigParser(configparser.RawConfigParser):
+    """
+    An extension of the RawConfigParser that does not escape values when reading from a file.
+    """
+
+    def get(self, section, option, **kwargs):
+        """
+        Get the value of an option.
+        :param section: The section of the config file.
+        :param option: The option to get the value of.
+        :param kwargs: The keyword arguments.
+        :return:
+        """
+        value = super().get(section, option, **kwargs)
+        try:
+            return value.encode().decode('unicode_escape')
+        except AttributeError:
+            return value
+
+def chunker(iterable, size):
+    it = iter(iterable)
+    while True:
+        chunk = tuple(itertools.islice(it, size))
+        if not chunk:
+            break
+        yield chunk
+
+
+def cfg2dict(config_object=None):
+    """
+    Copnverts a config object to dict
+    :param config_object:
+    :return: dict
+    """
+    output_dict = dict()
+    sections = config_object.sections()
+    for section in sections:
+        items = config_object.items(section)
+        output_dict[section] = dict(items)
+    return output_dict
+def validate_src_cfg(cfg_dict=None, cfg_file_path=None):
+    """
+    Validate a source config file
+    :param cfg_dict:
+    :param cfg_file_path:
+    :return:
+    """
+    assert cfg_dict is not None, f'Invalid source config {cfg_dict}'
+    assert cfg_dict != {}, f'Invalid source config {cfg_dict}'
+
+    for k in MANDATORY_SOURCE_COLUMNS:
+        v = cfg_dict[k]
+        try:
+            v_parsed = ast.literal_eval(v)
+            assert v_parsed is not None, f"{k} key {cfg_file_path} needs to be a valid string. Current value is {v}"
+        except AssertionError:
+            raise
+        except Exception as e:
+            pass
+
+
+        assert k in cfg_dict, f'{cfg_file_path} needs to contain {k} key'
+        assert isinstance(v, str), f"{cfg_file_path}'s {k} key needs to be a string. Current value is {type(v)}"
+        assert v, f"{cfg_file_path}'s {k} key needs to be a valid string. Current value is {v}"
 
 
 class AzureBlobStorageManager:
@@ -455,7 +524,6 @@ class AzureBlobStorageManager:
             Returns:
                 None
         """
-
         def _progress_(current, total) -> None:
             progress = current / total * 100
             logger.info(f'uploaded - {progress}%')
@@ -602,7 +670,7 @@ class AsyncAzureBlobStorageManager:
         """
         indicator_list = []
         # os.path.join doesn't work for filtering returned Azure blob paths
-        prefix = f"{self.ROOT_FOLDER}/config/indicators"
+        prefix = f"{self.ROOT_FOLDER}/config/sources"
         async for blob in self._yield_blobs(prefix=prefix):
             if (
                     not isinstance(blob, BlobPrefix)
@@ -617,7 +685,8 @@ class AsyncAzureBlobStorageManager:
                 parser = configparser.ConfigParser(interpolation=None)
                 parser.read_string(content_str)
                 if "indicator" in parser:
-                    indicator_list.append(parser["indicator"].get("indicator_id"))
+                    indicator_list.append(parser["indicator"].get("id"))
+
                 else:
                     raise ConfigError(f"Invalid indicator config")
         return indicator_list
@@ -702,12 +771,14 @@ class AsyncAzureBlobStorageManager:
                     self.dsource(blob_name=blob.name)
                 ))
 
+
         for fut in asyncio.as_completed(futures):
             src_id, src_cfg, downloader_params = await fut
             cfg[src_id] = src_cfg
             cfg[src_id]['downloader_params'] = downloader_params
 
         return cfg
+
 
     async def get_source_config(self) -> Dict[str, Dict[str, Any]]:
         """
@@ -1018,6 +1089,7 @@ class AsyncAzureBlobStorageManager:
                     overwrite=overwrite,
                     content_settings=ContentSettings(content_type=content_type),
                     progress_hook=_progress_,
+
 
                 )
             else:
