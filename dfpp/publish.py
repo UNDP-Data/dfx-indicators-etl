@@ -399,42 +399,97 @@ async def process_latest_data(
 
 async def generate_output_per_indicator(storage_manager: AsyncAzureBlobStorageManager, dataframe: pd.DataFrame = None,
                                         indicator_cfgs: list = None):
+    """
+        Generate output files per indicator and upload them to Azure Blob Storage.
+
+        Args:
+            storage_manager (AsyncAzureBlobStorageManager): An instance of the AsyncAzureBlobStorageManager
+                class used for uploading files to Azure Blob Storage.
+            dataframe (pd.DataFrame, optional): The input DataFrame containing indicator data.
+                Defaults to None.
+            indicator_cfgs (List, optional): A list of indicator configurations.
+                Defaults to None.
+
+        Raises:
+            Exception: Any exceptions that occur during the execution of the function.
+
+        Returns:
+            None
+    """
+
+    # Get the list of columns in the DataFrame
     columns_list = dataframe.columns.to_list()
+
+    # Get the unique indicators present in the columns
     indicators_in_output = list(set(["_".join(column.split("_")[:-1]) for column in columns_list]))
+
+    # Get the country dataframe
     country_dataframe = await country_group_dataframe()
     country_dataframe = country_dataframe[["Alpha-3 code", "Country or Area"]]
+
+    # Merge the country dataframe with the input dataframe
     dataframe = dataframe.merge(country_dataframe)
+
+    # List to store the upload tasks
     upload_tasks = []
+
+    # Filter the indicator configurations based on indicators present in the output
     indicator_cfgs_in_output = list(
         filter(lambda ind: ind['indicator']['indicator_id'] in indicators_in_output, indicator_cfgs))
+
+    # Process each indicator in the output
     for indicator in indicators_in_output:
+        # Get the years associated with the indicator
         indicator_years = list(set([column.split("_")[-1] for column in columns_list if column.startswith(indicator)]))
+
+        # Filter out valid years (4 digits)
         valid_years = [year for year in indicator_years if year.isdigit() and len(year) == 4]
+
+        # Skip if no valid years found
         if len(valid_years) == 0:
             continue
+
+        # Sort the indicator years
         indicator_years = sorted(valid_years)
+
+        # Get the current indicator configuration
         current_indicator_list = list(
             filter(lambda ind: ind['indicator']['indicator_id'] == indicator, indicator_cfgs_in_output))
+
+        # Proceed if a single indicator configuration is found
         if len(current_indicator_list) == 1:
+            # Get indicator name
             indicator_name = current_indicator_list[0]['indicator']['indicator_name']
+
+            # Prepare the indicator data
             indicator_data = {
                 "indicator": indicator_name,
                 "country_data": [
-                    {"Alpha-3 code": row["Alpha-3 code"], "Country or Area": row["Country or Area"], "data": [
-                        {"year": int(year), "value": row[f"{indicator}_{year}"]} for year in indicator_years if
-                        not pd.isna(row[f"{indicator}_{year}"]) and int(year) >= 1980
-                    ]} for index, row in dataframe.iterrows()
+                    {
+                        "Alpha-3 code": row["Alpha-3 code"],
+                        "Country or Area": row["Country or Area"],
+                        "data": [
+                            {"year": int(year), "value": row[f"{indicator}_{year}"]}
+                            for year in indicator_years
+                            if not pd.isna(row[f"{indicator}_{year}"]) and int(year) >= 1980
+                        ]
+                    }
+                    for index, row in dataframe.iterrows()
                 ]
             }
+
+            # Create an upload task for the indicator data
             upload_tasks.append(asyncio.create_task(
                 storage_manager.upload(
                     dst_path=os.path.join(OUTPUT_FOLDER, project, "OutputIndicators", f"{indicator}.json"),
                     data=json.dumps(indicator_data).encode("utf-8"),
                     content_type="application/json",
                     overwrite=True,
-                )))
-    await asyncio.gather(*upload_tasks)
+                )
+            ))
 
+    # Wait for all upload tasks to complete
+    await asyncio.gather(*upload_tasks)
 
 async def publish():
     """
