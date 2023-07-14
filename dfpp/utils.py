@@ -321,6 +321,46 @@ async def country_group_dataframe():
         return pd.DataFrame()  # Return an empty DataFrame if an error occurs
 
 
+async def region_group_dataframe():
+    """
+    Retrieves the region group DataFrame from Azure Blob Storage.
+
+    Returns:
+        pandas.DataFrame: The region group DataFrame.
+    """
+    storage_manager = await AsyncAzureBlobStorageManager.create_instance(
+        connection_string=AZURE_STORAGE_CONNECTION_STRING,
+        container_name=AZURE_STORAGE_CONTAINER_NAME,
+        use_singleton=False
+    )
+    try:
+        # Read the region group DataFrame from JSON in Azure Blob Storage
+        df = pd.read_json(io.BytesIO(await storage_manager.download(
+            blob_name=os.path.join(
+                ROOT_FOLDER,
+                'config',
+                'utilities',
+                'aggregate_territory_groups.json'
+            )
+        )))
+
+        # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
+        df.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
+
+        # Replace empty strings with NaN values
+        df['Longitude (average)'] = df['Longitude (average)'].replace(r'', np.NaN)
+
+        # Convert 'Latitude (average)' and 'Longitude (average)' columns to float64
+        df['Latitude (average)'] = df["Latitude (average)"].astype(np.float64)
+        df['Longitude (average)'] = df["Longitude (average)"].astype(np.float64)
+
+        await storage_manager.close()
+        return df
+    except Exception as e:
+        logger.error("Error retrieving region group DataFrame: " + str(e))
+        return pd.DataFrame()  # Return an empty DataFrame if an error occurs
+
+
 def chunker(iterable, size):
     it = iter(iterable)
     while True:

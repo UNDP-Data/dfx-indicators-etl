@@ -14,8 +14,10 @@ import pandas as pd
 from dfpp.constants import STANDARD_KEY_COLUMN, OUTPUT_FOLDER
 from dfpp.run_transform import read_indicators_config
 from dfpp.storage import AsyncAzureBlobStorageManager
-from dfpp.utils import country_group_dataframe
+from dfpp.utils import country_group_dataframe, region_group_dataframe
 
+# AREA_TYPES = ['countries', 'regions']
+AREA_TYPES = ['countries']
 logger = logging.getLogger(__name__)
 # project = 'vaccine_equity'
 project = 'access_all_data'
@@ -38,21 +40,25 @@ async def list_base_files(storage_manager: AsyncAzureBlobStorageManager):
     return base_file_names
 
 
-async def update_and_get_output_csv(storage_manager: AsyncAzureBlobStorageManager):
+async def update_and_get_output_csv(storage_manager: AsyncAzureBlobStorageManager, area_type: str):
     """
     Update the output csv file with the latest data
     """
 
     logger.info("Reading current stored output.csv file...")
     output_df = pd.read_csv(
-        io.BytesIO(await storage_manager.download(blob_name=os.path.join(OUTPUT_FOLDER, project, 'output.csv'))))
+        io.BytesIO(await storage_manager.download(blob_name=os.path.join(OUTPUT_FOLDER, project, f'output_{area_type}.csv'))))
+    # if area_type == 'countries':
+    #
+    # elif area_type == 'region':
+    #     output_df = pd.read_csv(io.BytesIO(await storage_manager.download(blob_name=os.path.join(OUTPUT_FOLDER, project, 'output_regions.csv'))))
     logger.info("Starting reading base files...")
     base_files_list = await list_base_files(
         storage_manager=storage_manager
     )
 
     async def read_base_df(base_file):
-        logger.info(f"Reading base file {base_file} to a dataframe...")
+        logger.info(f"Reading base file {base_file.split('/')[-1]} to a dataframe...")
         base_file_df = pd.read_csv(io.BytesIO(await storage_manager.download(blob_name=base_file)))
         return base_file_df, base_file
 
@@ -107,7 +113,9 @@ async def generate_indicator_data(
         storage_manager: AsyncAzureBlobStorageManager,
         dataframe: pd.DataFrame = None,
         indicator_cfgs: list = None,
-        timeseries_cols: list = None):
+        timeseries_cols: list = None,
+        area_type: str = None,
+):
     indicator_list = [indicator["indicator"]["indicator_id"] for indicator in indicator_cfgs]
 
     async def generate_indicator_timeseries_data(df_row: pd.Series = None, columns: list = None):
@@ -122,7 +130,6 @@ async def generate_indicator_data(
             list: A list of dictionaries representing the generated indicator data.
 
         """
-        # logger.info("Generating indicator data for row: %s", row[STANDARD_KEY_COLUMN])
 
         data = []
         indicators = {}
@@ -130,18 +137,18 @@ async def generate_indicator_data(
         for column in columns:
             if column == STANDARD_KEY_COLUMN:
                 continue
-            # try:
-            indicator = "_".join(column.rsplit("_")[:-1])
-            indicator_year = (column.rsplit("_")[-1])
-            indicator_year = float(indicator_year)
-            if indicator_year < 1980:  # TODO: make this configurable, or use the indicator config
-                continue
-            if (indicator in indicator_list) and not (pd.isnull(df_row.loc[column])):
-                if indicator not in indicators:  # if indicator not in indicators, add an empty list to it
-                    indicators[indicator] = []
-                indicators[indicator].append({"year": int(float((column.rsplit("_")[-1]))), "value": df_row[column]})
-            # except Exception as e:
-            #     logger.warning("Error processing column %s: %s", column, str(e))
+            try:
+                indicator = "_".join(column.rsplit("_")[:-1])
+                indicator_year = (column.rsplit("_")[-1])
+                indicator_year = float(indicator_year)
+                if indicator_year < 1980:  # TODO: make this configurable, or use the indicator config
+                    continue
+                if (indicator in indicator_list) and not (pd.isnull(df_row.loc[column])):
+                    if indicator not in indicators:  # if indicator not in indicators, add an empty list to it
+                        indicators[indicator] = []
+                    indicators[indicator].append({"year": int(float((column.rsplit("_")[-1]))), "value": df_row[column]})
+            except Exception as e:
+                logger.warning("Error processing column %s: %s", column, str(e))
         indicators = dict(sorted(indicators.items()))
         for indicator in indicators:
             available_years = []
@@ -168,9 +175,17 @@ async def generate_indicator_data(
     added_indicators_columns = list(set(timeseries_cols) & set(dataframe.columns.to_list()))
 
     dataframe.drop(added_indicators_columns, axis=1, inplace=True)
-    country_dataframe = await country_group_dataframe()
+    if area_type == "countries":
+        country_dataframe = await country_group_dataframe()
+    else:
+        country_dataframe = await region_group_dataframe()
     dataframe.set_index(STANDARD_KEY_COLUMN, inplace=True)
     country_dataframe.set_index(STANDARD_KEY_COLUMN, inplace=True)
+
+    # find if dataframe contains any row with any of the regions codes
+    region_codes = country_dataframe.index.to_list()
+    if any(dataframe.index.isin(region_codes)):
+        print("Dataframe contains region codes")
 
     columns_to_drop = ["Alpha-2 code", "Numeric code", "Development classification", "Group 3"]
     country_dataframe = country_dataframe.drop(columns_to_drop, axis=1)
@@ -178,17 +193,17 @@ async def generate_indicator_data(
     # Join country_dataframe with the dataframe
     dataframe = dataframe.join(country_dataframe, on=STANDARD_KEY_COLUMN)
     dataframe.reset_index(inplace=True)
-
+    # dataframe = dataframe[[STANDARD_KEY_COLUMN] + country_dataframe.columns.to_list() + columns_list]
     # Upload json file to blob
     await storage_manager.upload(
-        dst_path=os.path.join(OUTPUT_FOLDER, project, "output.json"),
+        dst_path=os.path.join(OUTPUT_FOLDER, project, f"output_{area_type}.json"),
         data=dataframe.to_json(orient="records").encode("utf-8"),
         content_type="application/json",
         overwrite=True,
     )
     # upload minified json file to blob
     await storage_manager.upload(
-        dst_path=os.path.join(OUTPUT_FOLDER, project, "output_minified.json"),
+        dst_path=os.path.join(OUTPUT_FOLDER, project, f"output_{area_type}_minified.json"),
         data=dataframe.to_json(orient="records", indent=False).encode("utf-8"),
         content_type="application/json",
         overwrite=True,
@@ -198,7 +213,7 @@ async def generate_indicator_data(
         row = dataframe.loc[index]
         task = asyncio.create_task(
             storage_manager.upload(
-                dst_path=os.path.join(OUTPUT_FOLDER, project, "OutputPerCountry", row[STANDARD_KEY_COLUMN] + ".json"),
+                dst_path=os.path.join(OUTPUT_FOLDER, project, f"Output{area_type.capitalize()}", row[STANDARD_KEY_COLUMN] + ".json"),
                 data=json.dumps(row.to_dict()).encode("utf-8"),
                 content_type="application/json",
                 overwrite=True,
@@ -213,7 +228,8 @@ async def generate_indicator_data(
 async def process_time_series_data(
         storage_manager: AsyncAzureBlobStorageManager,
         dataframe: pd.DataFrame = None,
-        indicator_cfgs: list = None) -> pd.DataFrame:
+        indicator_cfgs: list = None,
+        area_type: str = None) -> pd.DataFrame:
     """
     Preprocesses the input DataFrame for publishing.
 
@@ -221,7 +237,7 @@ async def process_time_series_data(
         dataframe (pd.DataFrame): The input DataFrame to preprocess.
         storage_manager (AsyncAzureBlobStorageManager): The storage manager object for accessing Azure Blob Storage.
         indicator_cfgs (list): A list of indicator configurations.
-
+        area_type (str): The area type of the input data.
     Returns:
         pd.DataFrame: The preprocessed DataFrame.
 
@@ -280,7 +296,8 @@ async def process_time_series_data(
         storage_manager=storage_manager,
         dataframe=dataframe,
         indicator_cfgs=indicator_cfgs,
-        timeseries_cols=time_series_cols)
+        timeseries_cols=time_series_cols,
+        area_type=area_type)
     logger.info("Finished generating indicator data")
     return dataframe
 
@@ -289,6 +306,7 @@ async def process_latest_data(
         storage_manager: AsyncAzureBlobStorageManager,
         dataframe: pd.DataFrame = None,
         indicator_cfgs: list = None,
+        area_type: str = None
 ):
     logger.info("Starting preprocessing of latest data...")
     indicator_list = [indicator['indicator']['indicator_id'] for indicator in indicator_cfgs]
@@ -335,19 +353,23 @@ async def process_latest_data(
     # dataframe = dataframe.swifter.apply(lambda x: asyncio.run(generate_latest_data(x)), axis=1, result_type='expand')
     added_indicators_columns = list(set(indicator_list) & set(dataframe.columns.to_list()))
     dataframe.drop(added_indicators_columns, axis=1, inplace=True)
-    country_dataframe = await country_group_dataframe()
+    if area_type == "countries":
+        country_dataframe = await country_group_dataframe()
+    else:
+        country_dataframe = await region_group_dataframe()
+        print(country_dataframe.head())
     dataframe = dataframe.merge(country_dataframe)
 
     # Upload json file to blob
     await storage_manager.upload(
-        dst_path=os.path.join(OUTPUT_FOLDER, project, "output.json"),
+        dst_path=os.path.join(OUTPUT_FOLDER, project, f"output_{area_type}.json"),
         data=dataframe.to_json(orient="records").encode("utf-8"),
         content_type="application/json",
         overwrite=True,
     )
     # upload minified json file to blob
     await storage_manager.upload(
-        dst_path=os.path.join(OUTPUT_FOLDER, project, "output_minified.json"),
+        dst_path=os.path.join(OUTPUT_FOLDER, project, f"output_{area_type}_minified.json"),
         data=dataframe.to_json(orient="records", indent=False).encode("utf-8"),
         content_type="application/json",
         overwrite=True,
@@ -358,7 +380,7 @@ async def process_latest_data(
         row = dataframe.iloc[index]
         upload_tasks.append(asyncio.create_task(
             storage_manager.upload(
-                dst_path=os.path.join(OUTPUT_FOLDER, project, 'OutputPerCountry', f"{row['Alpha-3 code']}.json"),
+                dst_path=os.path.join(OUTPUT_FOLDER, project, f'Output{area_type.capitalize()}', f"{row['Alpha-3 code']}.json"),
                 data=json.dumps(row.to_dict()).encode("utf-8"),
                 content_type="application/json",
                 overwrite=True,
@@ -382,29 +404,30 @@ async def publish():
     )
     logger.info("Connected to Azure Blob Storage")
     logger.info("Starting to read indicator configurations...")
+
     # Read indicator configurations
     indicator_cfgs = await read_indicators_config()
 
-    # update and get the updated output csv
-    output_df = await update_and_get_output_csv(
-        storage_manager=storage_manager,
-    )
-
-    # output_df = pd.read_csv('/home/thuha/Downloads/output.csv')
-
-    if output_data_type == "timeseries":
-        # indicator_cfgs = list(filter(lambda x: x['indicator'][
-        #                                            'indicator_name'] == "Employement outside the Formal Sector by sex and status in employment (thousands), Total, Self-employed",
-        #                              indicator_cfgs))
-        output_df = await process_time_series_data(
+    for value in AREA_TYPES:
+        # update and get the updated output csv
+        output_df = await update_and_get_output_csv(
             storage_manager=storage_manager,
-            dataframe=output_df,
-            indicator_cfgs=indicator_cfgs
+            area_type=value,
         )
-    elif output_data_type == "latestavailabledata":
-        output_df = await process_latest_data(
-            storage_manager=storage_manager,
-            dataframe=output_df,
-            indicator_cfgs=indicator_cfgs
-        )
+
+        if output_data_type == "timeseries":
+            output_df = await process_time_series_data(
+                storage_manager=storage_manager,
+                dataframe=output_df,
+                indicator_cfgs=indicator_cfgs,
+                area_type=value
+            )
+        elif output_data_type == "latestavailabledata":
+            output_df = await process_latest_data(
+                storage_manager=storage_manager,
+                dataframe=output_df,
+                indicator_cfgs=indicator_cfgs,
+                area_type=value
+            )
+    logger.info("Finished publishing of data")
     return await storage_manager.close()
