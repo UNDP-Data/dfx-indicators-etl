@@ -1181,6 +1181,11 @@ class StorageManager:
 
             if 'wbentp1_wb' in indicator_path:raise Exception('forced')
             assert await self.check_blob_exists(indicator_path), f'Indicator {indicator_id} located at {indicator_path} does not exist'
+
+            #TODO caching
+
+
+
             logger.info(f'Fetching indicator {indicator_id} from  {indicator_path}')
             stream = await self.container_client.download_blob(
                 indicator_path, max_concurrency=8
@@ -1222,6 +1227,8 @@ class StorageManager:
 
             # if 'wbentp1_wb' in indicator_path:raise Exception('forced')
             assert await self.check_blob_exists(source_path), f'Source {source_id} located at {source_path} does not exist'
+            #TODO caching
+
             logger.info(f'Fetching source {source_id} from  {source_path}')
             stream = await self.container_client.download_blob(
                 source_path, max_concurrency=8
