@@ -558,7 +558,7 @@ async def call_function(function_name, *args, **kwargs) -> Any:
         raise ValueError(f"Function {function} is not defined or not callable")
 
 
-async def retrieval(connection_string=None, container_name=None) -> None:
+async def retrieval(connection_string=None, container_name=None, indicator_ids=None, indicator_id_contain_filter=None ) -> None:
     """
     Asynchronously retrieves data from multiple sources using Azure Blob Storage, and uploads the results to a new Blob.
 
