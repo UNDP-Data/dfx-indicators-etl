@@ -92,7 +92,7 @@ async def read_indicator(storage_manager=None, blob_rel_path=None):
     :return: the configuration file as a dict
     """
 
-    logger.info(f'Downloading config for indicator {blob_rel_path}')
+    logger.info(f'Downloading config {blob_rel_path.split("/")[-1]}')
     file_in_bytes = await storage_manager.download(blob_name=blob_rel_path)
 
     indicator_parser = ConfigParser(interpolation=None)

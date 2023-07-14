@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 # project = 'vaccine_equity'
 project = 'access_all_data'
 output_data_type = 'timeseries'
+
+
 # output_data_type = 'latestavailabledata'
 
 
@@ -47,7 +49,8 @@ async def update_and_get_output_csv(storage_manager: AsyncAzureBlobStorageManage
 
     logger.info("Reading current stored output.csv file...")
     output_df = pd.read_csv(
-        io.BytesIO(await storage_manager.download(blob_name=os.path.join(OUTPUT_FOLDER, project, f'output_{area_type}.csv'))))
+        io.BytesIO(
+            await storage_manager.download(blob_name=os.path.join(OUTPUT_FOLDER, project, f'output_{area_type}.csv'))))
     # if area_type == 'countries':
     #
     # elif area_type == 'region':
@@ -146,7 +149,8 @@ async def generate_indicator_data(
                 if (indicator in indicator_list) and not (pd.isnull(df_row.loc[column])):
                     if indicator not in indicators:  # if indicator not in indicators, add an empty list to it
                         indicators[indicator] = []
-                    indicators[indicator].append({"year": int(float((column.rsplit("_")[-1]))), "value": df_row[column]})
+                    indicators[indicator].append(
+                        {"year": int(float((column.rsplit("_")[-1]))), "value": df_row[column]})
             except Exception as e:
                 logger.warning("Error processing column %s: %s", column, str(e))
         indicators = dict(sorted(indicators.items()))
@@ -183,9 +187,9 @@ async def generate_indicator_data(
     country_dataframe.set_index(STANDARD_KEY_COLUMN, inplace=True)
 
     # find if dataframe contains any row with any of the regions codes
-    region_codes = country_dataframe.index.to_list()
-    if any(dataframe.index.isin(region_codes)):
-        print("Dataframe contains region codes")
+    # region_codes = country_dataframe.index.to_list()
+    # if any(dataframe.index.isin(region_codes)):
+    #     print("Dataframe contains region codes")
 
     columns_to_drop = ["Alpha-2 code", "Numeric code", "Development classification", "Group 3"]
     country_dataframe = country_dataframe.drop(columns_to_drop, axis=1)
@@ -213,7 +217,8 @@ async def generate_indicator_data(
         row = dataframe.loc[index]
         task = asyncio.create_task(
             storage_manager.upload(
-                dst_path=os.path.join(OUTPUT_FOLDER, project, f"Output{area_type.capitalize()}", row[STANDARD_KEY_COLUMN] + ".json"),
+                dst_path=os.path.join(OUTPUT_FOLDER, project, f"Output{area_type.capitalize()}",
+                                      row[STANDARD_KEY_COLUMN] + ".json"),
                 data=json.dumps(row.to_dict()).encode("utf-8"),
                 content_type="application/json",
                 overwrite=True,
@@ -380,7 +385,8 @@ async def process_latest_data(
         row = dataframe.iloc[index]
         upload_tasks.append(asyncio.create_task(
             storage_manager.upload(
-                dst_path=os.path.join(OUTPUT_FOLDER, project, f'Output{area_type.capitalize()}', f"{row['Alpha-3 code']}.json"),
+                dst_path=os.path.join(OUTPUT_FOLDER, project, f'Output{area_type.capitalize()}',
+                                      f"{row['Alpha-3 code']}.json"),
                 data=json.dumps(row.to_dict()).encode("utf-8"),
                 content_type="application/json",
                 overwrite=True,
@@ -389,6 +395,45 @@ async def process_latest_data(
     await asyncio.gather(*upload_tasks)
 
     return dataframe
+
+
+async def generate_output_per_indicator(storage_manager: AsyncAzureBlobStorageManager, dataframe: pd.DataFrame = None,
+                                        indicator_cfgs: list = None):
+    columns_list = dataframe.columns.to_list()
+    indicators_in_output = list(set(["_".join(column.split("_")[:-1]) for column in columns_list]))
+    country_dataframe = await country_group_dataframe()
+    country_dataframe = country_dataframe[["Alpha-3 code", "Country or Area"]]
+    dataframe = dataframe.merge(country_dataframe)
+    upload_tasks = []
+    indicator_cfgs_in_output = list(
+        filter(lambda ind: ind['indicator']['indicator_id'] in indicators_in_output, indicator_cfgs))
+    for indicator in indicators_in_output:
+        indicator_years = list(set([column.split("_")[-1] for column in columns_list if column.startswith(indicator)]))
+        valid_years = [year for year in indicator_years if year.isdigit() and len(year) == 4]
+        if len(valid_years) == 0:
+            continue
+        indicator_years = sorted(valid_years)
+        current_indicator_list = list(
+            filter(lambda ind: ind['indicator']['indicator_id'] == indicator, indicator_cfgs_in_output))
+        if len(current_indicator_list) == 1:
+            indicator_name = current_indicator_list[0]['indicator']['indicator_name']
+            indicator_data = {
+                "indicator": indicator_name,
+                "country_data": [
+                    {"Alpha-3 code": row["Alpha-3 code"], "Country or Area": row["Country or Area"], "data": [
+                        {"year": int(year), "value": row[f"{indicator}_{year}"]} for year in indicator_years if
+                        not pd.isna(row[f"{indicator}_{year}"]) and int(year) >= 1980
+                    ]} for index, row in dataframe.iterrows()
+                ]
+            }
+            upload_tasks.append(asyncio.create_task(
+                storage_manager.upload(
+                    dst_path=os.path.join(OUTPUT_FOLDER, project, "OutputIndicators", f"{indicator}.json"),
+                    data=json.dumps(indicator_data).encode("utf-8"),
+                    content_type="application/json",
+                    overwrite=True,
+                )))
+    await asyncio.gather(*upload_tasks)
 
 
 async def publish():
@@ -414,7 +459,8 @@ async def publish():
             storage_manager=storage_manager,
             area_type=value,
         )
-
+        # output_df = pd.read_csv('/home/thuha/Downloads/output.csv')
+        await generate_output_per_indicator(storage_manager=storage_manager, dataframe=output_df, indicator_cfgs=indicator_cfgs)
         if output_data_type == "timeseries":
             output_df = await process_time_series_data(
                 storage_manager=storage_manager,
