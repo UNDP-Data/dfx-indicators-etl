@@ -54,14 +54,14 @@ async def main():
         logging.info('Starting pipeline....')
         await sleep(5)
         logging.info('Downloading data....')
-        await retrieval(connection_string=connection_string, container_name=container_name)
+        downloaded_indicator_ids = await retrieval(connection_string=connection_string, container_name=container_name)
         logging.info('Downloading Data Complete....')
         logging.info('Transforming data....')
         await sleep(5)
         await transform_sources()
         logging.info('Transforming Data Complete....')
 
-
+        #TODO report fucntion
 if __name__ == '__main__':
     run_pipeline()
 

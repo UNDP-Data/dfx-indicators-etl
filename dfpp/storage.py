@@ -1173,13 +1173,13 @@ class StorageManager:
 
         try:
             if indicator_id:
-                assert indicator_path is None, f'use eiter indicator_id or indicator_path'
+                assert indicator_path is None, f'use either indicator_id or indicator_path'
                 indicator_path = f'{os.path.join(self.INDICATORS_CFG_PATH, indicator_id)}.cfg'
             else:
                 _, indicator_name = os.path.split(indicator_path)
                 indicator_id, ext = os.path.splitext(indicator_name)
 
-            if 'wbentp1_wb' in indicator_path:raise Exception('forced')
+            # if 'wbentp1_wb' in indicator_path:raise Exception('forced')
             assert await self.check_blob_exists(indicator_path), f'Indicator {indicator_id} located at {indicator_path} does not exist'
 
             #TODO caching
@@ -1221,6 +1221,7 @@ class StorageManager:
             if source_id:
                 assert source_path is None, f'use eiter source_id or source_path'
                 source_path = f'{os.path.join(self.SOURCES_CFG_PATH, source_id.lower(), f"{source_id.lower()}.cfg")}'
+                _, source_name = os.path.split(source_path)
             else:
                 _, source_name = os.path.split(source_path)
                 source_id, ext = os.path.splitext(source_name)
@@ -1228,7 +1229,7 @@ class StorageManager:
             # if 'wbentp1_wb' in indicator_path:raise Exception('forced')
             assert await self.check_blob_exists(source_path), f'Source {source_id} located at {source_path} does not exist'
             #TODO caching
-
+            if 'ILO_SPF' in source_path:raise Exception('forced')
             logger.info(f'Fetching source {source_id} from  {source_path}')
             stream = await self.container_client.download_blob(
                 source_path, max_concurrency=8
@@ -1372,7 +1373,7 @@ class StorageManager:
         async for chunk in stream.chunks():
             chunk_list.append(chunk)
 
-        # data = await blob_client.download_blob().chunks()
+
         data = b"".join(chunk_list)
         logger.debug(f'Finished downloading {blob_name}')
         if dst_path:
@@ -1381,3 +1382,32 @@ class StorageManager:
             return None
         else:
             return data
+
+
+    async def cached_download(self, source_path=None, chunked=False):
+        if source_path in TMP_SOURCES:
+            cached_src_path = TMP_SOURCES[source_path]
+            logger.info(f'Rereading {source_path} from {cached_src_path} ')
+            data = open(cached_src_path, 'rb').read()
+        else:
+
+            # check the blob exists in azure storage
+            source_path_exists = await self.check_blob_exists(blob_name=source_path)
+            if not source_path_exists:
+                raise Exception(f'Source {source_path} does not exist')
+            stream = await self.container_client.download_blob(
+                source_path, max_concurrency=8
+            )
+            if chunked:
+                chunk_list = []
+                async for chunk in stream.chunks():
+                    chunk_list.append(chunk)
+                data = b"".join(chunk_list)
+            else:
+                data = await stream.readall()
+
+            cached = tempfile.NamedTemporaryFile(mode='wb', delete=False)
+            logger.debug(f'Going to cache {source_path} to {cached.name}')
+            cached.write(data)
+            TMP_SOURCES[source_path] = cached.name
+        return data

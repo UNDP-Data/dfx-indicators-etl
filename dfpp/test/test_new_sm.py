@@ -22,11 +22,23 @@ async def main():
         logger.info(str(sm))
 
         indicators_cfg = await sm.get_indicators_cfg(contain_filter='wb')
-        soource_ids = [e['indicator']['source_id'] for e in indicators_cfg]
-        logger.info(soource_ids)
-        sources_cfg = await sm.get_sources_cfg(source_ids=soource_ids)
+        indicator_ids = [e['indicator']['indicator_id'] for e in indicators_cfg]
+        source_ids = [e['indicator']['source_id'] for e in indicators_cfg]
+
+
+
+
+        sources_cfg = await sm.get_sources_cfg(source_ids=source_ids)
+        downloaded_source_ids = [e['source']['id'] for e in sources_cfg]
+        downloaded_indicator_ids = [e['indicator']['indicator_id'] for e in indicators_cfg if
+                                    e['indicator']['source_id'] in downloaded_source_ids]
+        logger.info(f'{len(source_ids)}, {len(indicator_ids)} {len(downloaded_indicator_ids)}')
+        from dfpp.run_transform import transform_sources
+        #transform_sources(indicator_ids=indicator_ids)
         for e in sources_cfg:
             logger.info(json.dumps(e))
+
+
     logger.info('disconnected')
 
 
