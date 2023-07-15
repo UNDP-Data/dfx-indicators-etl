@@ -62,6 +62,8 @@ async def main():
         logging.info('Transforming Data Complete....')
 
         #TODO report fucntion
+
+        #todo clear cache
 if __name__ == '__main__':
     run_pipeline()
 

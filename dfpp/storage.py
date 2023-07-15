@@ -1186,7 +1186,7 @@ class StorageManager:
 
 
 
-            logger.info(f'Fetching indicator {indicator_id} from  {indicator_path}')
+            logger.info(f'Fetching indicator cfg for {indicator_id} from  {indicator_path}')
             stream = await self.container_client.download_blob(
                 indicator_path, max_concurrency=8
             )
@@ -1219,7 +1219,7 @@ class StorageManager:
     async def get_source_cfg(self, source_id=None, source_path=None):
         try:
             if source_id:
-                assert source_path is None, f'use eiter source_id or source_path'
+                assert source_path is None, f'use either source_id or source_path'
                 source_path = f'{os.path.join(self.SOURCES_CFG_PATH, source_id.lower(), f"{source_id.lower()}.cfg")}'
                 _, source_name = os.path.split(source_path)
             else:
@@ -1229,12 +1229,14 @@ class StorageManager:
             # if 'wbentp1_wb' in indicator_path:raise Exception('forced')
             assert await self.check_blob_exists(source_path), f'Source {source_id} located at {source_path} does not exist'
             #TODO caching
-            if 'ILO_SPF' in source_path:raise Exception('forced')
-            logger.info(f'Fetching source {source_id} from  {source_path}')
-            stream = await self.container_client.download_blob(
-                source_path, max_concurrency=8
-            )
-            content = await stream.readall()
+
+            if 'ILO_SPF'.lower() in source_path:raise Exception('forced')
+            logger.info(f'Fetching source cfg  for {source_id} from  {source_path}')
+            # stream = await self.container_client.download_blob(
+            #     source_path, max_concurrency=8
+            # )
+            # content = await stream.readall()
+            content = await self.cached_download(source_path=source_path)
             content_str = content.decode("utf-8")
 
             parser = configparser.ConfigParser(interpolation=None)
@@ -1266,6 +1268,7 @@ class StorageManager:
         await self.close()
     async def close(self):
         await self.container_client.close()
+
 
 
     def __str__(self):
