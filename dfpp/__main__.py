@@ -45,7 +45,7 @@ async def main():
     connection_string = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
     container_name = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
     if args.run == 'download':
-        await retrieval(connection_string=connection_string, container_name=container_name)
+        await retrieval()
     if args.run == 'transform':
         await transform_sources(concurrent=True)
     if args.run == 'publish':
@@ -54,7 +54,7 @@ async def main():
         logging.info('Starting pipeline....')
         await sleep(5)
         logging.info('Downloading data....')
-        downloaded_indicator_ids = await retrieval(connection_string=connection_string, container_name=container_name)
+        downloaded_indicator_ids = await retrieval()
         logging.info('Downloading Data Complete....')
         logging.info('Transforming data....')
         await sleep(5)

@@ -7,7 +7,7 @@ import logging
 import time
 import asyncio
 import zipfile
-from typing import Any, Tuple
+from typing import Any, Tuple, List
 from urllib.parse import urlencode
 from dotenv import load_dotenv
 import os
@@ -557,8 +557,7 @@ async def call_function(function_name, *args, **kwargs) -> Any:
         raise ValueError(f"Function {function} is not defined or not callable")
 
 
-async def retrieval(connection_string=None, container_name=None, indicator_ids=None,
-                    indicator_id_contain_filter=None) -> None:
+async def retrieval(indicator_ids: List | str = None, indicator_id_contain_filter:str=None) -> None:
     """
     Asynchronously retrieves data from multiple sources using Azure Blob Storage, and uploads the results to a new Blob.
 
@@ -579,27 +578,11 @@ async def retrieval(connection_string=None, container_name=None, indicator_ids=N
                                   container_name=os.environ.get("AZURE_STORAGE_CONTAINER_NAME")) as storage_manager:
             logger.info(f'Fetching sources configuration files...')
             sources = await storage_manager.get_sources_cfgs()
-            # print(sources)
             logger.info(f'Found {len(sources)} sources')
             tasks = []
 
-            def upload_data(bytes_data=None, cont_type=None, save_as=None):
-                logtrack = []
-                import math
-                def _progress_(current, total) -> None:
-                    progress = current / total * 100
-                    rounded_progress = int(math.floor(progress))
-                    if rounded_progress not in logtrack and rounded_progress % 2 == 0:
-                        logger.info(f'uploaded - {rounded_progress}%')
-                        logtrack.append(rounded_progress)
-
-                from azure.storage.blob import BlobServiceClient
-                with BlobServiceClient.from_connection_string(connection_string) as blob_service_client:
-                    dst_path = os.path.join(ROOT_FOLDER, "sources", "raw", save_as)
-                    with blob_service_client.get_blob_client(container=container_name, blob=dst_path) as blob_client:
-                        blob_client.upload_blob(data=bytes_data,
-                                                overwrite=True, max_concurrency=8, content_type=cont_type,
-                                                progress_hook=_progress_)
+            async def upload_data(bytes_data=None, cont_type=None, save_as=None):
+                await storage_manager.upload(bytes_data=bytes_data, cont_type=cont_type, save_as=save_as, overwrite=True)
 
             for source in sources:
                 source_config = source['source']
@@ -629,7 +612,7 @@ async def retrieval(connection_string=None, container_name=None, indicator_ids=N
                     )
                     logger.info(f"Downloaded {source_id} from {source_config['url']}.")
                     logger.info(f"Uploading {source_id} to blob storage.")
-                    upload_data(bytes_data=data, cont_type=content_type, save_as=source_config['save_as'])
+                    await upload_data(bytes_data=data, cont_type=content_type, save_as=source_config['save_as'])
                     logger.info(f'Finished uploading {source_id}')
                 #
                 else:
@@ -662,7 +645,4 @@ if __name__ == "__main__":
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
     logger.name = __name__
-    asyncio.run(retrieval(
-        connection_string=AZURE_STORAGE_CONNECTION_STRING,
-        container_name=AZURE_STORAGE_CONTAINER_NAME,
-    ))
+    asyncio.run(retrieval())
