@@ -5,7 +5,7 @@ import logging
 import os
 import numpy as np
 import pandas as pd
-from dfpp.storage import AsyncAzureBlobStorageManager
+from dfpp.storage import StorageManager
 from dfpp.constants import COUNTRY_LOOKUP_CSV_PATH, STANDARD_KEY_COLUMN
 
 AZURE_STORAGE_CONNECTION_STRING = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
@@ -29,22 +29,18 @@ async def add_country_code(source_df, country_name_column=None):
         :param country_name_column:
 
     """
-    storage = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=AZURE_STORAGE_CONNECTION_STRING,
-        container_name=AZURE_STORAGE_CONTAINER_NAME,
-        use_singleton=False
-    )
-    country_lookup_bytes = await storage.download(blob_name=COUNTRY_LOOKUP_CSV_PATH)
-    country_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_lookup")
-    if country_name_column != country_df.index.name:
-        country_df.set_index(country_name_column, inplace=True)
-        country_df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
-    if country_name_column != source_df.index.name:
-        source_df.set_index(country_name_column, inplace=True)
-    source_df = source_df.join(country_df[STANDARD_KEY_COLUMN])
-    source_df.reset_index(inplace=True)
-    await storage.close()
-    return source_df
+    async with StorageManager(connection_string=AZURE_STORAGE_CONNECTION_STRING,
+                              container_name=AZURE_STORAGE_CONTAINER_NAME) as storage_manager:
+        country_lookup_bytes = await storage_manager.download(blob_name=COUNTRY_LOOKUP_CSV_PATH)
+        country_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_lookup")
+        if country_name_column != country_df.index.name:
+            country_df.set_index(country_name_column, inplace=True)
+            country_df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
+        if country_name_column != source_df.index.name:
+            source_df.set_index(country_name_column, inplace=True)
+        source_df = source_df.join(country_df[STANDARD_KEY_COLUMN])
+        source_df.reset_index(inplace=True)
+        return source_df
 
 
 async def add_region_code(source_df=None, region_name_col=None, region_key_col=None):
@@ -67,43 +63,40 @@ async def add_region_code(source_df=None, region_name_col=None, region_key_col=N
 
         """
     try:
-        storage = await AsyncAzureBlobStorageManager.create_instance(
+        async with StorageManager(
             connection_string=AZURE_STORAGE_CONNECTION_STRING,
-            container_name=AZURE_STORAGE_CONTAINER_NAME,
-            use_singleton=False
-        )
-        country_lookup_bytes = await storage.download(blob_name=COUNTRY_LOOKUP_CSV_PATH)
-        region_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="region_lookup")
-        region_df = region_df.drop_duplicates(subset=["Region"], keep='last')
-        region_df.dropna(subset=["Region"], inplace=True)
-        if "Region" != region_df.index.name:
-            region_df['Region'] = region_df['Region'].str.replace(' ', '')
+            container_name=AZURE_STORAGE_CONTAINER_NAME
+        ) as storage_manager:
+            country_lookup_bytes = await storage_manager.download(blob_name=COUNTRY_LOOKUP_CSV_PATH)
+            region_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="region_lookup")
             region_df = region_df.drop_duplicates(subset=["Region"], keep='last')
-            region_df.set_index("Region", inplace=True)
-            region_df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
+            region_df.dropna(subset=["Region"], inplace=True)
+            if "Region" != region_df.index.name:
+                region_df['Region'] = region_df['Region'].str.replace(' ', '')
+                region_df = region_df.drop_duplicates(subset=["Region"], keep='last')
+                region_df.set_index("Region", inplace=True)
+                region_df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
 
-        if region_name_col != source_df.index.name:
-            source_df[region_name_col] = source_df[region_name_col].str.replace(' ', '')
-            source_df.set_index(region_name_col, inplace=True)
-        if region_key_col is None:
-            col_list = source_df.columns.to_list()
-            if STANDARD_KEY_COLUMN in col_list:
-                source_df.update(region_df[STANDARD_KEY_COLUMN])
+            if region_name_col != source_df.index.name:
+                source_df[region_name_col] = source_df[region_name_col].str.replace(' ', '')
+                source_df.set_index(region_name_col, inplace=True)
+            if region_key_col is None:
+                col_list = source_df.columns.to_list()
+                if STANDARD_KEY_COLUMN in col_list:
+                    source_df.update(region_df[STANDARD_KEY_COLUMN])
+
+                else:
+                    source_df = source_df.join(region_df[STANDARD_KEY_COLUMN])
 
             else:
-                source_df = source_df.join(region_df[STANDARD_KEY_COLUMN])
+                region_df.rename(columns={STANDARD_KEY_COLUMN: region_key_col}, inplace=True)
+                source_df.update(region_df[region_key_col])
+                source_df.rename(columns={region_key_col: STANDARD_KEY_COLUMN}, inplace=True)
 
-        else:
-            region_df.rename(columns={STANDARD_KEY_COLUMN: region_key_col}, inplace=True)
-            source_df.update(region_df[region_key_col])
-            source_df.rename(columns={region_key_col: STANDARD_KEY_COLUMN}, inplace=True)
-
-        source_df.reset_index(inplace=True)
-        source_df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
-        await storage.close()
-        return source_df
+            source_df.reset_index(inplace=True)
+            source_df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
+            return source_df
     except Exception as e:
-        await storage.close()
         logger.error("Error in add_region_code: {}".format(e))
         raise
 
@@ -123,16 +116,11 @@ async def add_alpha_code_3_column(source_df, country_col):
         ValueError: If the country column is not present in the source DataFrame or the country lookup table.
 
         """
-    storage = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=AZURE_STORAGE_CONNECTION_STRING,
-        container_name=AZURE_STORAGE_CONTAINER_NAME,
-        use_singleton=False
-    )
-    country_lookup_bytes = await storage.download(COUNTRY_LOOKUP_CSV_PATH)
-    country_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_lookup")
-    country_df = country_df.rename(columns={'Country': country_col})
-    await storage.close()
-    return pd.merge(source_df, country_df[['Alpha-3 code', country_col]], on=[country_col], how='left')
+    async with StorageManager(connection_string=AZURE_STORAGE_CONNECTION_STRING, container_name=AZURE_STORAGE_CONTAINER_NAME) as storage_manager:
+        country_lookup_bytes = await storage_manager.download(COUNTRY_LOOKUP_CSV_PATH)
+        country_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_lookup")
+        country_df = country_df.rename(columns={'Country': country_col})
+        return pd.merge(source_df, country_df[['Alpha-3 code', country_col]], on=[country_col], how='left')
 
 
 async def fix_iso_country_codes(df: pd.DataFrame = None, col: str = None, source_id=None):
@@ -149,17 +137,13 @@ async def fix_iso_country_codes(df: pd.DataFrame = None, col: str = None, source
         None: The function modifies the provided DataFrame in place.
 
         """
-    storage = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=AZURE_STORAGE_CONNECTION_STRING,
-        container_name=AZURE_STORAGE_CONTAINER_NAME,
-        use_singleton=False
-    )
-    country_lookup_bytes = await storage.download(COUNTRY_LOOKUP_CSV_PATH)
-    country_code_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_code_lookup")
-    for index, row in country_code_df.iterrows():
-        if source_id is None or source_id == row.get("Only For Source ID"):
-            df.loc[(df[col] == row['ISO 3 Code']), col] = row['UNDP ISO 3 Code']
-    await storage.close()
+    async with StorageManager(connection_string=AZURE_STORAGE_CONNECTION_STRING,
+                              container_name=AZURE_STORAGE_CONTAINER_NAME) as storage_manager:
+        country_lookup_bytes = await storage_manager.download(COUNTRY_LOOKUP_CSV_PATH)
+        country_code_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_code_lookup")
+        for index, row in country_code_df.iterrows():
+            if source_id is None or source_id == row.get("Only For Source ID"):
+                df.loc[(df[col] == row['ISO 3 Code']), col] = row['UNDP ISO 3 Code']
 
 
 async def change_iso3_to_system_region_iso3(source_df, iso3_col):
@@ -265,60 +249,57 @@ async def country_group_dataframe():
     Returns:
         pandas.DataFrame: The country and territory group DataFrame.
     """
-    storage_manager = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=AZURE_STORAGE_CONNECTION_STRING,
-        container_name=AZURE_STORAGE_CONTAINER_NAME,
-        use_singleton=False
-    )
-    try:
-        # Read the country and territory group DataFrame from JSON in Azure Blob Storage
-        df = pd.read_json(io.BytesIO(await storage_manager.download(
-            blob_name=os.path.join(
-                ROOT_FOLDER,
-                'config',
-                'utilities',
-                'country_territory_groups.json'
-            )
-        )))
+    async with StorageManager(connection_string=AZURE_STORAGE_CONNECTION_STRING,
+                              container_name=AZURE_STORAGE_CONTAINER_NAME) as storage_manager:
+        try:
+            # Read the country and territory group DataFrame from JSON in Azure Blob Storage
+            df = pd.read_json(io.BytesIO(await storage_manager.download(
+                blob_name=os.path.join(
+                    ROOT_FOLDER,
+                    'config',
+                    'utilities',
+                    'country_territory_groups.json'
+                )
+            )))
 
-        # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
-        df.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
+            # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
+            df.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
 
-        # Replace empty strings with NaN values
-        df['Longitude (average)'] = df['Longitude (average)'].replace(r'', np.NaN)
+            # Replace empty strings with NaN values
+            df['Longitude (average)'] = df['Longitude (average)'].replace(r'', np.NaN)
 
-        # Convert 'Latitude (average)' and 'Longitude (average)' columns to float64
-        df['Latitude (average)'] = df["Latitude (average)"].astype(np.float64)
-        df['Longitude (average)'] = df["Longitude (average)"].astype(np.float64)
+            # Convert 'Latitude (average)' and 'Longitude (average)' columns to float64
+            df['Latitude (average)'] = df["Latitude (average)"].astype(np.float64)
+            df['Longitude (average)'] = df["Longitude (average)"].astype(np.float64)
 
-        # Read the aggregate territory group DataFrame from JSON in Azure Blob Storage
-        df_aggregates = pd.read_json(io.BytesIO(await storage_manager.download(
-            blob_name=os.path.join(
-                ROOT_FOLDER,
-                'config',
-                'utilities',
-                'aggregate_territory_groups.json'
-            )
-        )))
+            # Read the aggregate territory group DataFrame from JSON in Azure Blob Storage
+            df_aggregates = pd.read_json(io.BytesIO(await storage_manager.download(
+                blob_name=os.path.join(
+                    ROOT_FOLDER,
+                    'config',
+                    'utilities',
+                    'aggregate_territory_groups.json'
+                )
+            )))
 
-        # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
-        df_aggregates.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
+            # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
+            df_aggregates.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
 
-        # Replace empty strings with NaN values
-        df_aggregates['Longitude (average)'] = df_aggregates['Longitude (average)'].replace(r'', np.NaN)
+            # Replace empty strings with NaN values
+            df_aggregates['Longitude (average)'] = df_aggregates['Longitude (average)'].replace(r'', np.NaN)
 
-        # Convert 'Latitude (average)' and 'Longitude (average)' columns to float64
-        df_aggregates['Latitude (average)'] = df_aggregates["Latitude (average)"].astype(np.float64)
-        df_aggregates['Longitude (average)'] = df_aggregates["Longitude (average)"].astype(np.float64)
+            # Convert 'Latitude (average)' and 'Longitude (average)' columns to float64
+            df_aggregates['Latitude (average)'] = df_aggregates["Latitude (average)"].astype(np.float64)
+            df_aggregates['Longitude (average)'] = df_aggregates["Longitude (average)"].astype(np.float64)
 
-        # Concatenate the country group and aggregate territory group DataFrames
-        df = pd.concat([df, df_aggregates], ignore_index=True)
+            # Concatenate the country group and aggregate territory group DataFrames
+            df = pd.concat([df, df_aggregates], ignore_index=True)
 
-        await storage_manager.close()
-        return df
-    except Exception as e:
-        logger.error("Error retrieving country group DataFrame: " + str(e))
-        return pd.DataFrame()  # Return an empty DataFrame if an error occurs
+
+            return df
+        except Exception as e:
+            logger.error("Error retrieving country group DataFrame: " + str(e))
+            return pd.DataFrame()  # Return an empty DataFrame if an error occurs
 
 
 async def region_group_dataframe():
@@ -328,37 +309,33 @@ async def region_group_dataframe():
     Returns:
         pandas.DataFrame: The region group DataFrame.
     """
-    storage_manager = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=AZURE_STORAGE_CONNECTION_STRING,
-        container_name=AZURE_STORAGE_CONTAINER_NAME,
-        use_singleton=False
-    )
-    try:
-        # Read the region group DataFrame from JSON in Azure Blob Storage
-        df = pd.read_json(io.BytesIO(await storage_manager.download(
-            blob_name=os.path.join(
-                ROOT_FOLDER,
-                'config',
-                'utilities',
-                'aggregate_territory_groups.json'
-            )
-        )))
+    async with StorageManager(connection_string=AZURE_STORAGE_CONNECTION_STRING,
+                              container_name=AZURE_STORAGE_CONTAINER_NAME) as storage_manager:
+        try:
+            # Read the region group DataFrame from JSON in Azure Blob Storage
+            df = pd.read_json(io.BytesIO(await storage_manager.download(
+                blob_name=os.path.join(
+                    ROOT_FOLDER,
+                    'config',
+                    'utilities',
+                    'aggregate_territory_groups.json'
+                )
+            )))
 
-        # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
-        df.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
+            # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
+            df.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
 
-        # Replace empty strings with NaN values
-        df['Longitude (average)'] = df['Longitude (average)'].replace(r'', np.NaN)
+            # Replace empty strings with NaN values
+            df['Longitude (average)'] = df['Longitude (average)'].replace(r'', np.NaN)
 
-        # Convert 'Latitude (average)' and 'Longitude (average)' columns to float64
-        df['Latitude (average)'] = df["Latitude (average)"].astype(np.float64)
-        df['Longitude (average)'] = df["Longitude (average)"].astype(np.float64)
+            # Convert 'Latitude (average)' and 'Longitude (average)' columns to float64
+            df['Latitude (average)'] = df["Latitude (average)"].astype(np.float64)
+            df['Longitude (average)'] = df["Longitude (average)"].astype(np.float64)
 
-        await storage_manager.close()
-        return df
-    except Exception as e:
-        logger.error("Error retrieving region group DataFrame: " + str(e))
-        return pd.DataFrame()  # Return an empty DataFrame if an error occurs
+            return df
+        except Exception as e:
+            logger.error("Error retrieving region group DataFrame: " + str(e))
+            return pd.DataFrame()  # Return an empty DataFrame if an error occurs
 
 
 def chunker(iterable, size):
@@ -381,86 +358,83 @@ async def update_base_file(df=None, blob_name=None):
     Returns:
         bool: True if the upload was successful, False otherwise.
     """
-    storage_manager = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=AZURE_STORAGE_CONNECTION_STRING,
-        container_name=AZURE_STORAGE_CONTAINER_NAME,
-        use_singleton=False
-    )
-    try:
-        # Reset the index of the DataFrame
-        # df.reset_index(inplace=True)
+    async with StorageManager(connection_string=AZURE_STORAGE_CONNECTION_STRING,
+                              container_name=AZURE_STORAGE_CONTAINER_NAME) as storage_manager:
+        try:
+            # Reset the index of the DataFrame
+            # df.reset_index(inplace=True)
 
-        # Drop rows with missing values in the STANDARD_KEY_COLUMN
-        df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
+            # Drop rows with missing values in the STANDARD_KEY_COLUMN
+            df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
 
-        # Check if the blob file already exists in Azure Blob Storage
-        blob_exists = await storage_manager.check_blob_exists(
-            blob_name=os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
-        )
-
-        # Create an empty DataFrame for the keys
-        key_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
-
-        # Get the country group DataFrame
-        country_group_df = await country_group_dataframe()
-
-        if blob_exists:
-            logger.info(f"Base file {blob_name} exists. Updating...")
-            # Download the base file as bytes and read it as a DataFrame
-            base_file_bytes = await storage_manager.download(
-                blob_name=os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name),
-                dst_path=None
+            # Check if the blob file already exists in Azure Blob Storage
+            blob_exists = await storage_manager.check_blob_exists(
+                blob_name=os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
             )
-            base_file_df = pd.read_csv(io.BytesIO(base_file_bytes))
-            base_file_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
-        else:
-            logger.info("Base file does not exist. Creating...")
-            base_file_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
-            base_file_df[STANDARD_KEY_COLUMN] = country_group_df[STANDARD_KEY_COLUMN]
 
-        # Filter base_file_df to include only rows with keys present in country_group_df
-        base_file_df = base_file_df[base_file_df[STANDARD_KEY_COLUMN].isin(country_group_df[STANDARD_KEY_COLUMN])]
+            # Create an empty DataFrame for the keys
+            key_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
 
-        # Select the keys from country_group_df that are not present in base_file_df
-        key_df[STANDARD_KEY_COLUMN] = \
-            country_group_df[~country_group_df[STANDARD_KEY_COLUMN].isin(base_file_df[STANDARD_KEY_COLUMN])][
-                STANDARD_KEY_COLUMN]
+            # Get the country group DataFrame
+            country_group_df = await country_group_dataframe()
 
-        # Concatenate base_file_df and key_df
-        base_file_df = pd.concat([base_file_df, key_df], ignore_index=True)
+            if blob_exists:
+                logger.info(f"Base file {blob_name} exists. Updating...")
+                # Download the base file as bytes and read it as a DataFrame
+                base_file_bytes = await storage_manager.download(
+                    blob_name=os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name),
+                    dst_path=None
+                )
+                base_file_df = pd.read_csv(io.BytesIO(base_file_bytes))
+                base_file_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
+            else:
+                logger.info("Base file does not exist. Creating...")
+                base_file_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
+                base_file_df[STANDARD_KEY_COLUMN] = country_group_df[STANDARD_KEY_COLUMN]
 
-        # Set STANDARD_KEY_COLUMN as the index for base_file_df and df
-        base_file_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
-        df.set_index(STANDARD_KEY_COLUMN, inplace=True)
+            # Filter base_file_df to include only rows with keys present in country_group_df
+            base_file_df = base_file_df[base_file_df[STANDARD_KEY_COLUMN].isin(country_group_df[STANDARD_KEY_COLUMN])]
 
-        # Update columns that exist in both base_file_df and df
-        update_cols = list(set(base_file_df.columns.to_list()).intersection(set(df.columns.to_list())))
-        base_file_df.update(df[update_cols])
+            # Select the keys from country_group_df that are not present in base_file_df
+            key_df[STANDARD_KEY_COLUMN] = \
+                country_group_df[~country_group_df[STANDARD_KEY_COLUMN].isin(base_file_df[STANDARD_KEY_COLUMN])][
+                    STANDARD_KEY_COLUMN]
 
-        # Join columns from df that are not present in base_file_df
-        add_columns = list(set(df.columns.to_list()) - set(base_file_df.columns.to_list()))
-        base_file_df = base_file_df.join(df[add_columns])
+            # Concatenate base_file_df and key_df
+            base_file_df = pd.concat([base_file_df, key_df], ignore_index=True)
 
-        # Reset the index of base_file_df
-        # this will add a new int column with new indices
-        # base_file_df.reset_index(inplace=True)
+            # Set STANDARD_KEY_COLUMN as the index for base_file_df and df
+            base_file_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
+            df.set_index(STANDARD_KEY_COLUMN, inplace=True)
 
-        # Define the destination path for the CSV file
-        destination_path = os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
+            # Update columns that exist in both base_file_df and df
+            update_cols = list(set(base_file_df.columns.to_list()).intersection(set(df.columns.to_list())))
+            base_file_df.update(df[update_cols])
 
-        await storage_manager.upload(
-            data=base_file_df.to_csv(encoding='utf-8'),
-            dst_path=destination_path,
-            overwrite=True,
-            content_type="text/csv"
-        )
+            # Join columns from df that are not present in base_file_df
+            add_columns = list(set(df.columns.to_list()) - set(base_file_df.columns.to_list()))
+            base_file_df = base_file_df.join(df[add_columns])
 
-        await storage_manager.close()
+            # Reset the index of base_file_df
+            # this will add a new int column with new indices
+            # base_file_df.reset_index(inplace=True)
 
-    except Exception as e:
-        await storage_manager.close()
-        logger.error(f"Error uploading to blob: {e}")
-        raise
+            # Define the destination path for the CSV file
+            destination_path = os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
+
+            await storage_manager.upload(
+                data=base_file_df.to_csv(encoding='utf-8'),
+                dst_path=destination_path,
+                overwrite=True,
+                content_type="text/csv"
+            )
+
+
+
+        except Exception as e:
+
+            logger.error(f"Error uploading to blob: {e}")
+            raise
 
 
 if __name__ == "__main__":

@@ -26,7 +26,7 @@ def run_pipeline():
             "%Y-%m-%d %H:%M:%S",
         )
     )
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
     logger.name = __name__

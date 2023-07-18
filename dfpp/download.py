@@ -4,9 +4,8 @@ import base64
 import io
 import json
 import logging
-import asyncio
-import tempfile
 import time
+import asyncio
 import zipfile
 from typing import Any, Tuple
 from urllib.parse import urlencode
@@ -16,10 +15,10 @@ import aiohttp
 import numpy as np
 import pandas as pd
 from aiohttp import ClientTimeout
+from dfpp.storage import StorageManager
 
-from dfpp.storage import AsyncAzureBlobStorageManager, AzureBlobStorageManager
-AZURE_STORAGE_CONNECTION_STRING=os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
-AZURE_STORAGE_CONTAINER_NAME=os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
+AZURE_STORAGE_CONNECTION_STRING = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
+AZURE_STORAGE_CONTAINER_NAME = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
 ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=600)
 
@@ -53,7 +52,7 @@ async def simple_url_download(
                 async with session.get(url, timeout=timeout, **request_args) as resp:
                     if resp.status == 200:
                         downloaded_bytes = 0
-                        chunk_size = 1024*200
+                        chunk_size = 1024 * 200
 
                         data = b""
                         logger.info(f"Downloading {url}")
@@ -285,6 +284,7 @@ async def country_downloader(**kwargs):
             logger.info(f"Successfully downloaded {source_id}")
             return csv_data, "text/csv"
     except Exception as e:
+        print(e)
         raise e
 
 
@@ -388,7 +388,6 @@ async def zip_content_downloader(**kwargs) -> Tuple[bytes, str]:
 
     try:
         with zipfile.ZipFile(io.BytesIO(response_content), "r") as zip_file:
-            target_file = None
 
             if ".zip" in params_file:
                 parts = params_file.split("/")
@@ -558,7 +557,8 @@ async def call_function(function_name, *args, **kwargs) -> Any:
         raise ValueError(f"Function {function} is not defined or not callable")
 
 
-async def retrieval(connection_string=None, container_name=None, indicator_ids=None, indicator_id_contain_filter=None ) -> None:
+async def retrieval(connection_string=None, container_name=None, indicator_ids=None,
+                    indicator_id_contain_filter=None) -> None:
     """
     Asynchronously retrieves data from multiple sources using Azure Blob Storage, and uploads the results to a new Blob.
 
@@ -575,103 +575,69 @@ async def retrieval(connection_string=None, container_name=None, indicator_ids=N
     ```
     """
     try:
+        async with StorageManager(connection_string=os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
+                                  container_name=os.environ.get("AZURE_STORAGE_CONTAINER_NAME")) as storage_manager:
+            logger.info(f'Fetching sources configuration files...')
+            sources = await storage_manager.get_sources_cfgs()
+            # print(sources)
+            logger.info(f'Found {len(sources)} sources')
+            tasks = []
 
-        storage_manager = await AsyncAzureBlobStorageManager.create_instance(
-            connection_string=connection_string,
-            container_name=container_name,
-        )
-        logger.info(f'Fetching sources configuration files...')
-        sources = await storage_manager.get_source_config_conc()
-        logger.info(f'Found {len(sources)} sources')
-        tasks = []
+            def upload_data(bytes_data=None, cont_type=None, save_as=None):
+                logtrack = []
+                import math
+                def _progress_(current, total) -> None:
+                    progress = current / total * 100
+                    rounded_progress = int(math.floor(progress))
+                    if rounded_progress not in logtrack and rounded_progress % 2 == 0:
+                        logger.info(f'uploaded - {rounded_progress}%')
+                        logtrack.append(rounded_progress)
 
-
-        def upload_data(bytes_data=None, cont_type=None, save_as=None):
-            # sm = AzureBlobStorageManager.create_instance(
-            #     connection_string=connection_string,
-            #     container_name=container_name,
-            #     use_singleton=False
-            # )
-            # sm.upload(
-            #     dst_path=os.path.join(ROOT_FOLDER, "sources", "raw", save_as),
-            #     data=bytes_data,content_type=cont_type, overwrite=True
-            #
-            #           )
-            # sm.close()
-            logtrack = []
-            import math
-            def _progress_(current, total) -> None:
-                progress = current / total * 100
-                rounded_progress = int(math.floor(progress))
-                if rounded_progress not in logtrack and rounded_progress % 2 == 0:
-                    logger.info(f'uploaded - {rounded_progress}%')
-                    logtrack.append(rounded_progress)
-            from azure.storage.blob import BlobServiceClient
-            with BlobServiceClient.from_connection_string(connection_string) as blob_service_client:
-                dst_path = os.path.join(ROOT_FOLDER, "sources", "raw", save_as)
-                with blob_service_client.get_blob_client(container=container_name, blob=dst_path) as blob_client:
-
-                    blob_client.upload_blob(data=bytes_data,
-                                            overwrite=True, max_concurrency=8,content_type=cont_type,
+                from azure.storage.blob import BlobServiceClient
+                with BlobServiceClient.from_connection_string(connection_string) as blob_service_client:
+                    dst_path = os.path.join(ROOT_FOLDER, "sources", "raw", save_as)
+                    with blob_service_client.get_blob_client(container=container_name, blob=dst_path) as blob_client:
+                        blob_client.upload_blob(data=bytes_data,
+                                                overwrite=True, max_concurrency=8, content_type=cont_type,
                                                 progress_hook=_progress_)
 
-
-        async def upload_source_file(bytes_data: bytes = None, cont_type: str = None, save_as: str = None):
-
-            await storage_manager.upload(
-                dst_path=os.path.join(ROOT_FOLDER, "sources", "raw", save_as),
-                data=bytes_data,
-                content_type=cont_type,
-                overwrite=True,
-            )
-
-            logger.info(f"Uploaded {save_as} to blob storage.")
-
-        for source_id, source_config in sources.items():
-            # SKIP_IDS = ['MDP_META', 'HERITAGE_ID', 'GLOBAL_DATA_FSI']
-            SKIP_IDS = ['OXCGRT']
-            if source_id not in SKIP_IDS:
-                continue
-            logger.info(
-                f"Starting to download source {source_id} from {source_config['url']} using {source_config['downloader_function']}."
-            )
-            if source_config['source_type'] != "Manual":
-                if source_config.get('save_as') is None:
-                    source_config['save_as'] = f"{source_id}.{source_config['url'].split('.')[-1]}"
-                params = source_config["downloader_params"]
-                data, content_type = await call_function(
-                    source_config["downloader_function"],
-                    source_id=source_id,
-                    source_url=source_config.get("url"),
-                    source_save_as=source_config.get("save_as"),
-                    params_type=params.get("type"),
-                    params_url=params.get("url"),
-                    params_codes=params.get("codes"),
-                    params_file=params.get("file"),
-                    request_params=params.get("request_params"),
-                    storage_manager=storage_manager,
+            for source in sources:
+                source_config = source['source']
+                source_id = source_config['id']
+                # SKIP_IDS = ['MDP_META', 'HERITAGE_ID', 'GLOBAL_DATA_FSI']
+                SKIP_IDS = ['HDR', 'ILO_EE', 'ISABO']
+                if source_id in SKIP_IDS:
+                    continue
+                logger.info(
+                    f"Starting to download source {source_id} from {source_config['url']} using {source_config['downloader_function']}."
                 )
-                logger.info(f"Downloaded {source_id} from {source_config['url']}.")
-                logger.info(f"Uploading {source_id} to blob storage.")
-                upload_data(bytes_data=data,cont_type=content_type, save_as=source_config['save_as'])
-                logger.info(f'Finished uploading {source_id}')
-                # upload_task = asyncio.create_task(
-                #     upload_source_file(
-                #         bytes_data=data,
-                #         cont_type=content_type,
-                #         save_as=source_config["save_as"],
-                #     )
-                # )
+                if source_config['source_type'] != "Manual":
+                    if source_config.get('save_as') is None:
+                        source_config['save_as'] = f"{source_id}.{source_config['url'].split('.')[-1]}"
+                    params = source["downloader_params"]
+                    data, content_type = await call_function(
+                        source_config["downloader_function"],
+                        source_id=source_id,
+                        source_url=source_config.get("url"),
+                        source_save_as=source_config.get("save_as"),
+                        params_type=params.get("type"),
+                        params_url=params.get("url"),
+                        params_codes=params.get("codes"),
+                        params_file=params.get("file"),
+                        request_params=params.get("request_params"),
+                        storage_manager=storage_manager,
+                    )
+                    logger.info(f"Downloaded {source_id} from {source_config['url']}.")
+                    logger.info(f"Uploading {source_id} to blob storage.")
+                    upload_data(bytes_data=data, cont_type=content_type, save_as=source_config['save_as'])
+                    logger.info(f'Finished uploading {source_id}')
                 #
-                # tasks.append(upload_task)
-
-            else:
-                logger.debug(f"Skipping {source_id} as it is a manual source.")
-        # results = await asyncio.gather(*tasks, return_exceptions=True)
-        # for result in results:
-        #     if isinstance(result, Exception):
-        #         logger.error("Retrieval failed to complete due to the following error", result)
-        await storage_manager.close()
+                else:
+                    logger.debug(f"Skipping {source_id} as it is a manual source.")
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for result in results:
+                if isinstance(result, Exception):
+                    logger.error("Retrieval failed to complete due to the following error", result)
     except Exception as e:
         logger.error(e)
         raise e

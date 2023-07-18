@@ -13,7 +13,6 @@ import tempfile
 import ast
 import itertools
 
-
 logger = logging.getLogger(__name__)
 ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
 MANDATORY_SOURCE_COLUMNS = 'id', 'url', 'save_as'
@@ -861,45 +860,6 @@ class AsyncAzureBlobStorageManager:
                     raise ConfigError(f"Invalid indicator config")
         return cfg
 
-    async def get_utility_file(self, utility_file: str) -> Dict[str, Dict[str, Any]]:
-        """
-        Asynchronously retrieves a specified utility configuration file from the Azure Blob Container,
-        parses it, and returns its content as a dictionary.
-
-        Args:
-            utility_file (str): The name of the utility configuration file to search for.
-
-        Returns:
-            dict: A dictionary representation of the utility configuration file content,
-                where keys are section names and values are dictionaries of key-value pairs within the section.
-
-        Raises:
-            ConfigError: Raised if the specified utility configuration file is not found or not valid.
-
-        """
-        # os.path.join doesn't work for filtering returned Azure blob paths
-        prefix = f"{self.ROOT_FOLDER}/config/utilities"
-        async for blob in self._yield_blobs(prefix=prefix):
-            if (
-                    not isinstance(blob, BlobPrefix)
-                    and blob.name.endswith(".cfg")
-                    and utility_file == os.path.basename(blob.name)
-            ):
-                stream = await self.container_client.download_blob(
-                    blob.name, max_concurrency=8
-                )
-                content = await stream.readall()
-                content_str = content.decode("utf-8")
-                parser = configparser.ConfigParser(interpolation=None)
-                parser.read_string(content_str)
-                config_dict = {
-                    section: dict(parser.items(section))
-                    for section in parser.sections()
-                }
-                return config_dict
-        else:
-            raise ConfigError(f"Utitlity source not valid")
-
     async def get_source_files(
             self,
             source_type: str,
@@ -1135,30 +1095,42 @@ class AsyncAzureBlobStorageManager:
 
 
 class StorageManager:
-
     REL_INDICATORS_CFG_PATH = 'config/indicators'
     REL_SOURCES_CFG_PATH = 'config/sources'
     REL_UTILITIES_PATH = 'config/utilities'
     REL_SOURCES_PATH = 'sources/raw'
     REL_OUTPUT_PATH = 'output'
 
-    def __init__(self, connection_string: str = None,
-                container_name: str = None,
-                root_folder=ROOT_FOLDER,
-                use_singleton: bool = False):
-
-        self.container_client = AContainerClient.from_connection_string(
-            conn_str=connection_string, container_name=container_name
-        )
+    def __init__(self, connection_string: str = None, container_name: str = None, root_folder=ROOT_FOLDER,
+                 use_singleton: bool = False):
+        self.container_client = AContainerClient.from_connection_string(conn_str=connection_string,
+                                                                        container_name=container_name)
         self.container_name = container_name
         self.root_folder = root_folder
         self.INDICATORS_CFG_PATH = os.path.join(self.root_folder, self.REL_INDICATORS_CFG_PATH)
         self.SOURCES_CFG_PATH = os.path.join(self.root_folder, self.REL_SOURCES_CFG_PATH)
         self.UTILITIES_PATH = os.path.join(self.root_folder, self.REL_UTILITIES_PATH)
-        self.SOURCES_PATH =  os.path.join(self.root_folder, self.REL_SOURCES_PATH)
-        self.OUTPUT_PATH =  os.path.join(self.root_folder, self.REL_OUTPUT_PATH)
+        self.SOURCES_PATH = os.path.join(self.root_folder, self.REL_SOURCES_PATH)
+        self.OUTPUT_PATH = os.path.join(self.root_folder, self.REL_OUTPUT_PATH)
 
+        self.use_singleton = use_singleton
 
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+
+    def __str__(self):
+        return (f'{self.__class__.__name__}\n'
+
+                f'\t connected to container "{self.container_name}"\n'
+                f'\t ROOT_FOLDER: {self.root_folder}\n'
+                f'\t INDICATORS_CFG_PATH: {self.INDICATORS_CFG_PATH}\n'
+                f'\t SOURCES_CFG_PATH: {self.SOURCES_CFG_PATH}\n'
+                f'\t UTILITIES_PATH: {self.UTILITIES_PATH}\n'
+                f'\t SOURCES_PATH: {self.SOURCES_PATH}\n'
+                f'\t OUTPUT_PATH: {self.OUTPUT_PATH}\n')
 
     async def list_indicators(self):
         logger.info(f'Listing {self.INDICATORS_CFG_PATH}')
@@ -1169,7 +1141,19 @@ class StorageManager:
                     and "indicators" in blob.name
             ): yield blob
 
-    async def get_indicator_cfg(self, indicator_id:str=None, indicator_path=None):
+    async def list_sources_cfgs(self):
+        """
+        List all the source cfgs in the container
+        :return:
+        """
+        logger.info(f'Listing {self.SOURCES_CFG_PATH}')
+        cfgs = []
+        async for blob in self.container_client.list_blobs(prefix=self.SOURCES_CFG_PATH):
+            if not isinstance(blob, BlobPrefix) and blob.name.endswith(".cfg") and "sources" in blob.name:
+                cfgs.append(blob.name)
+        return cfgs
+
+    async def get_indicator_cfg(self, indicator_id: str = None, indicator_path=None):
 
         try:
             if indicator_id:
@@ -1180,11 +1164,13 @@ class StorageManager:
                 indicator_id, ext = os.path.splitext(indicator_name)
 
             # if 'wbentp1_wb' in indicator_path:raise Exception('forced')
-            assert await self.check_blob_exists(indicator_path), f'Indicator {indicator_id} located at {indicator_path} does not exist'
+            # if indicator_id == "mmrlatest_gii":
+            #     print(indicator_id, indicator_path)
+            #     exit()
+            assert await self.check_blob_exists(
+                indicator_path), f'Indicator {indicator_id} located at {indicator_path} does not exist'
 
-            #TODO caching
-
-
+            # TODO caching
 
             logger.info(f'Fetching indicator cfg for {indicator_id} from  {indicator_path}')
             stream = await self.container_client.download_blob(
@@ -1200,14 +1186,15 @@ class StorageManager:
                 return cfg2dict(parser)
 
             else:
-                raise Exception(f"Indicator  {indicator_id} located at {indicator_path} does not contain an 'indicator' section")
+                raise Exception(
+                    f"Indicator  {indicator_id} located at {indicator_path} does not contain an 'indicator' section")
         except Exception as e:
             logger.error(f'Indicator {indicator_id} will be skipped because {e}')
 
     async def get_indicators_cfg(self, contain_filter=None):
         tasks = []
-        async for indicator_blob  in self.list_indicators():
-            if contain_filter and contain_filter not in indicator_blob.name:continue
+        async for indicator_blob in self.list_indicators():
+            if contain_filter and contain_filter not in indicator_blob.name: continue
 
             t = asyncio.create_task(
                 self.get_indicator_cfg(indicator_path=indicator_blob.name)
@@ -1227,10 +1214,11 @@ class StorageManager:
                 source_id, ext = os.path.splitext(source_name)
 
             # if 'wbentp1_wb' in indicator_path:raise Exception('forced')
-            assert await self.check_blob_exists(source_path), f'Source {source_id} located at {source_path} does not exist'
-            #TODO caching
+            assert await self.check_blob_exists(
+                source_path), f'Source {source_id} located at {source_path} does not exist'
+            # TODO caching
 
-            if 'ILO_SPF'.lower() in source_path:raise Exception('forced')
+            if 'ILO_SPF'.lower() in source_path: raise Exception('forced')
             logger.info(f'Fetching source cfg  for {source_id} from  {source_path}')
             # stream = await self.container_client.download_blob(
             #     source_path, max_concurrency=8
@@ -1244,43 +1232,69 @@ class StorageManager:
             if "source" in parser:
                 return cfg2dict(parser)
             else:
-                raise Exception(f"Indicator source  {source_id} located at {source_path} does not contain an 'source' section")
+                raise Exception(
+                    f"Indicator source  {source_id} located at {source_path} does not contain an 'source' section")
         except Exception as e:
             logger.error(f'Source {source_id} will be skipped because {e}')
 
-    async def get_sources_cfg(self, source_ids:List[str] = None):
+    async def get_sources_cfgs(self, source_ids: List[str] = None):
         """
         Download and parse source config file of indicators
         :param source_ids:
         :return:
         """
         tasks = []
-        for source_id in source_ids:
-            t = asyncio.create_task(
-                self.get_source_cfg(source_id=source_id)
-            )
-            tasks.append(t)
+        if source_ids is None:
+            for source_cfg_path in await self.list_sources_cfgs():
+                source_id = os.path.split(source_cfg_path)[1].split('.')[0]
+                t = asyncio.create_task(
+                    self.get_source_cfg(source_id=source_id)
+                )
+                tasks.append(t)
         results = await asyncio.gather(*tasks)
         return [e for e in results if e]
-    async def __aenter__(self):
-        return self
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.close()
+
     async def close(self):
         await self.container_client.close()
 
+    async def get_utility_file(self, utility_file: str) -> Dict[str, Dict[str, Any]]:
+        """
+        Asynchronously retrieves a specified utility configuration file from the Azure Blob Container,
+        parses it, and returns its content as a dictionary.
 
+        Args:
+            utility_file (str): The name of the utility configuration file to search for.
 
-    def __str__(self):
-       return(f'{self.__class__.__name__}\n'
-    
-            f'\t connected to container "{self.container_name}"\n'
-            f'\t ROOT_FOLDER: {self.root_folder}\n'
-            f'\t INDICATORS_CFG_PATH: {self.INDICATORS_CFG_PATH}\n'
-            f'\t SOURCES_CFG_PATH: {self.SOURCES_CFG_PATH}\n'
-            f'\t UTILITIES_PATH: {self.UTILITIES_PATH}\n'
-            f'\t SOURCES_PATH: {self.SOURCES_PATH}\n'
-            f'\t OUTPUT_PATH: {self.OUTPUT_PATH}\n')
+        Returns:
+            dict: A dictionary representation of the utility configuration file content,
+                where keys are section names and values are dictionaries of key-value pairs within the section.
+
+        Raises:
+            ConfigError: Raised if the specified utility configuration file is not found or not valid.
+
+        """
+        # os.path.join doesn't work for filtering returned Azure blob paths
+        prefix = f"{self.UTILITIES_PATH}"
+        async for blob in self.container_client.list_blobs(prefix=prefix):
+            if (
+                    not isinstance(blob, BlobPrefix)
+                    and blob.name.endswith(".cfg")
+                    and utility_file == os.path.basename(blob.name)
+            ):
+                stream = await self.container_client.download_blob(
+                    blob.name, max_concurrency=8
+                )
+                content = await stream.readall()
+                content_str = content.decode("utf-8")
+                parser = configparser.ConfigParser(interpolation=None)
+                parser.read_string(content_str)
+                config_dict = {
+                    section: dict(parser.items(section))
+                    for section in parser.sections()
+                }
+                return config_dict
+        else:
+            raise ConfigError(f"Utitlity source not valid")
 
     async def check_blob_exists(self, blob_name: str) -> bool:
         """
@@ -1376,7 +1390,6 @@ class StorageManager:
         async for chunk in stream.chunks():
             chunk_list.append(chunk)
 
-
         data = b"".join(chunk_list)
         logger.debug(f'Finished downloading {blob_name}')
         if dst_path:
@@ -1386,6 +1399,15 @@ class StorageManager:
         else:
             return data
 
+    async def delete_blob(self, blob_path):
+        """
+        :param blob_path: 
+        :return: 
+        """
+        return self.container_client.delete_blob(blob_path)
+
+    async def list_base_files(self):
+        return [blob.name async for blob in self.container_client.list_blobs(name_starts_with=os.path.join(self.OUTPUT_PATH, 'access_all_data', 'base/'))]
 
     async def cached_download(self, source_path=None, chunked=False):
         if source_path in TMP_SOURCES:

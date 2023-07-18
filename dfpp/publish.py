@@ -12,8 +12,8 @@ import numpy as np
 import pandas as pd
 
 from dfpp.constants import STANDARD_KEY_COLUMN, OUTPUT_FOLDER
-from dfpp.run_transform import read_indicators_config
-from dfpp.storage import AsyncAzureBlobStorageManager
+# from dfpp.run_transform import read_indicators_config
+from dfpp.storage import AsyncAzureBlobStorageManager, StorageManager
 from dfpp.utils import country_group_dataframe, region_group_dataframe
 
 # AREA_TYPES = ['countries', 'regions']
@@ -27,22 +27,7 @@ output_data_type = 'timeseries'
 # output_data_type = 'latestavailabledata'
 
 
-async def list_base_files(storage_manager: AsyncAzureBlobStorageManager):
-    """
-    Read the base files from the data folder
-    """
-    # Added `/` at the end of the base file as delimiter so as the top level folder does not appear in the results
-    PATH_TO_BASE_FILES = os.path.join(
-        os.environ["ROOT_FOLDER"], "output", "access_all_data", "base/"
-    )
-    base_files = await storage_manager.list_blobs(
-        prefix=PATH_TO_BASE_FILES,
-    )
-    base_file_names = [file.name for file in base_files]
-    return base_file_names
-
-
-async def update_and_get_output_csv(storage_manager: AsyncAzureBlobStorageManager, area_type: str):
+async def update_and_get_output_csv(storage_manager: StorageManager, area_type: str):
     """
     Update the output csv file with the latest data
     """
@@ -56,9 +41,7 @@ async def update_and_get_output_csv(storage_manager: AsyncAzureBlobStorageManage
     # elif area_type == 'region':
     #     output_df = pd.read_csv(io.BytesIO(await storage_manager.download(blob_name=os.path.join(OUTPUT_FOLDER, project, 'output_regions.csv'))))
     logger.info("Starting reading base files...")
-    base_files_list = await list_base_files(
-        storage_manager=storage_manager
-    )
+    base_files_list = await storage_manager.list_base_files()
 
     async def read_base_df(base_file):
         logger.info(f"Reading base file {base_file.split('/')[-1]} to a dataframe...")
@@ -497,38 +480,33 @@ async def publish():
     :return:
     """
     logger.info("Starting publish...")
-    storage_manager = await AsyncAzureBlobStorageManager.create_instance(
-        connection_string=os.environ["AZURE_STORAGE_CONNECTION_STRING"],
-        container_name=os.environ["AZURE_STORAGE_CONTAINER_NAME"],
-        use_singleton=False,
-    )
-    logger.info("Connected to Azure Blob Storage")
-    logger.info("Starting to read indicator configurations...")
+    async with StorageManager(connection_string=os.environ.get('AZURE_STORAGE_CONNECTION_STRING'), container_name=os.environ.get('AZURE_STORAGE_CONTAINER_NAME')) as storage_manager:
+        logger.info("Connected to Azure Blob Storage")
+        logger.info("Starting to read indicator configurations...")
 
-    # Read indicator configurations
-    indicator_cfgs = await read_indicators_config()
+        # Read indicator configurations
+        indicator_cfgs = await storage_manager.get_indicators_cfg()
 
-    for value in AREA_TYPES:
-        # update and get the updated output csv
-        output_df = await update_and_get_output_csv(
-            storage_manager=storage_manager,
-            area_type=value,
-        )
-        # output_df = pd.read_csv('/home/thuha/Downloads/output.csv')
-        await generate_output_per_indicator(storage_manager=storage_manager, dataframe=output_df, indicator_cfgs=indicator_cfgs)
-        if output_data_type == "timeseries":
-            output_df = await process_time_series_data(
+        for value in AREA_TYPES:
+            # update and get the updated output csv
+            output_df = await update_and_get_output_csv(
                 storage_manager=storage_manager,
-                dataframe=output_df,
-                indicator_cfgs=indicator_cfgs,
-                area_type=value
+                area_type=value,
             )
-        elif output_data_type == "latestavailabledata":
-            output_df = await process_latest_data(
-                storage_manager=storage_manager,
-                dataframe=output_df,
-                indicator_cfgs=indicator_cfgs,
-                area_type=value
-            )
-    logger.info("Finished publishing of data")
-    return await storage_manager.close()
+            # output_df = pd.read_csv('/home/thuha/Downloads/output.csv')
+            await generate_output_per_indicator(storage_manager=storage_manager, dataframe=output_df, indicator_cfgs=indicator_cfgs)
+            if output_data_type == "timeseries":
+                output_df = await process_time_series_data(
+                    storage_manager=storage_manager,
+                    dataframe=output_df,
+                    indicator_cfgs=indicator_cfgs,
+                    area_type=value
+                )
+            elif output_data_type == "latestavailabledata":
+                output_df = await process_latest_data(
+                    storage_manager=storage_manager,
+                    dataframe=output_df,
+                    indicator_cfgs=indicator_cfgs,
+                    area_type=value
+                )
+        logger.info("Finished publishing of data")
