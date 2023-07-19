@@ -15,6 +15,8 @@ import itertools
 
 logger = logging.getLogger(__name__)
 ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
+AZURE_STORAGE_CONNECTION_STRING = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
+AZURE_STORAGE_CONTAINER_NAME = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
 MANDATORY_SOURCE_COLUMNS = 'id', 'url', 'save_as'
 TMP_SOURCES = {}
 
@@ -1101,17 +1103,20 @@ class StorageManager:
     REL_SOURCES_PATH = 'sources/raw'
     REL_OUTPUT_PATH = 'output'
 
-    def __init__(self, connection_string: str = None, container_name: str = None, root_folder=ROOT_FOLDER,
+    def __init__(self,
+                 connection_string: str = AZURE_STORAGE_CONNECTION_STRING,
+                 container_name: str = AZURE_STORAGE_CONTAINER_NAME,
+                 root_folder=ROOT_FOLDER,
                  use_singleton: bool = False):
         self.container_client = AContainerClient.from_connection_string(conn_str=connection_string,
                                                                         container_name=container_name)
         self.container_name = container_name
-        self.root_folder = root_folder
-        self.INDICATORS_CFG_PATH = os.path.join(self.root_folder, self.REL_INDICATORS_CFG_PATH)
-        self.SOURCES_CFG_PATH = os.path.join(self.root_folder, self.REL_SOURCES_CFG_PATH)
-        self.UTILITIES_PATH = os.path.join(self.root_folder, self.REL_UTILITIES_PATH)
-        self.SOURCES_PATH = os.path.join(self.root_folder, self.REL_SOURCES_PATH)
-        self.OUTPUT_PATH = os.path.join(self.root_folder, self.REL_OUTPUT_PATH)
+        self.ROOT_FOLDER = root_folder
+        self.INDICATORS_CFG_PATH = os.path.join(self.ROOT_FOLDER, self.REL_INDICATORS_CFG_PATH)
+        self.SOURCES_CFG_PATH = os.path.join(self.ROOT_FOLDER, self.REL_SOURCES_CFG_PATH)
+        self.UTILITIES_PATH = os.path.join(self.ROOT_FOLDER, self.REL_UTILITIES_PATH)
+        self.SOURCES_PATH = os.path.join(self.ROOT_FOLDER, self.REL_SOURCES_PATH)
+        self.OUTPUT_PATH = os.path.join(self.ROOT_FOLDER, self.REL_OUTPUT_PATH)
 
         self.use_singleton = use_singleton
 
@@ -1125,7 +1130,7 @@ class StorageManager:
         return (f'{self.__class__.__name__}\n'
 
                 f'\t connected to container "{self.container_name}"\n'
-                f'\t ROOT_FOLDER: {self.root_folder}\n'
+                f'\t ROOT_FOLDER: {self.ROOT_FOLDER}\n'
                 f'\t INDICATORS_CFG_PATH: {self.INDICATORS_CFG_PATH}\n'
                 f'\t SOURCES_CFG_PATH: {self.SOURCES_CFG_PATH}\n'
                 f'\t UTILITIES_PATH: {self.UTILITIES_PATH}\n'
@@ -1419,7 +1424,12 @@ class StorageManager:
         """
         return self.container_client.delete_blob(blob_path)
 
-    async def list_base_files(self):
+    async def list_base_files(self, ):
+        """
+        List
+        :param indicator_id:
+        :return:
+        """
         return [blob.name async for blob in self.container_client.list_blobs(
             name_starts_with=os.path.join(self.OUTPUT_PATH, 'access_all_data', 'base/'))]
 

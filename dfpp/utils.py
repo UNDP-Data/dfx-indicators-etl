@@ -8,9 +8,8 @@ import pandas as pd
 from dfpp.storage import StorageManager
 from dfpp.constants import COUNTRY_LOOKUP_CSV_PATH, STANDARD_KEY_COLUMN
 
-AZURE_STORAGE_CONNECTION_STRING = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
-AZURE_STORAGE_CONTAINER_NAME = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
-ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +28,7 @@ async def add_country_code(source_df, country_name_column=None):
         :param country_name_column:
 
     """
-    async with StorageManager(connection_string=AZURE_STORAGE_CONNECTION_STRING,
-                              container_name=AZURE_STORAGE_CONTAINER_NAME) as storage_manager:
+    async with StorageManager() as storage_manager:
         country_lookup_bytes = await storage_manager.download(blob_name=COUNTRY_LOOKUP_CSV_PATH)
         country_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_lookup")
         if country_name_column != country_df.index.name:
@@ -63,10 +61,7 @@ async def add_region_code(source_df=None, region_name_col=None, region_key_col=N
 
         """
     try:
-        async with StorageManager(
-            connection_string=AZURE_STORAGE_CONNECTION_STRING,
-            container_name=AZURE_STORAGE_CONTAINER_NAME
-        ) as storage_manager:
+        async with StorageManager() as storage_manager:
             country_lookup_bytes = await storage_manager.download(blob_name=COUNTRY_LOOKUP_CSV_PATH)
             region_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="region_lookup")
             region_df = region_df.drop_duplicates(subset=["Region"], keep='last')
@@ -116,7 +111,7 @@ async def add_alpha_code_3_column(source_df, country_col):
         ValueError: If the country column is not present in the source DataFrame or the country lookup table.
 
         """
-    async with StorageManager(connection_string=AZURE_STORAGE_CONNECTION_STRING, container_name=AZURE_STORAGE_CONTAINER_NAME) as storage_manager:
+    async with StorageManager() as storage_manager:
         country_lookup_bytes = await storage_manager.download(COUNTRY_LOOKUP_CSV_PATH)
         country_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_lookup")
         country_df = country_df.rename(columns={'Country': country_col})
@@ -137,8 +132,7 @@ async def fix_iso_country_codes(df: pd.DataFrame = None, col: str = None, source
         None: The function modifies the provided DataFrame in place.
 
         """
-    async with StorageManager(connection_string=AZURE_STORAGE_CONNECTION_STRING,
-                              container_name=AZURE_STORAGE_CONTAINER_NAME) as storage_manager:
+    async with StorageManager() as storage_manager:
         country_lookup_bytes = await storage_manager.download(COUNTRY_LOOKUP_CSV_PATH)
         country_code_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_code_lookup")
         for index, row in country_code_df.iterrows():
@@ -167,7 +161,7 @@ async def change_iso3_to_system_region_iso3(source_df, iso3_col):
     return source_df.drop(columns=drop_list)
 
 
-async def get_year_columns(columns, col_prefix=None, col_suffix=None, column_substring=None):
+async def get_year_columns(columns, col_prefix=None, col_suffix=None, column_substring=None, indicator_id=None):
     """
     Extracts year-based columns from a list of column names.
 
@@ -207,7 +201,8 @@ async def get_year_columns(columns, col_prefix=None, col_suffix=None, column_sub
             year_columns[year] = column
         except Exception as e:
             pass
-
+    if not year_columns:
+        raise RuntimeError(f'Could not establish year data columns for {indicator_id}')
     return year_columns
 
 
@@ -249,13 +244,12 @@ async def country_group_dataframe():
     Returns:
         pandas.DataFrame: The country and territory group DataFrame.
     """
-    async with StorageManager(connection_string=AZURE_STORAGE_CONNECTION_STRING,
-                              container_name=AZURE_STORAGE_CONTAINER_NAME) as storage_manager:
+    async with StorageManager() as storage_manager:
         try:
             # Read the country and territory group DataFrame from JSON in Azure Blob Storage
             df = pd.read_json(io.BytesIO(await storage_manager.download(
                 blob_name=os.path.join(
-                    ROOT_FOLDER,
+                    storage_manager.ROOT_FOLDER,
                     'config',
                     'utilities',
                     'country_territory_groups.json'
@@ -275,7 +269,7 @@ async def country_group_dataframe():
             # Read the aggregate territory group DataFrame from JSON in Azure Blob Storage
             df_aggregates = pd.read_json(io.BytesIO(await storage_manager.download(
                 blob_name=os.path.join(
-                    ROOT_FOLDER,
+                    storage_manager.ROOT_FOLDER,
                     'config',
                     'utilities',
                     'aggregate_territory_groups.json'
@@ -309,13 +303,12 @@ async def region_group_dataframe():
     Returns:
         pandas.DataFrame: The region group DataFrame.
     """
-    async with StorageManager(connection_string=AZURE_STORAGE_CONNECTION_STRING,
-                              container_name=AZURE_STORAGE_CONTAINER_NAME) as storage_manager:
+    async with StorageManager() as storage_manager:
         try:
             # Read the region group DataFrame from JSON in Azure Blob Storage
             df = pd.read_json(io.BytesIO(await storage_manager.download(
                 blob_name=os.path.join(
-                    ROOT_FOLDER,
+                    storage_manager.ROOT_FOLDER,
                     'config',
                     'utilities',
                     'aggregate_territory_groups.json'
@@ -358,8 +351,7 @@ async def update_base_file(df=None, blob_name=None):
     Returns:
         bool: True if the upload was successful, False otherwise.
     """
-    async with StorageManager(connection_string=AZURE_STORAGE_CONNECTION_STRING,
-                              container_name=AZURE_STORAGE_CONTAINER_NAME) as storage_manager:
+    async with StorageManager() as storage_manager:
         try:
             # Reset the index of the DataFrame
             # df.reset_index(inplace=True)
@@ -369,7 +361,7 @@ async def update_base_file(df=None, blob_name=None):
 
             # Check if the blob file already exists in Azure Blob Storage
             blob_exists = await storage_manager.check_blob_exists(
-                blob_name=os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
+                blob_name=os.path.join(storage_manager.ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
             )
 
             # Create an empty DataFrame for the keys
@@ -382,7 +374,7 @@ async def update_base_file(df=None, blob_name=None):
                 logger.info(f"Base file {blob_name} exists. Updating...")
                 # Download the base file as bytes and read it as a DataFrame
                 base_file_bytes = await storage_manager.download(
-                    blob_name=os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name),
+                    blob_name=os.path.join(storage_manager.ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name),
                     dst_path=None
                 )
                 base_file_df = pd.read_csv(io.BytesIO(base_file_bytes))
@@ -420,7 +412,7 @@ async def update_base_file(df=None, blob_name=None):
             # base_file_df.reset_index(inplace=True)
 
             # Define the destination path for the CSV file
-            destination_path = os.path.join(ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
+            destination_path = os.path.join(storage_manager.ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
 
             await storage_manager.upload(
                 data=base_file_df.to_csv(encoding='utf-8'),

@@ -18,8 +18,8 @@ from dfpp.constants import STANDARD_KEY_COLUMN, OUTPUT_FOLDER
 from dfpp.storage import  StorageManager
 from dfpp.utils import country_group_dataframe, region_group_dataframe
 
-# AREA_TYPES = ['countries', 'regions']
-AREA_TYPES = ['regions']
+AREA_TYPES = ['countries', 'regions']
+#AREA_TYPES = ['regions']
 logger = logging.getLogger(__name__)
 # project = 'vaccine_equity'
 project = 'access_all_data'
@@ -29,7 +29,11 @@ output_data_type = 'timeseries'
 # output_data_type = 'latestavailabledata'
 
 
-async def update_and_get_output_csv(storage_manager: StorageManager, area_type: str, indicator_cfgs: List=None):
+async def update_and_get_output_csv(storage_manager: StorageManager,
+                                    area_type: str,
+                                    indicator_cfgs: List=None,
+                                    project='access_all_data'
+                                    ):
     """
     Update the output csv file with the latest data
     """
@@ -41,8 +45,21 @@ async def update_and_get_output_csv(storage_manager: StorageManager, area_type: 
     #
     # elif area_type == 'region':
     #     output_df = pd.read_csv(io.BytesIO(await storage_manager.download(blob_name=os.path.join(OUTPUT_FOLDER, project, 'output_regions.csv'))))
+
     logger.info("Starting reading base files...")
-    base_files_list = await storage_manager.list_base_files()
+    if not indicator_cfgs:
+        base_files_list = await storage_manager.list_base_files()
+    else:
+        base_files_list = []
+        for indicator_cfg in indicator_cfgs:
+            base_file_path = os.path.join(storage_manager.OUTPUT_PATH, project, 'base', f"{indicator_cfg['indicator']['source_id']}.csv")
+            assert await storage_manager.check_blob_exists(base_file_path), f'{base_file_path} doe not exist'
+            base_files_list.append(
+                base_file_path
+
+            )
+
+
 
     async def read_base_df(base_file):
         logger.info(f"Reading base file {base_file.split('/')[-1]} to a dataframe...")
@@ -70,7 +87,8 @@ async def update_and_get_output_csv(storage_manager: StorageManager, area_type: 
         overwrite=True,
         content_type='text/csv',
     )
-    return output_df
+
+    return output_df#, base_df.columns.to_list()
 
 
 async def get_time_series_cols(indicator_cfgs: list = None,
@@ -388,9 +406,9 @@ async def generate_output_per_indicator(storage_manager: StorageManager, datafra
         Generate output JSON files per indicator and upload them to Azure Blob Storage.
 
         Args:
-            storage_manager (AsyncAzureBlobStorageManager): An instance of the AsyncAzureBlobStorageManager
+            storage_manager (StorageManager): An instance of the StorageManager
                 class used for uploading files to Azure Blob Storage.
-            dataframe (pd.DataFrame, optional): The input DataFrame containing indicator data.
+            dataframe (pd.DataFrame, optional): The input DataFrame containing indicators data (output_df).
                 Defaults to None.
             indicator_cfgs (List, optional): A list of indicator configurations.
                 Defaults to None.
@@ -477,14 +495,15 @@ async def generate_output_per_indicator(storage_manager: StorageManager, datafra
     await asyncio.gather(*upload_tasks)
 
 
-async def publish(indicator_ids: list):
+async def publish(indicator_ids: list, project='access_all_data'):
     """
     Publish the data to the Data Futures Platform
     :return:
     """
-    logger.info("Starting publish...")
-    async with StorageManager(connection_string=os.environ.get('AZURE_STORAGE_CONNECTION_STRING'),
-                              container_name=os.environ.get('AZURE_STORAGE_CONTAINER_NAME')) as storage_manager:
+    if indicator_ids:
+        logger.info(f"Starting to publish {len(indicator_ids)} indicators")
+
+    async with StorageManager() as storage_manager:
         logger.info("Connected to Azure Blob Storage")
         logger.info("Starting to read indicator configurations...")
 
@@ -494,11 +513,31 @@ async def publish(indicator_ids: list):
         else:
             indicator_cfgs = await storage_manager.get_indicators_cfgs()
 
-        for value in AREA_TYPES:
+        for area_type in AREA_TYPES:
+
+            '''
+                CURRENTLY
+                1. got a indicator cfg
+                2. update output.csv with data and cols from indicator and upload the big CSV to azure 
+                3. create JSON putput per indicator and upload  to azure
+                4. create JSON output per AREA_TYPES and upload to azure
+                
+                
+                DESIRED
+                for indicator_cfg in indicators:
+                    1. export each indicator to postgresql
+                    2. optionally export to JSON
+            '''
+
+
             # update and get the updated output csv
+            # this SHOULD not be necessary
+
+
             output_df = await update_and_get_output_csv(
                 storage_manager=storage_manager,
-                area_type=value,
+                area_type=area_type,
+                indicator_cfgs=indicator_cfgs
             )
             # output_df = pd.read_csv('/home/thuha/Downloads/output.csv')
             await generate_output_per_indicator(storage_manager=storage_manager, dataframe=output_df,
@@ -508,13 +547,19 @@ async def publish(indicator_ids: list):
                     storage_manager=storage_manager,
                     dataframe=output_df,
                     indicator_cfgs=indicator_cfgs,
-                    area_type=value
+                    area_type=area_type
                 )
-            elif output_data_type == "latestavailabledata":
-                output_df = await process_latest_data(
-                    storage_manager=storage_manager,
-                    dataframe=output_df,
-                    indicator_cfgs=indicator_cfgs,
-                    area_type=value
-                )
+
+            # elif output_data_type == "latestavailabledata":
+            #     output_df = await process_latest_data(
+            #         storage_manager=storage_manager,
+            #         dataframe=output_df,
+            #         indicator_cfgs=indicator_cfgs,
+            #         area_type=value
+            #     )
+            #
+
+
+
+
         logger.info("Finished publishing of data")

@@ -17,9 +17,7 @@ import pandas as pd
 from aiohttp import ClientTimeout
 from dfpp.storage import StorageManager
 
-AZURE_STORAGE_CONNECTION_STRING = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
-AZURE_STORAGE_CONTAINER_NAME = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
-ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
+
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=600)
 
 logger = logging.getLogger(__name__)
@@ -574,8 +572,7 @@ async def download_indicator_sources(indicator_ids: List | str = None, indicator
     ```
     """
     try:
-        async with StorageManager(connection_string=os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
-                                  container_name=os.environ.get("AZURE_STORAGE_CONTAINER_NAME")) as storage_manager:
+        async with StorageManager() as storage_manager:
             if indicator_ids is not None and len(indicator_ids) > 0:
                 indicator_cfgs = await storage_manager.get_indicators_cfgs(indicator_ids=indicator_ids)
             elif indicator_id_contain_filter is not None:

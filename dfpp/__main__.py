@@ -47,6 +47,11 @@ def validate_env():
 
 
 async def main():
+    for k, v in TMP_SOURCES.items():
+        exists = os.path.exists(v)
+        if exists:
+            logging.info(f'Removing cache {v} for source {k} ')
+            os.remove(v)
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     indicators_from_args = args.indicators
     indicators_from_args_contains = args.filter_indicators

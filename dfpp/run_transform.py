@@ -12,14 +12,11 @@ from dfpp import transform_functions
 
 logger = logging.getLogger(__name__)
 
-# indicator_parser = ConfigParser(interpolation=None)
-CONNECTION_STRING = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
-CONTAINER_NAME = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
-ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
+
 
 
 async def read_source_file_for_indicator(indicator_source: str = None):
-    async with StorageManager(connection_string=CONNECTION_STRING, container_name=CONTAINER_NAME) as storage_manager:
+    async with StorageManager() as storage_manager:
         try:
 
             source_config_path = f'{storage_manager.SOURCES_CFG_PATH}/{indicator_source.lower()}/{indicator_source.lower()}.cfg'
@@ -84,7 +81,6 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None):
 
     source_df.replace('..', np.NaN, inplace=True)
     source_df.dropna(inplace=True, axis=1, how="all")
-
     transform_function_name = indicator_cfg.get('transform_function', None)
 
     if transform_function_name is not None:
@@ -108,7 +104,10 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None):
             key_column = source_info.get('country_iso3_column', key_column)
             source_df.rename(columns={key_column: 'Alpha-3 code'}, inplace=True)
             key_column = 'Alpha-3 code'
+
+
         logger.info(f"Running transform function {transform_function_name} for indicator {indicator_id}")
+
         await run_transform(
             source_df=source_df,
             indicator_id=indicator_id,
@@ -148,7 +147,7 @@ async def transform_sources(concurrent=False, indicator_ids: List = None):
     """
 
 
-    async with StorageManager(connection_string=CONNECTION_STRING, container_name=CONTAINER_NAME) as storage_manager:
+    async with StorageManager() as storage_manager:
         if indicator_ids is not None:
             indicators_cfgs = await storage_manager.get_indicators_cfgs(indicator_ids=indicator_ids)
         else:
@@ -156,6 +155,7 @@ async def transform_sources(concurrent=False, indicator_ids: List = None):
 
         # await storage_manager.delete_blob(blob_path=os.path.join('DataFuturePlatform', 'pipeline', 'config', 'indicators', 'mmrlatest_gii.cfg'))
         tasks = list()
+        transformed_indicators = list()
         for indicator_cfg in indicators_cfgs:
             indicator_section = indicator_cfg['indicator']
             indicator_id = indicator_section['indicator_id']
@@ -166,7 +166,8 @@ async def transform_sources(concurrent=False, indicator_ids: List = None):
                 continue
 
             if not concurrent:
-                await run_transformation_for_indicator(indicator_cfg=indicator_section)
+                transformed_indicator_id = await run_transformation_for_indicator(indicator_cfg=indicator_section)
+                transformed_indicators.append(transformed_indicator_id)
             else:
                 # Create a task for running the transformation for the indicator
                 transformation_task = asyncio.create_task(
@@ -186,12 +187,13 @@ async def transform_sources(concurrent=False, indicator_ids: List = None):
                     await asyncio.sleep(3)
                 else:
                     logger.info(f'Transform for {indicator_id} was executed successfully')
+                    transformed_indicators.append(indicator_id)
             # handle timed out
             for task in pending:
                 # cancel task
                 task.cancel()
                 await task
-
+        return transformed_indicators
 
 
 
