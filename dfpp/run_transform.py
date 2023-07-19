@@ -2,17 +2,11 @@ import json
 import os
 import asyncio
 import logging
-import tempfile
 from typing import List
-
 import numpy as np
-
 from dfpp.storage import StorageManager
-from dfpp.utils import chunker
-from configparser import ConfigParser, RawConfigParser
 from dfpp import preprocessing
-from dfpp.constants import SOURCE_CONFIG_ROOT_FOLDER, INDICATOR_CONFIG_ROOT_FOLDER
-import ast
+
 # This is importing all transform functions from transform_functions.py. DO NOT REMOVE EVEN IF IDE SAYS IT IS UNUSED
 from dfpp import transform_functions
 
@@ -24,131 +18,11 @@ CONTAINER_NAME = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
 ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
 
 
-MANDATORY_SOURCE_COLUMNS = 'id', 'url', 'save_as'
-
-
-def validate_src_cfg(cfg_dict=None, cfg_file_path=None):
-    """
-    Validate a source config file
-    :param cfg_dict:
-    :param cfg_file_path:
-    :return:
-    """
-    assert cfg_dict is not None, f'Invalid source config {cfg_dict}'
-    assert cfg_dict is not {}, f'Invalid source config {cfg_dict}'
-
-    for k in MANDATORY_SOURCE_COLUMNS:
-        v = cfg_dict['source'][k]
-        try:
-            v_parsed = ast.literal_eval(v)
-            assert v_parsed is not None, f"{k} key {cfg_file_path} needs to be a valid string. Current value is {v}"
-        except AssertionError:
-            raise
-        except Exception as e:
-            pass
-
-        assert k in cfg_dict['source'], f'{cfg_file_path} needs to contain {k} key'
-        assert isinstance(v, str), f"{cfg_file_path}'s {k} key needs to be a string. Current value is {type(v)}"
-        assert v, f"{cfg_file_path}'s {k} key needs to be a valid string. Current value is {v}"
-
-
-def cfg2dict(config_object=None):
-    """
-    Copnverts a config object to dict
-    :param config_object:
-    :return:
-    """
-    output_dict = dict()
-    sections = config_object.sections()
-    for section in sections:
-        items = config_object.items(section)
-        output_dict[section] = dict(items)
-    return output_dict
-
-
-class UnescapedConfigParser(RawConfigParser):
-    """
-    An extension of the RawConfigParser that does not escape values when reading from a file.
-    """
-
-    def get(self, section, option, **kwargs):
-        """
-        Get the value of an option.
-        :param section: The section of the config file.
-        :param option: The option to get the value of.
-        :param kwargs: The keyword arguments.
-        :return:
-        """
-        value = super().get(section, option, **kwargs)
-        try:
-            return value.encode().decode('unicode_escape')
-        except AttributeError:
-            return value
-
-
-async def read_indicator(storage_manager=None, blob_rel_path=None):
-    """
-    Read the configuration file of a DFP indicator stored in blob_rel_path
-    :param storage_manager:
-    :param blob_rel_path:
-    :return: the configuration file as a dict
-    """
-
-    logger.info(f'Downloading config {blob_rel_path.split("/")[-1]}')
-    file_in_bytes = await storage_manager.download(blob_name=blob_rel_path)
-
-    indicator_parser = ConfigParser(interpolation=None)
-    indicator_parser.read_string(file_in_bytes.decode('utf-8'))
-
-    cfg_dict = cfg2dict(indicator_parser)
-
-    assert 'indicator' in cfg_dict, f'Indicator config file  {blob_rel_path} is invalid'
-    assert cfg_dict, f'Indicator config file  {blob_rel_path} is invalid'
-
-    return cfg_dict
-
-
-# async def read_indicators_config(indicator_file_contains=None, chunk_size=50):
-#     """
-#     Read indicators config from azure blob container
-#     :param indicator_file_contains: str, if supplied used to filter the indicators
-#     :param chunk_size: int, default=50, split the indicators  in chunks with size = chunk_size and
-#            read them concurrently
-#     :return:
-#     """
-#     async with StorageManager(connection_string=CONNECTION_STRING, container_name=CONTAINER_NAME) as storage_manager:
-#         indicator_list = []
-#         tasks = []
-#
-#         # for blob in await storage_manager.list_blobs(prefix=INDICATOR_CONFIG_ROOT_FOLDER):
-#         #     indicator_rel_path = blob.name
-#         #     if not indicator_rel_path.endswith('.cfg'):
-#         #         continue
-#         #     if indicator_file_contains and indicator_file_contains not in indicator_rel_path:
-#         #         continue
-#         #
-#         #     tasks.append(asyncio.create_task(
-#         #         read_indicator(storage_manager=storage_manager, blob_rel_path=indicator_rel_path),
-#         #         name=indicator_rel_path
-#         #     ))
-#
-#         for chunk in chunker(tasks, 50):
-#             logging.info(f'Fetching configs for {len(chunk)} indicators')
-#             done, pending = await asyncio.wait(chunk, timeout=None, return_when=asyncio.ALL_COMPLETED)
-#             for t in done:
-#                 if t.exception():
-#                     logger.error(f'Failed to read indicator config file {t.get_name()} because {t.exception()}')
-#                 else:
-#                     indicator_list.append(await t)
-#
-#         return sorted(indicator_list, key=lambda d: d['indicator']['indicator_id'])
-
-
 async def read_source_file_for_indicator(indicator_source: str = None):
     async with StorageManager(connection_string=CONNECTION_STRING, container_name=CONTAINER_NAME) as storage_manager:
         try:
 
-            source_config_path = f'{SOURCE_CONFIG_ROOT_FOLDER}/{indicator_source.lower()}/{indicator_source.lower()}.cfg'
+            source_config_path = f'{storage_manager.SOURCES_CFG_PATH}/{indicator_source.lower()}/{indicator_source.lower()}.cfg'
 
             # check the blob exists in azure storage
             source_cfg_file_exists = await storage_manager.check_blob_exists(blob_name=source_config_path)

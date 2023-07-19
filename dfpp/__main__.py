@@ -64,15 +64,15 @@ async def main():
         logging.info('Starting pipeline....')
         await sleep(5)
         logging.info('Downloading data....')
-        downloaded_indicators = await download_indicator_sources(indicator_ids=indicators_from_args)
+        downloaded_indicator_ids = await download_indicator_sources(indicator_ids=indicators_from_args)
         logging.info('Downloading Data Complete....')
         logging.info('Transforming data....')
         await sleep(5)
-        transformed_indicators = await transform_sources(indicator_ids=downloaded_indicators)
+        transformed_indicator_ids = await transform_sources(indicator_ids=downloaded_indicator_ids)
         logging.info('Transforming Data Complete....')
         logging.info('Publishing data....')
         await sleep(5)
-        await publish(indicator_ids=transformed_indicators)
+        await publish(indicator_ids=transformed_indicator_ids)
         logging.info('Publishing Data Complete....')
         # TODO report function
 

@@ -1173,10 +1173,11 @@ class StorageManager:
             # TODO caching
 
             logger.info(f'Fetching indicator cfg for {indicator_id} from  {indicator_path}')
-            stream = await self.container_client.download_blob(
-                indicator_path, max_concurrency=8
-            )
-            content = await stream.readall()
+            # stream = await self.container_client.download_blob(
+            #     indicator_path, max_concurrency=8
+            # )
+            # content = await stream.readall()
+            content = await self.cached_download(source_path=indicator_path)
             content_str = content.decode("utf-8")
 
             parser = configparser.ConfigParser(interpolation=None)
