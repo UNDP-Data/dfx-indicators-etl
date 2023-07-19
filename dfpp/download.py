@@ -585,6 +585,11 @@ async def retrieval(indicator_ids: List | str = None, indicator_id_contain_filte
             tasks = []
             for indicator_cfg in indicator_cfgs:
                 source_id = indicator_cfg['indicator']['source_id']
+                # check if the source configuration exists in the storage
+                if not await storage_manager.check_blob_exists(
+                        blob_name=os.path.join(storage_manager.SOURCES_CFG_PATH, source_id.lower(), f'{source_id.lower()}.cfg')):
+                    logger.warning(f"Source {source_id} referenced by indicator {indicator_cfg['indicator']['indicator_id']} does not exist in the storage. So it will be skipped.")
+                    continue
                 source_cfg = await storage_manager.get_source_cfg(source_id=source_id)
                 SKIP_IDS = ['HDR', 'ILO_EE', 'ISABO']
                 if source_id in SKIP_IDS:
@@ -621,6 +626,9 @@ async def retrieval(indicator_ids: List | str = None, indicator_id_contain_filte
                 for result in results:
                     if isinstance(result, Exception):
                         logger.error("Retrieval failed to complete due to the following error", result)
+                    else:
+                        logger.info("Retrieval completed successfully.")
+                        # return successful_indicators
 
     except Exception as e:
         logger.error(e)
