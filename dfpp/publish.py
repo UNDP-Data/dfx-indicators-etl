@@ -37,10 +37,11 @@ async def update_and_get_output_csv(storage_manager: StorageManager,
     """
     Update the output csv file with the latest data
     """
-    logger.info("Reading current stored output.csv file...")
+    output_csv_file_path = os.path.join(OUTPUT_FOLDER, project, f'output_{area_type}.csv')
+    logger.info(f"Reading current stored {output_csv_file_path} file...")
     output_df = pd.read_csv(
         io.BytesIO(
-            await storage_manager.download(blob_name=os.path.join(OUTPUT_FOLDER, project, f'output_{area_type}.csv'))))
+            await storage_manager.download(blob_name=output_csv_file_path)))
     # if area_type == 'countries':
     #
     # elif area_type == 'region':
@@ -73,17 +74,27 @@ async def update_and_get_output_csv(storage_manager: StorageManager,
         basefile_reading_tasks.append(read_base_df(file))
     base_dfs = await asyncio.gather(*basefile_reading_tasks)
     for base_df, name in base_dfs:
-        columns_to_update = set(output_df.columns.to_list()).intersection(set(base_df.columns.to_list()))
-        columns_to_add = set(base_df.columns.to_list()).difference(set(output_df.columns.to_list()))
+        columns_to_update = list(set(output_df.columns.to_list()).intersection(set(base_df.columns.to_list())))
+        columns_to_add = list(set(base_df.columns.to_list()).difference(set(output_df.columns.to_list())))
         logger.info(f"Updating {len(columns_to_update)} columns in the output dataframe with data from {name}...")
-        output_df.update(base_df[list(columns_to_update)])
-        logger.info(f"Adding {len(columns_to_add)} columns to the output dataframe from {name}...")
-        output_df = output_df.join(base_df[list(columns_to_add)])
+        print(output_df)
+        base_df.set_index('Alpha-3 code', inplace=True)
+        val = base_df.at['EGY', "accesstointernet_cpiaati_1995"]
+        existing_val = base_df.at['EGY', "accesstointernet_cpiaati_1995"]
+        print(val, existing_val)
+        exit()
+        # output_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
+        # output_df.update(base_df[list(columns_to_update)])
+        # output_df[[list(columns_to_update)]] = base_df[[list(columns_to_update)]]
+        # logger.info(f"Adding {len(columns_to_add)} columns to the output dataframe from {name}...")
+        # output_df = output_df.join(base_df[list(columns_to_add)])
+        # output_df[[list(columns_to_add)]] = base_df[[list(columns_to_add)]]
+        #output_df.reset_index()
         # update indicator metadata in the indicator config with the information on when the data was last updated
     logger.info("Uploading the updated output csv to Azure Blob Storage...")
     await storage_manager.upload(
         data=output_df.to_csv(index=False).encode('utf-8'),
-        dst_path=os.path.join(OUTPUT_FOLDER, project, 'output.csv'),
+        dst_path=output_csv_file_path,
         overwrite=True,
         content_type='text/csv',
     )
