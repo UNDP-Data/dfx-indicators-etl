@@ -557,7 +557,7 @@ async def call_function(function_name, *args, **kwargs) -> Any:
         raise ValueError(f"Function {function} is not defined or not callable")
 
 
-async def retrieval(indicator_ids: List | str = None, indicator_id_contain_filter:str=None) -> None:
+async def retrieval(indicator_ids: List | str = None, indicator_id_contain_filter: str = None) -> None:
     """
     Asynchronously retrieves data from multiple sources using Azure Blob Storage, and uploads the results to a new Blob.
 
@@ -576,33 +576,31 @@ async def retrieval(indicator_ids: List | str = None, indicator_id_contain_filte
     try:
         async with StorageManager(connection_string=os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
                                   container_name=os.environ.get("AZURE_STORAGE_CONTAINER_NAME")) as storage_manager:
-            logger.info(f'Fetching sources configuration files...')
-            sources = await storage_manager.get_sources_cfgs()
-            logger.info(f'Found {len(sources)} sources')
+            if indicator_ids is not None and len(indicator_ids) > 0:
+                indicator_cfgs = await storage_manager.get_indicators_cfgs(indicator_ids=indicator_ids)
+            elif indicator_id_contain_filter is not None:
+                indicator_cfgs = await storage_manager.get_indicators_cfgs(contain_filter=indicator_id_contain_filter)
+            else:
+                indicator_cfgs = await storage_manager.get_indicators_cfgs()
             tasks = []
-
-            async def upload_data(bytes_data=None, cont_type=None, save_as=None):
-                await storage_manager.upload(bytes_data=bytes_data, cont_type=cont_type, save_as=save_as, overwrite=True)
-
-            for source in sources:
-                source_config = source['source']
-                source_id = source_config['id']
-                # SKIP_IDS = ['MDP_META', 'HERITAGE_ID', 'GLOBAL_DATA_FSI']
+            for indicator_cfg in indicator_cfgs:
+                source_id = indicator_cfg['indicator']['source_id']
+                source_cfg = await storage_manager.get_source_cfg(source_id=source_id)
                 SKIP_IDS = ['HDR', 'ILO_EE', 'ISABO']
                 if source_id in SKIP_IDS:
                     continue
                 logger.info(
-                    f"Starting to download source {source_id} from {source_config['url']} using {source_config['downloader_function']}."
+                    f"Starting to download source {source_id} from {source_cfg['source']['url']} using {source_cfg['source']['downloader_function']}."
                 )
-                if source_config['source_type'] != "Manual":
-                    if source_config.get('save_as') is None:
-                        source_config['save_as'] = f"{source_id}.{source_config['url'].split('.')[-1]}"
-                    params = source["downloader_params"]
+                if source_cfg['source']['source_type'] != "Manual":
+                    if source_cfg['source'].get('save_as') is None:
+                        source_cfg['source']['save_as'] = f"{source_id}.{source_cfg['url'].split('.')[-1]}"
+                    params = source_cfg["downloader_params"]
                     data, content_type = await call_function(
-                        source_config["downloader_function"],
+                        source_cfg['source']["downloader_function"],
                         source_id=source_id,
-                        source_url=source_config.get("url"),
-                        source_save_as=source_config.get("save_as"),
+                        source_url=source_cfg['source'].get("url"),
+                        source_save_as=source_cfg['source'].get("save_as"),
                         params_type=params.get("type"),
                         params_url=params.get("url"),
                         params_codes=params.get("codes"),
@@ -610,17 +608,20 @@ async def retrieval(indicator_ids: List | str = None, indicator_id_contain_filte
                         request_params=params.get("request_params"),
                         storage_manager=storage_manager,
                     )
-                    logger.info(f"Downloaded {source_id} from {source_config['url']}.")
+                    logger.info(f"Downloaded {source_id} from {source_cfg['source']['url']}.")
                     logger.info(f"Uploading {source_id} to blob storage.")
-                    await upload_data(bytes_data=data, cont_type=content_type, save_as=source_config['save_as'])
+                    await storage_manager.upload(data=data, content_type=content_type,
+                                                 dst_path=os.path.join(storage_manager.REL_SOURCES_PATH,
+                                                                       source_cfg['source']['save_as']),
+                                                 overwrite=True)
                     logger.info(f'Finished uploading {source_id}')
-                #
                 else:
                     logger.debug(f"Skipping {source_id} as it is a manual source.")
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for result in results:
-                if isinstance(result, Exception):
-                    logger.error("Retrieval failed to complete due to the following error", result)
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for result in results:
+                    if isinstance(result, Exception):
+                        logger.error("Retrieval failed to complete due to the following error", result)
+
     except Exception as e:
         logger.error(e)
         raise e

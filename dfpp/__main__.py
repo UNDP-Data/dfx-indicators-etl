@@ -11,7 +11,9 @@ from dfpp.run_transform import transform_sources
 parser = argparse.ArgumentParser()
 parser.add_argument('--run',
                     help='The function to run. options are download, transform, and publish, or all of the functions together like `pipeline`')
-
+parser.add_argument('--indicator', help='The indicator to run. options are all, or a specific indicator like `GDP`',
+                    nargs='+')
+parser.add_argument('--filter-indicators', help='The indicator to run. options are all, or a specific indicator like `GDP`')
 
 
 def run_pipeline():
@@ -32,20 +34,21 @@ def run_pipeline():
     logger.name = __name__
     asyncio.run(main())
 
-def check_evars(cfg, env_file):
 
+def check_evars(cfg, env_file):
     for k, v in cfg.items():
         assert k in cfg, f'"{k}" env. variable is not set in {env_file}'
         v = cfg[k]
-        assert v not in ['', None] , f'"k"={v} is  invalid'
+        assert v not in ['', None], f'"k"={v} is  invalid'
 
 
 async def main():
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
-    connection_string = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
-    container_name = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
+    indicators_from_args = args.indicator
+    indicators_from_args_contains = args.filter_indicators
+    print(indicators_from_args_contains)
     if args.run == 'download':
-        await retrieval()
+        await retrieval(indicator_ids=indicators_from_args, indicator_id_contain_filter=indicators_from_args_contains)
     if args.run == 'transform':
         await transform_sources(concurrent=True)
     if args.run == 'publish':
@@ -54,16 +57,17 @@ async def main():
         logging.info('Starting pipeline....')
         await sleep(5)
         logging.info('Downloading data....')
-        downloaded_indicator_ids = await retrieval()
+        await retrieval()
         logging.info('Downloading Data Complete....')
         logging.info('Transforming data....')
         await sleep(5)
         await transform_sources()
         logging.info('Transforming Data Complete....')
 
-        #TODO report fucntion
+        # TODO report fucntion
 
-        #todo clear cache
+        # todo clear cache
+
+
 if __name__ == '__main__':
     run_pipeline()
-

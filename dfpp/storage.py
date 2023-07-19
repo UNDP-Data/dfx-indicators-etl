@@ -1191,16 +1191,31 @@ class StorageManager:
         except Exception as e:
             logger.error(f'Indicator {indicator_id} will be skipped because {e}')
 
-    async def get_indicators_cfg(self, contain_filter=None):
+    async def get_indicators_cfgs(self, contain_filter: str = None, indicator_ids: List = None):
         tasks = []
-        async for indicator_blob in self.list_indicators():
-            if contain_filter and contain_filter not in indicator_blob.name: continue
+        if indicator_ids:
+            for indicator_id in indicator_ids:
+                t = asyncio.create_task(
+                    self.get_indicator_cfg(indicator_id=indicator_id)
+                )
+                tasks.append(t)
+            results = await asyncio.gather(*tasks)
+        elif contain_filter:
+            async for indicator_blob in self.list_indicators():
+                if contain_filter and contain_filter not in indicator_blob.name: continue
 
-            t = asyncio.create_task(
-                self.get_indicator_cfg(indicator_path=indicator_blob.name)
-            )
-            tasks.append(t)
-        results = await asyncio.gather(*tasks)
+                t = asyncio.create_task(
+                    self.get_indicator_cfg(indicator_path=indicator_blob.name)
+                )
+                tasks.append(t)
+            results = await asyncio.gather(*tasks)
+        else:
+            async for indicator_blob in self.list_indicators():
+                t = asyncio.create_task(
+                    self.get_indicator_cfg(indicator_path=indicator_blob.name)
+                )
+                tasks.append(t)
+            results = await asyncio.gather(*tasks)
         return [e for e in results if e]
 
     async def get_source_cfg(self, source_id=None, source_path=None):
@@ -1407,7 +1422,8 @@ class StorageManager:
         return self.container_client.delete_blob(blob_path)
 
     async def list_base_files(self):
-        return [blob.name async for blob in self.container_client.list_blobs(name_starts_with=os.path.join(self.OUTPUT_PATH, 'access_all_data', 'base/'))]
+        return [blob.name async for blob in self.container_client.list_blobs(
+            name_starts_with=os.path.join(self.OUTPUT_PATH, 'access_all_data', 'base/'))]
 
     async def cached_download(self, source_path=None, chunked=False):
         if source_path in TMP_SOURCES:
