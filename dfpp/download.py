@@ -587,12 +587,14 @@ async def retrieval(indicator_ids: List | str = None, indicator_id_contain_filte
                 source_id = indicator_cfg['indicator']['source_id']
                 # check if the source configuration exists in the storage
                 if not await storage_manager.check_blob_exists(
-                        blob_name=os.path.join(storage_manager.SOURCES_CFG_PATH, source_id.lower(), f'{source_id.lower()}.cfg')):
-                    logger.warning(f"Source {source_id} referenced by indicator {indicator_cfg['indicator']['indicator_id']} does not exist in the storage. So it will be skipped.")
+                        blob_name=os.path.join(storage_manager.SOURCES_CFG_PATH, source_id.lower(),
+                                               f'{source_id.lower()}.cfg')):
+                    logger.warning(
+                        f"Source {source_id} referenced by indicator {indicator_cfg['indicator']['indicator_id']} does not exist in the storage. So it will be skipped.")
                     continue
                 source_cfg = await storage_manager.get_source_cfg(source_id=source_id)
                 SKIP_IDS = ['HDR', 'ILO_EE', 'ISABO']
-                if source_id in SKIP_IDS:
+                if source_id not in SKIP_IDS:
                     continue
                 logger.info(
                     f"Starting to download source {source_id} from {source_cfg['source']['url']} using {source_cfg['source']['downloader_function']}."

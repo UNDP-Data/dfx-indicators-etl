@@ -1233,7 +1233,6 @@ class StorageManager:
                 source_path), f'Source {source_id} located at {source_path} does not exist'
             # TODO caching
 
-            if 'ILO_SPF'.lower() in source_path: raise Exception('forced')
             logger.info(f'Fetching source cfg  for {source_id} from  {source_path}')
             # stream = await self.container_client.download_blob(
             #     source_path, max_concurrency=8
