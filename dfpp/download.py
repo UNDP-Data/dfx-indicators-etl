@@ -557,7 +557,7 @@ async def call_function(function_name, *args, **kwargs) -> Any:
         raise ValueError(f"Function {function} is not defined or not callable")
 
 
-async def retrieval(indicator_ids: List | str = None, indicator_id_contain_filter: str = None) -> list[Any]:
+async def download_indicator_sources(indicator_ids: List | str = None, indicator_id_contain_filter: str = None) -> list[Any]:
     """
     Asynchronously retrieves data from multiple sources using Azure Blob Storage, and uploads the results to a new Blob.
 
@@ -658,4 +658,4 @@ if __name__ == "__main__":
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
     logger.name = __name__
-    asyncio.run(retrieval())
+    asyncio.run(download_indicator_sources())

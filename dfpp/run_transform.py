@@ -343,11 +343,7 @@ async def transform_sources(concurrent=False, indicator_ids: List = None):
                 task.cancel()
                 await task
 
-        for k, v in TMP_SOURCES.items():
-            exists = os.path.exists(v)
-            if exists:
-                logger.info(f'Removing cache {v} for source {k} ')
-                os.remove(v)
+
 
 
 if __name__ == "__main__":
