@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 CONNECTION_STRING = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
 CONTAINER_NAME = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
 ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
-TMP_SOURCES = {}
+
 
 MANDATORY_SOURCE_COLUMNS = 'id', 'url', 'save_as'
 
@@ -154,33 +154,10 @@ async def read_source_file_for_indicator(indicator_source: str = None):
             source_cfg_file_exists = await storage_manager.check_blob_exists(blob_name=source_config_path)
             if not source_cfg_file_exists:
                 raise Exception(f'Source config file {source_config_path} not found for {indicator_source}')
+            source_cfg = await storage_manager.get_source_cfg(source_path=source_config_path)
 
-            blob_as_bytes = await storage_manager.download(blob_name=source_config_path, dst_path=None)
-            source_parser = UnescapedConfigParser(
-                interpolation=None
-            )
-
-            source_parser.read_string(blob_as_bytes.decode('utf-8'))
-            source_cfg = cfg2dict(source_parser)
-
-            validate_src_cfg(cfg_dict=source_cfg, cfg_file_path=source_config_path)
-
-            source_file_name = f"{indicator_source.upper()}.{source_parser['source']['file_format']}"
-            if source_file_name in TMP_SOURCES:
-                cached_src_path = TMP_SOURCES[source_file_name]
-                logger.info(f'Rereading {source_file_name} from {cached_src_path} ')
-                data = open(cached_src_path, 'rb').read()
-            else:
-                source_file_path = os.path.join(ROOT_FOLDER, 'sources', 'raw', source_file_name)
-                # check the blob exists in azure storage
-                source_file_exists = await storage_manager.check_blob_exists(blob_name=source_file_path)
-                if not source_file_exists:
-                    raise Exception(f'Source file {source_file_path} not found for {indicator_source}')
-                data = await storage_manager.download(blob_name=source_file_path, dst_path=None)
-                cached = tempfile.NamedTemporaryFile(mode='wb', delete=False)
-                logger.debug(f'Going to cache {source_file_name} to {cached.name}')
-                cached.write(data)
-                TMP_SOURCES[source_file_name] = cached.name
+            source_file_name = os.path.join(storage_manager.SOURCES_PATH,f"{indicator_source.upper()}.{source_cfg['source']['file_format']}")
+            data = await storage_manager.cached_download(source_path=source_file_name)
             await storage_manager.close()
             return data, source_cfg
         except Exception as e:
@@ -296,9 +273,7 @@ async def transform_sources(concurrent=False, indicator_ids: List = None):
     Perform transformations for a list of indicators.
     """
 
-    # indicator_list = await read_indicators_config(indicator_file_contains="_cpiacir.cfg")
 
-    # indicator_list = await read_indicators_config(indicator_file_contains='vdem')
     async with StorageManager(connection_string=CONNECTION_STRING, container_name=CONTAINER_NAME) as storage_manager:
         if indicator_ids is not None:
             indicators_cfgs = await storage_manager.get_indicators_cfgs(indicator_ids=indicator_ids)

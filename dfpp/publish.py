@@ -15,7 +15,7 @@ import pandas as pd
 
 from dfpp.constants import STANDARD_KEY_COLUMN, OUTPUT_FOLDER
 # from dfpp.run_transform import read_indicators_config
-from dfpp.storage import AsyncAzureBlobStorageManager, StorageManager
+from dfpp.storage import  StorageManager
 from dfpp.utils import country_group_dataframe, region_group_dataframe
 
 # AREA_TYPES = ['countries', 'regions']
@@ -98,7 +98,7 @@ async def map_datatype(value=None):
 
 
 async def generate_indicator_data(
-        storage_manager: AsyncAzureBlobStorageManager,
+        storage_manager: StorageManager,
         dataframe: pd.DataFrame = None,
         indicator_cfgs: list = None,
         timeseries_cols: list = None,
@@ -216,7 +216,7 @@ async def generate_indicator_data(
 
 
 async def process_time_series_data(
-        storage_manager: AsyncAzureBlobStorageManager,
+        storage_manager: StorageManager,
         dataframe: pd.DataFrame = None,
         indicator_cfgs: list = None,
         area_type: str = None) -> pd.DataFrame:
@@ -293,7 +293,7 @@ async def process_time_series_data(
 
 
 async def process_latest_data(
-        storage_manager: AsyncAzureBlobStorageManager,
+        storage_manager: StorageManager,
         dataframe: pd.DataFrame = None,
         indicator_cfgs: list = None,
         area_type: str = None
@@ -382,7 +382,7 @@ async def process_latest_data(
     return dataframe
 
 
-async def generate_output_per_indicator(storage_manager: AsyncAzureBlobStorageManager, dataframe: pd.DataFrame = None,
+async def generate_output_per_indicator(storage_manager: StorageManager, dataframe: pd.DataFrame = None,
                                         indicator_cfgs: list = None):
     """
         Generate output JSON files per indicator and upload them to Azure Blob Storage.

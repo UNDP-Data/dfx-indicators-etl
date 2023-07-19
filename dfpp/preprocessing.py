@@ -5,7 +5,7 @@ from datetime import datetime
 import re
 import pandas as pd
 import numpy as np
-from dfpp.storage import AsyncAzureBlobStorageManager
+from dfpp.storage import StorageManager
 from dfpp.utils import change_iso3_to_system_region_iso3, fix_iso_country_codes, add_country_code
 import logging
 

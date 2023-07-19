@@ -594,9 +594,7 @@ async def download_indicator_sources(indicator_ids: List | str = None, indicator
                         f"Source {source_id} referenced by indicator {indicator_cfg['indicator']['indicator_id']} does not exist in the storage. So it will be skipped.")
                     continue
                 source_cfg = await storage_manager.get_source_cfg(source_id=source_id)
-                # SKIP_IDS = ['HDR', 'ILO_EE', 'ISABO']
-                # if source_id not in SKIP_IDS:
-                #     continue
+
                 logger.info(
                     f"Starting to download source {source_id} from {source_cfg['source']['url']} using {source_cfg['source']['downloader_function']}."
                 )
