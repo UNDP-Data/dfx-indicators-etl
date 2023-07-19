@@ -625,11 +625,11 @@ async def download_indicator_sources(indicator_ids: List | str = None, indicator
                 else:
                     logger.debug(f"Skipping {source_id} as it is a manual source.")
                 results = await asyncio.gather(*tasks, return_exceptions=True)
-                for result in results:
-                    if isinstance(result, Exception):
-                        logger.error("Retrieval failed to complete due to the following error", result)
-                    else:
-                        logger.info("Retrieval completed successfully.")
+            for result in results:
+                if isinstance(result, Exception):
+                    logger.error("Retrieval failed to complete due to the following error", result)
+                else:
+                    logger.info("Retrieval completed successfully.")
 
     except Exception as e:
         logger.error(e)
