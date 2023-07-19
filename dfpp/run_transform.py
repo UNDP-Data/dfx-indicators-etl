@@ -3,6 +3,7 @@ import os
 import asyncio
 import logging
 import tempfile
+from typing import List
 
 import numpy as np
 
@@ -290,7 +291,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None):
     return indicator_id
 
 
-async def transform_sources(concurrent=False):
+async def transform_sources(concurrent=False, indicator_ids: List = None):
     """
     Perform transformations for a list of indicators.
     """
@@ -299,11 +300,14 @@ async def transform_sources(concurrent=False):
 
     # indicator_list = await read_indicators_config(indicator_file_contains='vdem')
     async with StorageManager(connection_string=CONNECTION_STRING, container_name=CONTAINER_NAME) as storage_manager:
-        indicators_cfgs = await storage_manager.get_indicators_cfg()
+        if indicator_ids is not None:
+            indicators_cfgs = await storage_manager.get_indicators_cfgs(indicator_ids=indicator_ids)
+        else:
+            indicators_cfgs = await storage_manager.get_indicators_cfgs()
+
         # await storage_manager.delete_blob(blob_path=os.path.join('DataFuturePlatform', 'pipeline', 'config', 'indicators', 'mmrlatest_gii.cfg'))
         tasks = list()
         for indicator_cfg in indicators_cfgs:
-            print(indicator_cfg)
             indicator_section = indicator_cfg['indicator']
             indicator_id = indicator_section['indicator_id']
             if indicator_section.get('preprocessing') is None:

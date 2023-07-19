@@ -557,7 +557,7 @@ async def call_function(function_name, *args, **kwargs) -> Any:
         raise ValueError(f"Function {function} is not defined or not callable")
 
 
-async def retrieval(indicator_ids: List | str = None, indicator_id_contain_filter: str = None) -> None:
+async def retrieval(indicator_ids: List | str = None, indicator_id_contain_filter: str = None) -> list[Any]:
     """
     Asynchronously retrieves data from multiple sources using Azure Blob Storage, and uploads the results to a new Blob.
 
@@ -583,6 +583,7 @@ async def retrieval(indicator_ids: List | str = None, indicator_id_contain_filte
             else:
                 indicator_cfgs = await storage_manager.get_indicators_cfgs()
             tasks = []
+            successful_indicator_ids = []
             for indicator_cfg in indicator_cfgs:
                 source_id = indicator_cfg['indicator']['source_id']
                 # check if the source configuration exists in the storage
@@ -593,9 +594,9 @@ async def retrieval(indicator_ids: List | str = None, indicator_id_contain_filte
                         f"Source {source_id} referenced by indicator {indicator_cfg['indicator']['indicator_id']} does not exist in the storage. So it will be skipped.")
                     continue
                 source_cfg = await storage_manager.get_source_cfg(source_id=source_id)
-                SKIP_IDS = ['HDR', 'ILO_EE', 'ISABO']
-                if source_id not in SKIP_IDS:
-                    continue
+                # SKIP_IDS = ['HDR', 'ILO_EE', 'ISABO']
+                # if source_id not in SKIP_IDS:
+                #     continue
                 logger.info(
                     f"Starting to download source {source_id} from {source_cfg['source']['url']} using {source_cfg['source']['downloader_function']}."
                 )
@@ -617,11 +618,12 @@ async def retrieval(indicator_ids: List | str = None, indicator_id_contain_filte
                     )
                     logger.info(f"Downloaded {source_id} from {source_cfg['source']['url']}.")
                     logger.info(f"Uploading {source_id} to blob storage.")
-                    await storage_manager.upload(data=data, content_type=content_type,
-                                                 dst_path=os.path.join(storage_manager.REL_SOURCES_PATH,
-                                                                       source_cfg['source']['save_as']),
+                    await storage_manager.upload(data=data,
+                                                 content_type=content_type,
+                                                 dst_path=os.path.join(storage_manager.REL_SOURCES_PATH, source_cfg['source']['save_as']),
                                                  overwrite=True)
                     logger.info(f'Finished uploading {source_id}')
+                    successful_indicator_ids.append(indicator_cfg['indicator']['indicator_id'])
                 else:
                     logger.debug(f"Skipping {source_id} as it is a manual source.")
                 results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -630,11 +632,11 @@ async def retrieval(indicator_ids: List | str = None, indicator_id_contain_filte
                         logger.error("Retrieval failed to complete due to the following error", result)
                     else:
                         logger.info("Retrieval completed successfully.")
-                        # return successful_indicators
 
     except Exception as e:
         logger.error(e)
         raise e
+    return successful_indicator_ids
 
 
 if __name__ == "__main__":

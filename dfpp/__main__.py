@@ -11,7 +11,7 @@ from dfpp.run_transform import transform_sources
 parser = argparse.ArgumentParser()
 parser.add_argument('--run',
                     help='The function to run. options are download, transform, and publish, or all of the functions together like `pipeline`')
-parser.add_argument('--indicator', help='The indicator to run. options are all, or a specific indicator like `GDP`',
+parser.add_argument('--indicators', help='The indicator to run. options are all, or a specific indicator like `GDP`',
                     nargs='+')
 parser.add_argument('--filter-indicators',
                     help='The indicator to run. options are all, or a specific indicator like `GDP`')
@@ -54,10 +54,10 @@ def validate_env():
 
 async def main():
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
-    indicators_from_args = args.indicator
+    indicators_from_args = args.indicators
     indicators_from_args_contains = args.filter_indicators
     if args.run == 'download':
-        await retrieval(indicator_ids=indicators_from_args, indicator_id_contain_filter=indicators_from_args_contains)
+        downloaded_indicators = await retrieval(indicator_ids=indicators_from_args, indicator_id_contain_filter=indicators_from_args_contains)
     if args.run == 'transform':
         await transform_sources(concurrent=True)
     if args.run == 'publish':
@@ -66,14 +66,17 @@ async def main():
         logging.info('Starting pipeline....')
         await sleep(5)
         logging.info('Downloading data....')
-        await retrieval()
+        downloaded_indicators = await retrieval(indicator_ids=indicators_from_args)
         logging.info('Downloading Data Complete....')
         logging.info('Transforming data....')
         await sleep(5)
-        await transform_sources()
+        transformed_indicators = await transform_sources(indicator_ids=downloaded_indicators)
         logging.info('Transforming Data Complete....')
-
-        # TODO report fucntion
+        logging.info('Publishing data....')
+        await sleep(5)
+        await publish(indicator_ids=transformed_indicators)
+        logging.info('Publishing Data Complete....')
+        # TODO report function
 
         # todo clear cache
 

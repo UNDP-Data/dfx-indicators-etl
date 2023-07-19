@@ -7,6 +7,8 @@ import json
 import logging
 import os
 import asyncio
+from typing import List
+
 import swifter
 import numpy as np
 import pandas as pd
@@ -27,11 +29,10 @@ output_data_type = 'timeseries'
 # output_data_type = 'latestavailabledata'
 
 
-async def update_and_get_output_csv(storage_manager: StorageManager, area_type: str):
+async def update_and_get_output_csv(storage_manager: StorageManager, area_type: str, indicator_cfgs: List=None):
     """
     Update the output csv file with the latest data
     """
-
     logger.info("Reading current stored output.csv file...")
     output_df = pd.read_csv(
         io.BytesIO(
@@ -49,6 +50,7 @@ async def update_and_get_output_csv(storage_manager: StorageManager, area_type: 
         return base_file_df, base_file
 
     basefile_reading_tasks = []
+
     for file in base_files_list:
         asyncio.create_task(read_base_df(file))
         basefile_reading_tasks.append(read_base_df(file))
@@ -474,18 +476,23 @@ async def generate_output_per_indicator(storage_manager: AsyncAzureBlobStorageMa
     # Wait for all upload tasks to complete
     await asyncio.gather(*upload_tasks)
 
-async def publish():
+
+async def publish(indicator_ids: list):
     """
     Publish the data to the Data Futures Platform
     :return:
     """
     logger.info("Starting publish...")
-    async with StorageManager(connection_string=os.environ.get('AZURE_STORAGE_CONNECTION_STRING'), container_name=os.environ.get('AZURE_STORAGE_CONTAINER_NAME')) as storage_manager:
+    async with StorageManager(connection_string=os.environ.get('AZURE_STORAGE_CONNECTION_STRING'),
+                              container_name=os.environ.get('AZURE_STORAGE_CONTAINER_NAME')) as storage_manager:
         logger.info("Connected to Azure Blob Storage")
         logger.info("Starting to read indicator configurations...")
 
         # Read indicator configurations
-        indicator_cfgs = await storage_manager.get_indicators_cfg()
+        if indicator_ids:
+            indicator_cfgs = await storage_manager.get_indicators_cfgs(indicator_ids=indicator_ids)
+        else:
+            indicator_cfgs = await storage_manager.get_indicators_cfgs()
 
         for value in AREA_TYPES:
             # update and get the updated output csv
@@ -494,7 +501,8 @@ async def publish():
                 area_type=value,
             )
             # output_df = pd.read_csv('/home/thuha/Downloads/output.csv')
-            await generate_output_per_indicator(storage_manager=storage_manager, dataframe=output_df, indicator_cfgs=indicator_cfgs)
+            await generate_output_per_indicator(storage_manager=storage_manager, dataframe=output_df,
+                                                indicator_cfgs=indicator_cfgs)
             if output_data_type == "timeseries":
                 output_df = await process_time_series_data(
                     storage_manager=storage_manager,
