@@ -39,9 +39,17 @@ async def update_and_get_output_csv(storage_manager: StorageManager,
     """
     output_csv_file_path = os.path.join(OUTPUT_FOLDER, project, f'output_{area_type}.csv')
     logger.info(f"Reading current stored {output_csv_file_path} file...")
-    output_df = pd.read_csv(
+    if not await storage_manager.check_blob_exists(output_csv_file_path):
+        output_df = await country_group_dataframe()
+        output_df = output_df[[STANDARD_KEY_COLUMN]]
+        output_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
+        logger.info(f'Creating {output_csv_file_path}')
+        await storage_manager.upload(dst_path=output_csv_file_path,data=output_df.to_csv(encoding='utf-8'))
+    else:
+        output_df = pd.read_csv(
         io.BytesIO(
             await storage_manager.download(blob_name=output_csv_file_path)))
+    output_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
     # if area_type == 'countries':
     #
     # elif area_type == 'region':
@@ -65,6 +73,7 @@ async def update_and_get_output_csv(storage_manager: StorageManager,
     async def read_base_df(base_file):
         logger.info(f"Reading base file {base_file.split('/')[-1]} to a dataframe...")
         base_file_df = pd.read_csv(io.BytesIO(await storage_manager.download(blob_name=base_file)))
+        base_file_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
         return base_file_df, base_file
 
     basefile_reading_tasks = []
@@ -76,22 +85,34 @@ async def update_and_get_output_csv(storage_manager: StorageManager,
     for base_df, name in base_dfs:
         columns_to_update = list(set(output_df.columns.to_list()).intersection(set(base_df.columns.to_list())))
         columns_to_add = list(set(base_df.columns.to_list()).difference(set(output_df.columns.to_list())))
-        logger.info(f"Updating {len(columns_to_update)} columns in the output dataframe with data from {name}...")
-        print(output_df)
-        base_df.set_index('Alpha-3 code', inplace=True)
-        val = base_df.at['EGY', "accesstointernet_cpiaati_1995"]
-        existing_val = base_df.at['EGY', "accesstointernet_cpiaati_1995"]
-        print(val, existing_val)
-        exit()
-        # output_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
-        # output_df.update(base_df[list(columns_to_update)])
-        # output_df[[list(columns_to_update)]] = base_df[[list(columns_to_update)]]
-        # logger.info(f"Adding {len(columns_to_add)} columns to the output dataframe from {name}...")
-        # output_df = output_df.join(base_df[list(columns_to_add)])
-        # output_df[[list(columns_to_add)]] = base_df[[list(columns_to_add)]]
-        #output_df.reset_index()
+
+
+        # if STANDARD_KEY_COLUMN in columns_to_update:
+        #     columns_to_update.remove(STANDARD_KEY_COLUMN)
+
+
+        #base_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
+        #val = base_df.at['EGY', "accesstointernet_cpiaati_1995"]
+        #existing_val = base_df.at['EGY', "accesstointernet_cpiaati_1995"]
+        print(output_df.columns.to_list())
+        print(base_df.columns.to_list())
+        # base_df.reset_index(inplace=True)
+        # output_df.reset_index(inplace=True)
+
+        #exit()
+        if columns_to_update:
+            logger.info(f"Updating {len(columns_to_update)} columns in the output dataframe with data from {name}...")
+            #output_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
+            output_df.update(base_df[[columns_to_update]])
+            # output_df[[columns_to_update]] = base_df[[columns_to_update]]
+            #output_df.set_index(STANDARD_KEY_COLUMN).join(base_df.set_index(STANDARD_KEY_COLUMN))
+        if columns_to_add:
+            logger.info(f"Adding {len(columns_to_add)} columns to the output dataframe from {name}...")
+            output_df = output_df.join(base_df)
+
+
         # update indicator metadata in the indicator config with the information on when the data was last updated
-    logger.info("Uploading the updated output csv to Azure Blob Storage...")
+    logger.info(f"Uploading {output_csv_file_path} to Azure Blob Storage...")
     await storage_manager.upload(
         data=output_df.to_csv(index=False).encode('utf-8'),
         dst_path=output_csv_file_path,
