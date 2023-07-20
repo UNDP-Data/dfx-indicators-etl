@@ -19,7 +19,6 @@ from dfpp.storage import  StorageManager
 from dfpp.utils import country_group_dataframe, region_group_dataframe
 
 AREA_TYPES = ['countries', 'regions']
-#AREA_TYPES = ['regions']
 logger = logging.getLogger(__name__)
 # project = 'vaccine_equity'
 project = 'access_all_data'
@@ -45,11 +44,13 @@ async def update_and_get_output_csv(storage_manager: StorageManager,
         output_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
         logger.info(f'Creating {output_csv_file_path}')
         await storage_manager.upload(dst_path=output_csv_file_path,data=output_df.to_csv(encoding='utf-8'))
+        output_df.reset_index(STANDARD_KEY_COLUMN, inplace=True)
     else:
         output_df = pd.read_csv(
         io.BytesIO(
             await storage_manager.download(blob_name=output_csv_file_path)))
-    output_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
+
+
     # if area_type == 'countries':
     #
     # elif area_type == 'region':
@@ -73,7 +74,7 @@ async def update_and_get_output_csv(storage_manager: StorageManager,
     async def read_base_df(base_file):
         logger.info(f"Reading base file {base_file.split('/')[-1]} to a dataframe...")
         base_file_df = pd.read_csv(io.BytesIO(await storage_manager.download(blob_name=base_file)))
-        base_file_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
+
         return base_file_df, base_file
 
     basefile_reading_tasks = []
@@ -83,32 +84,22 @@ async def update_and_get_output_csv(storage_manager: StorageManager,
         basefile_reading_tasks.append(read_base_df(file))
     base_dfs = await asyncio.gather(*basefile_reading_tasks)
     for base_df, name in base_dfs:
+
+
         columns_to_update = list(set(output_df.columns.to_list()).intersection(set(base_df.columns.to_list())))
-        columns_to_add = list(set(base_df.columns.to_list()).difference(set(output_df.columns.to_list())))
-
-
-        # if STANDARD_KEY_COLUMN in columns_to_update:
-        #     columns_to_update.remove(STANDARD_KEY_COLUMN)
-
-
-        #base_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
-        #val = base_df.at['EGY', "accesstointernet_cpiaati_1995"]
-        #existing_val = base_df.at['EGY', "accesstointernet_cpiaati_1995"]
-        print(output_df.columns.to_list())
-        print(base_df.columns.to_list())
-        # base_df.reset_index(inplace=True)
-        # output_df.reset_index(inplace=True)
-
-        #exit()
+        columns_to_add = list(set(base_df.columns.to_list()).difference(set(output_df.columns.to_list()))) + [STANDARD_KEY_COLUMN]
+        # as no index was set the common columns needs to be removed from update list
+        columns_to_update.remove(STANDARD_KEY_COLUMN)
+        '''
+        Indices are not necessary, in fact if you set na index it will  be excluded on merge operation 
+        '''
         if columns_to_update:
             logger.info(f"Updating {len(columns_to_update)} columns in the output dataframe with data from {name}...")
-            #output_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
-            output_df.update(base_df[[columns_to_update]])
-            # output_df[[columns_to_update]] = base_df[[columns_to_update]]
-            #output_df.set_index(STANDARD_KEY_COLUMN).join(base_df.set_index(STANDARD_KEY_COLUMN))
+            output_df.update(base_df[columns_to_update])
+
         if columns_to_add:
             logger.info(f"Adding {len(columns_to_add)} columns to the output dataframe from {name}...")
-            output_df = output_df.join(base_df)
+            output_df = pd.merge(output_df, base_df[columns_to_add], on=STANDARD_KEY_COLUMN)
 
 
         # update indicator metadata in the indicator config with the information on when the data was last updated
