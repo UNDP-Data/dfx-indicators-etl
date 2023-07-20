@@ -16,9 +16,25 @@ parser.add_argument('-i', '--indicators', help='The indicator to process. option
                     nargs='+')
 parser.add_argument('-f', '--filter-indicators',
                     help='The indicator to run. options are all, or a specific indicator like `GDP`')
-
+parser.add_argument('-d', '--debug', type=bool,
+                    help='Set log level to debug', default=False
+                    )
 
 def run_pipeline():
+
+    asyncio.run(main())
+
+
+def validate_env():
+    if os.environ.get('AZURE_STORAGE_CONNECTION_STRING') is None:
+        raise Exception('AZURE_STORAGE_CONNECTION_STRING is not set')
+    if os.environ.get('AZURE_STORAGE_CONTAINER_NAME') is None:
+        raise Exception('AZURE_STORAGE_CONTAINER_NAME variable is not set')
+    if os.environ.get('ROOT_FOLDER') is None:
+        raise Exception('ROOT_FOLDER is not set')
+
+
+async def main():
     logging.basicConfig()
     azlogger = logging.getLogger('azure.core.pipeline.policies.http_logging_policy')
     azlogger.setLevel(logging.WARNING)
@@ -34,59 +50,55 @@ def run_pipeline():
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
     logger.name = __name__
-    asyncio.run(main())
-
-
-def validate_env():
-    if os.environ.get('AZURE_STORAGE_CONNECTION_STRING') is None:
-        raise Exception('AZURE_STORAGE_CONNECTION_STRING is not set')
-    if os.environ.get('AZURE_STORAGE_CONTAINER_NAME') is None:
-        raise Exception('AZURE_STORAGE_CONTAINER_NAME variable is not set')
-    if os.environ.get('ROOT_FOLDER') is None:
-        raise Exception('ROOT_FOLDER is not set')
-
-
-async def main():
     for k, v in TMP_SOURCES.items():
         exists = os.path.exists(v)
         if exists:
             logging.info(f'Removing cache {v} for source {k} ')
             os.remove(v)
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
     indicators_from_args = args.indicators
     indicators_from_args_contains = args.filter_indicators
     validate_env()
-    if args.run == 'download':
-        downloaded_indicators = await download_indicator_sources(
-            indicator_ids=indicators_from_args,
-            indicator_id_contain_filter=indicators_from_args_contains
-        )
-    if args.run == 'transform':
-        await transform_sources(concurrent=True)
-    if args.run == 'publish':
-        await publish()
-    if args.run == 'pipeline':
-        logging.info('Starting pipeline....')
-        await sleep(5)
-        logging.info('Downloading data....')
-        downloaded_indicator_ids = await download_indicator_sources(indicator_ids=indicators_from_args)
-        logging.info('Downloading Data Complete....')
-        logging.info('Transforming data....')
-        await sleep(5)
-        transformed_indicator_ids = await transform_sources(indicator_ids=downloaded_indicator_ids)
-        logging.info('Transforming Data Complete....')
-        logging.info('Publishing data....')
-        await sleep(5)
-        await publish(indicator_ids=transformed_indicator_ids)
-        logging.info('Publishing Data Complete....')
-        # TODO report function
+    try:
+        if args.run == 'download':
+            downloaded_indicators = await download_indicator_sources(
+                indicator_ids=indicators_from_args,
+                indicator_id_contain_filter=indicators_from_args_contains
+            )
+        if args.run == 'transform':
+            await transform_sources(concurrent=True)
+        if args.run == 'publish':
+            await publish()
+        if args.run == 'pipeline':
+            logging.info('Starting pipeline....')
+            await sleep(5)
+            logger.info('Downloading data....')
+            downloaded_indicator_ids = await download_indicator_sources(indicator_ids=indicators_from_args)
+            logger.info('Downloading Data Complete....')
+            logger.info('Transforming data....')
+            await sleep(5)
+            transformed_indicator_ids = await transform_sources(indicator_ids=downloaded_indicator_ids)
+            logger.info('Transforming Data Complete....')
+            logger.info('Publishing data....')
+            await sleep(5)
+            await publish(indicator_ids=transformed_indicator_ids)
+            logger.info('Publishing Data Complete....')
+            # TODO report function
 
-        # todo clear cache
+            # todo clear cache
+
+    except Exception as e:
+        logger.error(f'{args.run} failed with exception "{e}"')
+    finally:
         for k, v in TMP_SOURCES.items():
             exists = os.path.exists(v)
             if exists:
-                logging.info(f'Removing cache {v} for source {k} ')
+                logger.info(f'Removing cache {v} for source {k} ')
                 os.remove(v)
+
 
 if __name__ == '__main__':
     run_pipeline()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import base64
 import io
 import json
@@ -16,7 +17,7 @@ import numpy as np
 import pandas as pd
 from aiohttp import ClientTimeout
 from dfpp.storage import StorageManager
-
+from dfpp.constants import STANDARD_KEY_COLUMN
 
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=600)
 
@@ -57,13 +58,13 @@ async def simple_url_download(
                         async for chunk in resp.content.iter_chunked(chunk_size):
                             downloaded_bytes += len(chunk)
                             data += chunk
-                        logger.info(f"Downloaded {downloaded_bytes} bytes from {url}")
+                        logger.debug(f"Downloaded {downloaded_bytes} bytes from {url}")
                         return data, resp.content_type
                     else:
-                        logger.error(f"Failed to download source: {resp.status}")
-                        return None
+                        raise Exception(f'Failed to download data from {url}. Encountered status error {resp.status}')
+
             except asyncio.TimeoutError as e:
-                logger.exception(f"Timeout error occurred while downloading {url}.")
+                logger.error(f"Timeout error occurred while downloading {url}.")
                 if retry_count == max_retries - 1:
                     logger.warning(
                         f"Reached maximum number of retries ({max_retries}). Giving up."
@@ -71,7 +72,7 @@ async def simple_url_download(
                     raise e
 
             except aiohttp.ClientError as e:
-                logger.exception(f"Client error occurred while downloading {url}: {e}")
+                logger.error(f"Client error occurred while downloading {url}: {e}")
                 if retry_count == max_retries - 1:
                     logger.warning(
                         f"Reached maximum number of retries ({max_retries}). Giving up."
@@ -79,14 +80,14 @@ async def simple_url_download(
                     raise e
 
             except Exception as e:
-                logger.exception(f"Error occurred while downloading {url}: {e}")
+                logger.error(f"Error occurred while downloading {url}: {e}")
                 if retry_count == max_retries - 1:
                     logger.warning(
                         f"Reached maximum number of retries ({max_retries}). Giving up."
                     )
                     raise e
 
-    return None
+
 
 
 async def simple_url_post(
@@ -192,7 +193,11 @@ async def country_downloader(**kwargs):
     params_url = kwargs.get("params_url")
     params_codes = kwargs.get("params_codes")
     storage_manager = kwargs.get("storage_manager")
+
+
     try:
+
+
         countries_territory_data = await storage_manager.get_utility_file(
             "country_territory_groups.cfg"
         )
@@ -223,6 +228,9 @@ async def country_downloader(**kwargs):
         ]  # only has the alpha-3 code column
         logger.info("Processed country_territory_groups.json")
 
+
+
+
         # create a list of tasks to download the country data for each country code and wait for all tasks to complete
         tasks = []
         for index, row in country_codes_df.iterrows():
@@ -233,29 +241,38 @@ async def country_downloader(**kwargs):
 
             text_response_task = asyncio.create_task(
                 simple_url_download(
-                    f"{source_url}{row['Alpha-3 code'].lower()}",
-                    timeout=DEFAULT_TIMEOUT,
+                    os.path.join(source_url, row['Alpha-3 code'].lower()),
+                    timeout=30,
                 )
             )
             tasks.append(text_response_task)
+
         responses = await asyncio.gather(
-            *tasks
+            *tasks, return_exceptions=True
         )  # list of responses in bytes in the format [bytes, content_type]
+
+
         for i, response in enumerate(
                 responses
         ):  # response is a list of bytes and content type as follows: [bytes, content_type]
             # if the response is not None and the length of the response is greater than 0, then convert the response to a dataframe and add the data to the country_codes_df dataframe
             if response is not None and len(response[0]) > 0:
+
                 country_indicators_df = pd.read_json(
                     io.StringIO(response[0].decode("utf-8"))
                 )
-                for country_id, country_row in country_indicators_df.iterrows():
+
+
+                for row_index, country_row in country_indicators_df.iterrows():
+                    #logger.debug(f'processing {country_row["country"]}')
                     column_name = "_".join(
                         [
                             country_row["indicator"].rsplit(" ")[0],
                             str(country_row["year"]),
                         ]
                     )
+                    logger.debug(f'processing {country_row["country"] }')
+
                     country_codes_df.at[i, column_name] = country_row["value"]
 
         # if the params_type is BATCH_ADD, then download the data from the params_url and add the data to the country_codes_df dataframe
@@ -271,18 +288,21 @@ async def country_downloader(**kwargs):
                 region_dataframe["iso3"].isin(params_codes.split("|"))
             ]
             selected_dataframe["iso3"] = selected_dataframe["country"]
-            selected_dataframe.rename(columns={"iso3": "Alpha-3 code"}, inplace=True)
+            selected_dataframe.rename(columns={"iso3": STANDARD_KEY_COLUMN}, inplace=True)
             selected_dataframe = selected_dataframe[country_codes_df.columns]
-            country_codes_df = pd.concat(
-                [country_codes_df, selected_dataframe], ignore_index=True
-            )
 
-            # create a csv file from the country_codes_df dataframe and return the csv file as bytes
-            csv_data = country_codes_df.to_csv(index=False).encode("utf-8")
-            logger.info(f"Successfully downloaded {source_id}")
-            return csv_data, "text/csv"
+            country_codes_df = pd.merge(country_codes_df, selected_dataframe, on=STANDARD_KEY_COLUMN)
+            # country_codes_df = pd.concat(
+            #     [country_codes_df, selected_dataframe], ignore_index=True
+            # )
+
+        # create a csv file from the country_codes_df dataframe and return the csv file as bytes
+        csv_data = country_codes_df.to_csv(index=False).encode("utf-8")
+        logger.info(f"Successfully downloaded {source_id}")
+        return csv_data, "text/csv"
+
     except Exception as e:
-        print(e)
+        logger.error(e)
         raise e
 
 
@@ -579,7 +599,7 @@ async def download_indicator_sources(indicator_ids: List | str = None, indicator
                 indicator_cfgs = await storage_manager.get_indicators_cfgs(contain_filter=indicator_id_contain_filter)
             else:
                 indicator_cfgs = await storage_manager.get_indicators_cfgs()
-            tasks = []
+
             successful_indicator_ids = []
             for indicator_cfg in indicator_cfgs:
                 source_id = indicator_cfg['indicator']['source_id']
@@ -598,7 +618,10 @@ async def download_indicator_sources(indicator_ids: List | str = None, indicator
                 if source_cfg['source']['source_type'] != "Manual":
                     if source_cfg['source'].get('save_as') is None:
                         source_cfg['source']['save_as'] = f"{source_id}.{source_cfg['url'].split('.')[-1]}"
-                    params = source_cfg["downloader_params"]
+
+
+                    params_str = json.loads(source_cfg["downloader_params"]['request_params'])['value']
+                    params = ast.literal_eval(params_str)
                     data, content_type = await call_function(
                         source_cfg['source']["downloader_function"],
                         source_id=source_id,
@@ -607,7 +630,8 @@ async def download_indicator_sources(indicator_ids: List | str = None, indicator
                         params_type=params.get("type"),
                         params_url=params.get("url"),
                         params_codes=params.get("codes"),
-                        params_file=params.get("file"),
+                        params_file=source_cfg["downloader_params"].get("file"),
+                        #TODO FIX
                         request_params=params.get("request_params"),
                         storage_manager=storage_manager,
                     )
@@ -615,21 +639,16 @@ async def download_indicator_sources(indicator_ids: List | str = None, indicator
                     logger.info(f"Uploading {source_id} to blob storage.")
                     await storage_manager.upload(data=data,
                                                  content_type=content_type,
-                                                 dst_path=os.path.join(storage_manager.REL_SOURCES_PATH, source_cfg['source']['save_as']),
+                                                 dst_path=os.path.join(storage_manager.SOURCES_PATH, source_cfg['source']['save_as']),
                                                  overwrite=True)
                     logger.info(f'Finished uploading {source_id}')
                     successful_indicator_ids.append(indicator_cfg['indicator']['indicator_id'])
                 else:
                     logger.debug(f"Skipping {source_id} as it is a manual source.")
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-            for result in results:
-                if isinstance(result, Exception):
-                    logger.error("Retrieval failed to complete due to the following error", result)
-                else:
-                    logger.info("Retrieval completed successfully.")
+
 
     except Exception as e:
-        logger.error(e)
+
         raise e
     return successful_indicator_ids
 
