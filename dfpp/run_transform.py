@@ -149,9 +149,9 @@ async def transform_sources(concurrent=False, indicator_ids: List = None):
 
     async with StorageManager() as storage_manager:
         if indicator_ids is not None:
-            indicators_cfgs = await storage_manager.get_indicators_cfgs(indicator_ids=indicator_ids)
+            indicators_cfgs = await storage_manager.get_indicators_cfg(indicator_ids=indicator_ids)
         else:
-            indicators_cfgs = await storage_manager.get_indicators_cfgs()
+            indicators_cfgs = await storage_manager.get_indicators_cfg()
 
         # await storage_manager.delete_blob(blob_path=os.path.join('DataFuturePlatform', 'pipeline', 'config', 'indicators', 'mmrlatest_gii.cfg'))
         tasks = list()

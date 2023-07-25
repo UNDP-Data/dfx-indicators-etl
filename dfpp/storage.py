@@ -184,8 +184,9 @@ class StorageManager:
                     f"Indicator  {indicator_id} located at {indicator_path} does not contain an 'indicator' section")
         except Exception as e:
             logger.error(f'Indicator {indicator_id} will be skipped because {e}')
+            raise
 
-    async def get_indicators_cfgs(self, contain_filter: str = None, indicator_ids: List = None):
+    async def get_indicators_cfg(self, contain_filter: str = None, indicator_ids: List = None):
         tasks = []
         if indicator_ids:
             for indicator_id in indicator_ids:
@@ -241,7 +242,9 @@ class StorageManager:
             validate_src_cfg(cfg_dict=cfg_dict['source'])
             return cfg_dict
         except Exception as e:
-            logger.error(f'Source {source_id} will be skipped because {e}')
+            logger.error(f'Failed to download {source_id}')
+            logger.error(e)
+            raise
 
     async def get_sources_cfgs(self, source_ids: List[str] = None):
         """

@@ -83,7 +83,7 @@ async def run():
 
 async def inspect():
     async with StorageManager(clear_cache=True) as sm:
-        indicators_cfg = await sm.get_indicators_cfgs()
+        indicators_cfg = await sm.get_indicators_cfg()
         for indicator_cfg in indicators_cfg:
             indicator_id = indicator_cfg['indicator']['indicator_id']
             source_id = indicator_cfg['indicator']['source_id']

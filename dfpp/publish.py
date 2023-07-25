@@ -532,9 +532,9 @@ async def publish(indicator_ids: list, project='access_all_data'):
 
         # Read indicator configurations
         if indicator_ids:
-            indicator_cfgs = await storage_manager.get_indicators_cfgs(indicator_ids=indicator_ids)
+            indicator_cfgs = await storage_manager.get_indicators_cfg(indicator_ids=indicator_ids)
         else:
-            indicator_cfgs = await storage_manager.get_indicators_cfgs()
+            indicator_cfgs = await storage_manager.get_indicators_cfg()
 
         for area_type in AREA_TYPES:
 
