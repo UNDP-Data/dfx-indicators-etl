@@ -21,7 +21,7 @@ from dfpp.constants import STANDARD_KEY_COLUMN
 from dfpp.utils import chunker
 import asyncio
 
-DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=120)
+DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=120,connect=5, sock_connect=5, sock_read=5)
 
 logger = logging.getLogger(__name__)
 
@@ -862,6 +862,11 @@ async def download_indicator_sources(
     logger.info(f'TASKED: {len(unique_source_ids)} sources defining {len(indicator_configs)} indicators')
     logger.info(
         f'DOWNLOADED:  {len(source_indicator_map.keys())} sources defining {len(downloaded_indicators)} indicators')
+    if failed_source_ids:
+        failed_indicators = []
+        for fsource in failed_source_ids:
+            failed_indicators += source_indicator_map1[fsource]
+        logger.info(f'FAILED {len(failed_source_ids)} defining {len(failed_indicators)} indicators')
     logger.info('#' * 200)
 
     return downloaded_indicators
