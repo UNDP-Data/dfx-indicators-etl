@@ -833,6 +833,7 @@ async def download_indicator_sources(
                         else:
                             source_indicator_map[source_id] = source_indicator_map1[source_id]
                     except Exception as e:
+                        failed_source_ids.append(source_id)
                         with StringIO() as m:
                             print_exc(file=m)
                             em = m.getvalue()
