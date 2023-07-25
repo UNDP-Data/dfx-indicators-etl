@@ -21,7 +21,7 @@ from aiohttp import ClientTimeout
 from dfpp.storage import StorageManager
 from dfpp.constants import STANDARD_KEY_COLUMN
 
-DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=120)
+DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=600)
 
 logger = logging.getLogger(__name__)
 
@@ -107,17 +107,17 @@ async def simple_url_post(
     :param kwargs: Additional arguments to pass to the session.post method (headers, params, data).
     :return: a tuple containing the downloaded content and the content type, or None if the request fails.
     """
-
-    parameters = json.loads(kwargs.get('params'))
-    assert parameters.get('type') is not None and parameters.get('value') is not None
-    if parameters.get('type') == 'json':
-        request_args = {'json': parameters['value']}
-    elif parameters.get('type') == 'params':
-        request_args = {'params': parameters['value']}
-    elif parameters.get('type') == 'data':
-        request_args = {'data': parameters['value']}
+    print(kwargs)
+    # parameters = kwargs.get('params')
+    assert kwargs.get('type') is not None and kwargs.get('value') is not None
+    if kwargs.get('type') == 'json':
+        request_args = {'json': kwargs['value']}
+    elif kwargs.get('type') == 'params':
+        request_args = {'params': kwargs['value']}
+    elif kwargs.get('type') == 'data':
+        request_args = {'data': kwargs['value']}
     else:
-        request_args = {'headers':parameters['value']}
+        request_args = {'headers': kwargs['value']}
     try:
         async with aiohttp.ClientSession() as session:
             for retry_count in range(max_retries):
@@ -386,19 +386,28 @@ async def post_downloader(**kwargs) -> Tuple[bytes, str]:
     assert source_url, "source_url not provided"
     assert source_id, "source_id not provided"
     logging.info(f"Downloading {source_id} from {source_url}")
-    print(kwargs.get("request_params"))
+    # params = kwargs.get("request_params")
+    params = ast.literal_eval(kwargs.get("request_params"))
+    params["value"] = ast.literal_eval(params["value"])
+    # print(params)
+    # async def print_params(**kwargs):
+    #     for key, value in kwargs.items():
+    #         print(f"{key} = {type(value)}")
+    #     return kwargs.get("params")
+    #
+    # await print_params(**params)
     try:
         response_content, _ = await simple_url_post(
             source_url,
             timeout=DEFAULT_TIMEOUT,
             max_retries=5,
-            params=kwargs.get("request_params"),
+            **params,
         )
-
         logging.info(f"Successfully downloaded {source_id} from {source_url}")
 
         return response_content, "text/csv"
     except Exception as e:
+        print(e)
         raise e
 
 
@@ -648,6 +657,9 @@ async def download_for_indicator(indicator_cfg: Dict[str, Any], source_cfg: Dict
                 storage_manager=storage_manager,
             )
         logger.info(f"Downloaded {source_id} from {source_cfg['source']['url']}.")
+        await storage_manager.upload(data=data, content_type=content_type,
+                                     dst_path=os.path.join(storage_manager.SOURCES_PATH, source_cfg['source']['save_as']),
+                                     overwrite=True)
         return data, content_type, None
     except Exception as e:
         return source_id, indicator_cfg['indicator']['indicator_id'], e
@@ -682,6 +694,7 @@ async def download_indicator_sources(indicator_ids: List | str = None, indicator
             unique_source_ids = set([indicator_cfg['indicator']['source_id'] for indicator_cfg in indicator_cfgs])
             download_tasks = []
             for source_id in unique_source_ids:
+                # print(source_id)
                 indicator_cfg = list(filter(lambda x: x['indicator']['source_id'] == source_id, indicator_cfgs))[0]
                 # for indicator_cfg in indicator_cfgs:
                 source_id = indicator_cfg['indicator'].get('source_id')
@@ -704,27 +717,11 @@ async def download_indicator_sources(indicator_ids: List | str = None, indicator
                                            storage_manager=storage_manager))
                 download_tasks.append(download_task)
             download_results = await asyncio.gather(*download_tasks, return_exceptions=True)
-            failed_downloads = []
-            upload_tasks = []
-            for result in download_results:
-                data, content_type, error = result
-                if error is not None:
-                    failed_downloads.append([data, content_type, error])
-                    continue
-
-                if data is not None:
-                    upload_task = asyncio.create_task(
-                        storage_manager.upload(data=data, content_type=content_type,
-                                               dst_path=os.path.join(storage_manager.SOURCES_PATH,source_cfg['source']['save_as']),
-                                               overwrite=True))
-                    upload_tasks.append(upload_task)
-            await asyncio.gather(*upload_tasks, return_exceptions=True)
-            if len(failed_downloads) > 0:
-                # log failed download to file and raise exception
-
-                raise Exception(f"Failed to download {len(failed_downloads)} sources. Please check the logs.")
-            else:
-                logger.info(f"Successfully downloaded {len(download_results)} sources out of {len(indicator_cfgs)}.")
+            for download_result in download_results:
+                if isinstance(download_result, Exception):
+                    raise download_result
+                else:
+                    successful_indicator_ids.append(download_result)
     except Exception as e:
         raise e
     return successful_indicator_ids
