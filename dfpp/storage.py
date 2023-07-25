@@ -104,15 +104,13 @@ class StorageManager:
         self.container_client = AContainerClient.from_connection_string(conn_str=connection_string,
                                                                         container_name=container_name)
         self.container_name = container_name
-        self.clear_cache=clear_cache
+        self.clear_cache = clear_cache
         self.ROOT_FOLDER = root_folder
         self.INDICATORS_CFG_PATH = os.path.join(self.ROOT_FOLDER, self.REL_INDICATORS_CFG_PATH)
         self.SOURCES_CFG_PATH = os.path.join(self.ROOT_FOLDER, self.REL_SOURCES_CFG_PATH)
         self.UTILITIES_PATH = os.path.join(self.ROOT_FOLDER, self.REL_UTILITIES_PATH)
         self.SOURCES_PATH = os.path.join(self.ROOT_FOLDER, self.REL_SOURCES_PATH)
         self.OUTPUT_PATH = os.path.join(self.ROOT_FOLDER, self.REL_OUTPUT_PATH)
-
-
 
     async def __aenter__(self):
         return self
@@ -162,7 +160,6 @@ class StorageManager:
                 _, indicator_name = os.path.split(indicator_path)
                 indicator_id, ext = os.path.splitext(indicator_name)
 
-
             assert await self.check_blob_exists(
                 indicator_path), f'Indicator {indicator_id} located at {indicator_path} does not exist'
 
@@ -209,7 +206,6 @@ class StorageManager:
             results = await asyncio.gather(*tasks)
         else:
             async for indicator_blob in self.list_indicators():
-
                 t = asyncio.create_task(
                     self.get_indicator_cfg(indicator_path=indicator_blob.name)
                 )
@@ -246,7 +242,6 @@ class StorageManager:
             return cfg_dict
         except Exception as e:
             logger.error(f'Source {source_id} will be skipped because {e}')
-
 
     async def get_sources_cfgs(self, source_ids: List[str] = None):
         """
