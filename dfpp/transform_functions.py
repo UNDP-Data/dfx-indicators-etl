@@ -28,7 +28,7 @@ async def type1_transform(**kwargs):
     """
 
 
-
+    assert 'value_column'  in kwargs, f'type1 transform does not use "value_column" element from source config'
 
     df = kwargs.get("source_df")
 
@@ -53,12 +53,16 @@ async def type1_transform(**kwargs):
         # Filter the DataFrame based on the group name
         df = df.groupby(group_column).get_group(group_name)
         df.dropna(inplace=True, axis=1, how="all")
+
     year_columns = await get_year_columns(df.columns, col_prefix=column_prefix, col_suffix=column_suffix,
-                                          column_substring=column_substring)
+                                          column_substring=column_substring, indicator_id=indicator_id)
 
     indicator_rename = {}
     for year in year_columns:
         indicator_rename[year_columns[year]] = await rename_indicator(indicator_id, year)
+
+
+
 
     inverted_dictionary = await invert_dictionary(indicator_rename)
     indicator_cols = list(inverted_dictionary.keys())

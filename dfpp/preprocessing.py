@@ -5,11 +5,8 @@ from datetime import datetime
 import re
 import pandas as pd
 import numpy as np
-from dfpp.constants import *
-import swifter
-
-from dfpp.storage import AsyncAzureBlobStorageManager
-from dfpp.utils import change_iso3_to_system_region_iso3, fix_iso_country_codes, add_country_code, add_region_code
+from dfpp.storage import StorageManager
+from dfpp.utils import change_iso3_to_system_region_iso3, fix_iso_country_codes, add_country_code
 import logging
 
 logger = logging.getLogger(__name__)
@@ -296,32 +293,22 @@ async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         source_df = source_df[~source_df["M_TarA2"].str.contains("Not Specified")]
 
         source_df["M_TarA2"] = source_df["M_TarA2"].str.replace("%", "")
-
-        # 26-28 -> 26 - 28
-        # because 28 will be minus if this transformation is not done
-        source_df["M_TarA2"] = source_df["M_TarA2"].swifter.apply(
-            lambda val: asyncio.run(reorganize_number_ranges(val)))
-        # If there are multiple values in M_TarA2 take the lower one
-        source_df["M_TarA2"] = source_df["M_TarA2"].swifter.apply(lambda val: asyncio.run(extract_minimum_number(val)))
-
-        # ****clean column values - M_TarA3****
         for key, value in replacement_string_values.items():
             source_df["M_TarA3"] = source_df["M_TarA3"].str.replace(key, value, regex=False)
-        # extract the numbers that has suffix " Gg"
-        source_df["M_TarA3"] = source_df["M_TarA3"].swifter.apply(
-            lambda val: asyncio.run(extract_number_with_suffix(val)))
-        # calculate how many numbers are in the "M_TarA3" column cells because we drop the rows that the number count is more than 1
-
-        source_df["M_TarA3 Number Count"] = source_df["M_TarA3"].swifter.apply(
-            lambda val: asyncio.run(get_number_count(val)))
-        # drop the rows that the number count is more than 1
         source_df = source_df[source_df["M_TarA3 Number Count"] == 1]
-        # replace .23 with 0.23 otherwise it will recognize as number 23
-        source_df["M_TarA3"] = source_df["M_TarA3"].swifter.apply(
-            lambda val: asyncio.run(reorganize_floating_numbers(val)))
-        # extract the number and apply changes if the unit is not the standard one
-        source_df["M_TarA3"] = source_df["M_TarA3"].swifter.apply(lambda val: asyncio.run(extract_and_change(val)))
-
+        processing_tasks = []
+        for row in source_df.iterrows():
+            processing_tasks.append(
+                reorganize_number_ranges(asyncio.create_task(reorganize_number_ranges(row[1]["M_TarA3"]))))
+            processing_tasks.append(
+                extract_minimum_number(asyncio.create_task(extract_minimum_number(row[1]["M_TarA3"]))))
+            processing_tasks.append(get_number_count(asyncio.create_task(get_number_count(row[1]["M_TarA3"]))))
+            processing_tasks.append(
+                reorganize_floating_numbers(asyncio.create_task(reorganize_floating_numbers(row[1]["M_TarA3"]))))
+            processing_tasks.append(extract_and_change(asyncio.create_task(extract_and_change(row[1]["M_TarA3"]))))
+            processing_tasks.append(
+                extract_number_with_suffix(asyncio.create_task(extract_number_with_suffix(row[1]["M_TarA3"]))))
+        await asyncio.gather(*processing_tasks)
         source_df["M_TarA2"] = source_df["M_TarA2"].astype(float)
         source_df["M_TarA3"] = source_df["M_TarA3"].astype(float)
 
@@ -1143,13 +1130,9 @@ async def mdp_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
 
         async def mdp_metadata():
-            storage = await AsyncAzureBlobStorageManager.create_instance(
-                connection_string=AZURE_STORAGE_CONNECTION_STRING,
-                container_name=AZURE_STORAGE_CONTAINER_NAME,
-                use_singleton=False
-            )
+            storage = await StorageManager()
             country_df_bytes = await storage.download(
-                blob_name=os.path.join(ROOT_FOLDER, 'config', 'utilities', 'MDP_META.json'))
+                blob_name=os.path.join(os.environ.get("ROOT_FOLDER"), 'config', 'utilities', 'MDP_META.json'))
             await storage.close()
             return country_df_bytes
 
