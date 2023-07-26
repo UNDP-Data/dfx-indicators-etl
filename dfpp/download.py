@@ -386,7 +386,6 @@ async def post_downloader(**kwargs) -> Tuple[bytes, str]:
     assert source_url, "source_url not provided"
     assert source_id, "source_id not provided"
     logging.info(f"Downloading {source_id} from {source_url}")
-    print(kwargs.get("request_params"))
     try:
         response_content, _ = await simple_url_post(
             source_url,
@@ -763,8 +762,9 @@ async def download_indicator_sources(
 
 
     failed_source_ids = []
+    skipped_source_ids = []
     source_indicator_map = {}
-    source_indicator_map1 = {}
+    source_indicator_map_tod = {}
 
 
     async with StorageManager() as storage_manager:
@@ -778,10 +778,10 @@ async def download_indicator_sources(
         for c in indicator_configs:
             src = c['indicator']['source_id']
             ind = c['indicator']['indicator_id']
-            if not src in source_indicator_map1:
-                source_indicator_map1[src] = [ind]
+            if not src in source_indicator_map_tod:
+                source_indicator_map_tod[src] = [ind]
             else:
-                source_indicator_map1[src].append(ind)
+                source_indicator_map_tod[src].append(ind)
 
         logger.info(
             f' {len(unique_source_ids)} sources defining {len(indicator_configs)} indicators have been detected in the config folder {storage_manager.INDICATORS_CFG_PATH}')
@@ -798,6 +798,7 @@ async def download_indicator_sources(
                     source_cfg = await storage_manager.get_source_cfg(source_id=source_id)
                     if source_cfg['source']['source_type'] == "Manual":
                         logger.info(f"Skipping manual source {source_id}")
+                        skipped_source_ids.append(source_id)
                         continue
                     if source_cfg['source'].get('save_as') is None:  # compute missing
                         save_as = f"{source_id}.{source_cfg['url'].split('.')[-1]}"
@@ -811,6 +812,7 @@ async def download_indicator_sources(
                 except Exception as e:
                     logger.error(f'Failed to download/upload source {source_id} ')
                     logger.error(e)
+                    failed_source_ids.append(source_id)
                     continue
 
             logger.info(f'Downloading {len(chunk)} indicator sources concurrently')
@@ -831,7 +833,7 @@ async def download_indicator_sources(
                             logger.warning(f'No data was downloaded for indicator {source_id}')
                             failed_source_ids.append(source_id)
                         else:
-                            source_indicator_map[source_id] = source_indicator_map1[source_id]
+                            source_indicator_map[source_id] = source_indicator_map_tod[source_id]
                     except Exception as e:
                         failed_source_ids.append(source_id)
                         with StringIO() as m:
@@ -866,8 +868,13 @@ async def download_indicator_sources(
     if failed_source_ids:
         failed_indicators = []
         for fsource in failed_source_ids:
-            failed_indicators += source_indicator_map1[fsource]
+            failed_indicators += source_indicator_map_tod[fsource]
         logger.info(f'FAILED {len(failed_source_ids)} defining {len(failed_indicators)} indicators')
+    if skipped_source_ids:
+        skipped_indicators = []
+        for ssource in skipped_indicators:
+            skipped_indicators += source_indicator_map_tod[ssource]
+        logger.info(f'SKIPPED {len(skipped_source_ids)} defining {len(skipped_indicators)} indicators')
     logger.info('#' * 200)
 
     return downloaded_indicators
