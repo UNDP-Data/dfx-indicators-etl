@@ -1,11 +1,12 @@
 import pandas as pd
+
 pd.options.mode.chained_assignment = None
 from dfpp.constants import STANDARD_KEY_COLUMN, STANDARD_COUNTRY_COLUMN
 from dfpp.utils import get_year_columns, rename_indicator, invert_dictionary, add_country_code, add_region_code, \
     update_base_file
 
 
-async def type1_transform(**kwargs):
+async def type1_transform(**kwargs) -> None:
     """
     Perform a type 1 transformation on the source DataFrame.
 
@@ -24,13 +25,19 @@ async def type1_transform(**kwargs):
         keep (str): Value to keep during aggregation.
 
     Returns:
-        Transformed data uploaded to a blob as a CSV file.
+        None
+
+    Raises:
+        ValueError: If the required 'value_column' is not provided.
     """
+    # Extract all the arguments with their default values from kwargs
+    source_df = kwargs.get("source_df", None)
+    if source_df is None:
+        raise ValueError("The 'source_df' argument is required.")
 
-
-    assert 'value_column'  in kwargs, f'type1 transform does not use "value_column" element from source config'
-
-    df = kwargs.get("source_df")
+    value_column = kwargs.get('value_column', None)
+    if value_column is None:
+        raise ValueError("The 'value_column' argument is required for type1_transform.")
 
     indicator_id = kwargs.get('indicator_id', None)
     base_filename = kwargs.get('base_filename', None)
@@ -44,25 +51,27 @@ async def type1_transform(**kwargs):
     aggregate = kwargs.get('aggregate', False)
     keep = kwargs.get('keep', 'last')
 
+    assert isinstance(source_df, pd.DataFrame), "source_df must be a pandas DataFrame"
+    assert indicator_id is not None, "indicator_id must be provided"
+    assert base_filename is not None, "base_filename must be provided"
 
-
-
+    # If 'key_column' is not provided, use 'country_column' as the index column
     index_col = key_column if key_column else country_column
 
     if group_name and group_column:
         # Filter the DataFrame based on the group name
-        df = df.groupby(group_column).get_group(group_name)
+        df = source_df.groupby(group_column).get_group(group_name)
         df.dropna(inplace=True, axis=1, how="all")
+    else:
+        df = source_df.copy()
 
+    # Get year columns based on column_prefix, column_suffix, or column_substring
     year_columns = await get_year_columns(df.columns, col_prefix=column_prefix, col_suffix=column_suffix,
-                                          column_substring=column_substring, indicator_id=indicator_id)
-
+                                          column_substring=column_substring)
+    # Rename columns using the indicator_id and year
     indicator_rename = {}
     for year in year_columns:
         indicator_rename[year_columns[year]] = await rename_indicator(indicator_id, year)
-
-
-
 
     inverted_dictionary = await invert_dictionary(indicator_rename)
     indicator_cols = list(inverted_dictionary.keys())
@@ -70,10 +79,10 @@ async def type1_transform(**kwargs):
     df.rename(columns=indicator_rename, inplace=True)
 
     if not aggregate:
-        # Drop duplicates based on the index column
+        # Drop duplicates based on the index column, keeping the specified 'keep' strategy
         df.drop_duplicates(subset=[index_col], keep=keep, inplace=True)
     elif aggregate:
-        # Aggregate the data based on the index column
+        # Aggregate the DataFrame based on the index column
         index_df = df.copy()
         group_df = index_df.groupby(index_col)
         df.set_index(index_col, inplace=True)
@@ -91,23 +100,23 @@ async def type1_transform(**kwargs):
         df.reset_index(inplace=True)
 
     if not key_column:
-        # If key_column is not provided, keep only the country column
+        # Rearrange columns and add country code and region code
         df = df[[country_column] + indicator_cols]
         df = await add_country_code(df, country_name_column=country_column)
         df = await add_region_code(df, country_column)
     elif not country_column:
-        # If country_column is not provided, keep only the key column and indicator columns
+        # Rearrange columns
         df = df[[key_column] + indicator_cols]
     else:
-        # If both key_column and country_column are provided, add region code and rearrange columns
+        # Rearrange columns, add region code, and rearrange columns again
         df = await add_region_code(df, country_column)
         df = df[[key_column, country_column] + indicator_cols]
 
     save_as = base_filename + ".csv"
-    await update_base_file(df=df, blob_name=save_as)
+    await update_base_file(indicator_id=indicator_id, df=df, blob_name=save_as)
 
 
-async def type2_transform(**kwargs):
+async def type2_transform(**kwargs) -> str:
     """
     Transforms a DataFrame based on the provided parameters.
 
@@ -129,10 +138,17 @@ async def type2_transform(**kwargs):
 
     Returns:
         str: The name of the uploaded CSV file in the blob storage.
+
+    Raises:
+        ValueError: If the required 'source_df' and 'value_column' are not provided.
     """
-    df = kwargs.get("source_df")
+    # Extract all the arguments with their default values from kwargs
+    source_df = kwargs.get("source_df", None)
+    if source_df is None:
+        raise ValueError("The 'source_df' argument is required.")
+
     indicator_id = kwargs.get('indicator_id', None)
-    value_column = kwargs.get('value_column')
+    value_column = kwargs.get('value_column', None)
     base_filename = kwargs.get('base_filename', None)
     country_column = kwargs.get('country_column', None)
     key_column = kwargs.get('key_column', None)
@@ -145,23 +161,38 @@ async def type2_transform(**kwargs):
     country_code_aggregate = kwargs.get('country_code_aggregate', False)
     region_column = kwargs.get('region_column', None)
 
+    assert isinstance(source_df, pd.DataFrame), "source_df must be a pandas DataFrame"
+    assert indicator_id is not None, "indicator_id must be provided"
+    assert base_filename is not None, "base_filename must be provided"
+
+    # Clean DataFrame
+    df = source_df.copy()
     df.columns = df.columns.str.strip()
     df.dropna(inplace=True, axis=1, how="all")
-    index_col = STANDARD_KEY_COLUMN if key_column is not None else STANDARD_COUNTRY_COLUMN
+
+    # Set index column based on the provided 'key_column' or 'country_column'
+    index_col = key_column if key_column is not None else country_column
+
     if group_name is not None and group_column is not None:
+        # Filter the DataFrame based on the group name
         df = df.groupby(group_column).get_group(group_name)
         df.dropna(inplace=True, axis=1, how="all")
 
+    # Rename the value_column with the indicator_id and year
     indicator_rename = {value_column: await rename_indicator(indicator_id, year)}
     inverted_dictionary = await invert_dictionary(indicator_rename)
     indicator_cols = list(inverted_dictionary.keys())
     df.rename(columns=indicator_rename, inplace=True)
+
     if aggregate is False:
+        # Drop duplicates based on the index column, keeping the specified 'keep' strategy
         df.drop_duplicates(subset=[index_col], keep=keep, inplace=True)
     elif aggregate is True:
+        # Aggregate the DataFrame based on the index column
         index_df = df.copy()
         group_df = index_df.groupby(index_col)
         df.set_index(index_col, inplace=True)
+
         for group in group_df.groups:
             temp_df = group_df.get_group(group)
             if len(temp_df) > 1:
@@ -170,22 +201,29 @@ async def type2_transform(**kwargs):
                 temp_df = temp_df.sum()
                 temp_df = temp_df.drop([index_col])
                 df.at[group] = temp_df
+
         df.reset_index(inplace=True)
+
     if key_column is None:
+        # Rearrange columns and add country code and region code
         df = df[[STANDARD_COUNTRY_COLUMN] + indicator_cols]
         df = await add_country_code(df, country_name_column=country_column)
-        # source_df.update(df)
         df = await add_region_code(source_df=df, region_name_col=country_column, region_key_col=region_column)
+
     if country_column is None:
+        # Rearrange columns
         df = df[[STANDARD_KEY_COLUMN] + indicator_cols]
     else:
-        pass
+        # Rearrange columns, add region code, and rearrange columns again
         df = await add_region_code(df, STANDARD_COUNTRY_COLUMN, region_column)
         df = df[[STANDARD_KEY_COLUMN, STANDARD_COUNTRY_COLUMN] + indicator_cols]
+
     if country_code_aggregate is True:
+        # Aggregate by country code
         copy_df = df.copy()
         key_group_df = copy_df.groupby(STANDARD_KEY_COLUMN)
         df.set_index(STANDARD_KEY_COLUMN, inplace=True)
+
         for group in key_group_df.groups:
             key_group = key_group_df.get_group(group)
             if len(key_group) > 1:
@@ -194,12 +232,15 @@ async def type2_transform(**kwargs):
                 key_group = key_group.sum()
                 key_group = key_group.drop([STANDARD_KEY_COLUMN])
                 df.at[group] = key_group
+
         df.reset_index(inplace=True)
+
+    # Save the transformed DataFrame to a CSV file and upload it as a blob
     save_as = base_filename + ".csv"
-    return await update_base_file(df=df, blob_name=save_as)
+    await update_base_file(indicator_id=indicator_id, df=df, blob_name=save_as)
 
 
-async def type3_transform(**kwargs):
+async def type3_transform(**kwargs) -> None:
     """
     Perform a type 3 transformation on the source DataFrame.
 
@@ -221,12 +262,19 @@ async def type3_transform(**kwargs):
         region_column (str): Name of the region column.
 
     Returns:
-        Transformed data uploaded to a blob as a CSV file.
+        None
+
+    Raises:
+        ValueError: If the required 'source_df' and 'value_column' are not provided.
     """
 
-    df = kwargs.get("source_df")
+    # Extract all the arguments with their default values from kwargs
+    source_df = kwargs.get("source_df", None)
+    if source_df is None:
+        raise ValueError("The 'source_df' argument is required.")
+
     indicator_id = kwargs.get('indicator_id', None)
-    value_column = kwargs.get('value_column')
+    value_column = kwargs.get('value_column', None)
     base_filename = kwargs.get('base_filename', None)
     country_column = kwargs.get('country_column', None)
     key_column = kwargs.get('key_column', None)
@@ -240,25 +288,33 @@ async def type3_transform(**kwargs):
     return_dataframe = kwargs.get('return_dataframe', False)
     region_column = kwargs.get('region_column', None)
 
+    assert isinstance(source_df, pd.DataFrame), "source_df must be a pandas DataFrame"
+    assert indicator_id is not None, "indicator_id must be provided"
+    assert base_filename is not None, "base_filename must be provided"
+
+    # If 'key_column' is not provided, use 'country_column' as the index column
     index_col = key_column if key_column else country_column
 
     if group_name and group_column:
         # Filter the DataFrame based on the group name
-        df = df.groupby(group_column).get_group(group_name)
+        df = source_df.groupby(group_column).get_group(group_name)
         df.dropna(inplace=True, axis=1, how="all")
+    else:
+        df = source_df.copy()
 
     if country_column and index_col != country_column:
-        # Create a unique index DataFrame with country column if provided
-        unique_index_df = df.drop_duplicates(subset=[index_col], keep="last")[[index_col, country_column]].set_index(
-            index_col)
+        # Create a unique index DataFrame with the country column if provided
+        unique_index_df = df.drop_duplicates(subset=[index_col], keep="last")[[
+            index_col, country_column]].set_index(index_col)
     else:
         unique_index_df = df.drop_duplicates(subset=[index_col], keep="last").set_index(index_col)
 
-    df = df.groupby(index_col)
+    # Group the DataFrame by the index column
+    df_grouped = df.groupby(index_col)
     indicator_cols = []
 
-    for country in df.groups.keys():
-        country_df = df.get_group(country)
+    for country in df_grouped.groups.keys():
+        country_df = df_grouped.get_group(country)
 
         if aggregate:
             country_df.set_index(datetime_column, inplace=True)
@@ -269,16 +325,20 @@ async def type3_transform(**kwargs):
                 country_df = country_df.resample("Y").mean()
 
             country_df.reset_index(inplace=True)
+
         country_df["Year Column"] = country_df[datetime_column].apply(lambda x: x.year)
         country_df.drop_duplicates("Year Column", keep=keep, inplace=True)
 
         for index, row in country_df.iterrows():
             try:
+                # If indicator column does not exist in 'unique_index_df', create it with the same data type
                 if await rename_indicator(indicator_id, row["Year Column"]) not in unique_index_df.columns:
                     unique_index_df.astype(
                         {await rename_indicator(indicator_id, row["Year Column"]): type(row[value_column])})
             except Exception as e:
                 pass
+
+            # Update the value for the corresponding indicator column in 'unique_index_df'
             unique_index_df.at[country, await rename_indicator(indicator_id, row["Year Column"])] = row[value_column]
             indicator_cols.append(await rename_indicator(indicator_id, row["Year Column"]))
 
@@ -316,4 +376,6 @@ async def type3_transform(**kwargs):
 
         unique_index_df.reset_index(inplace=True)
 
-    return await update_base_file(df=unique_index_df, blob_name=base_filename + ".csv")
+    # Save the transformed DataFrame to a CSV file and upload it as a blob
+    await update_base_file(indicator_id=indicator_id, df=unique_index_df, blob_name=base_filename + ".csv")
+    # await update_base_file(df=unique_index_df, blob_name=

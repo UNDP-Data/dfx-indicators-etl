@@ -8,11 +8,14 @@ from dfpp.download import download_indicator_sources
 from dfpp.publish import publish
 from dfpp.run_transform import transform_sources
 from dfpp.storage import TMP_SOURCES
-parser = argparse.ArgumentParser(description='Convert layers/bands from GDAL supported geospatial data files to COGs/PMtiles.',
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+parser = argparse.ArgumentParser(
+    description='Convert layers/bands from GDAL supported geospatial data files to COGs/PMtiles.',
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--run',
                     help='The function to run. options are download, transform, and publish, or all of the functions together like `pipeline`')
-parser.add_argument('-i', '--indicators', help='The indicator to process. options are all, or a specific indicator like `GDP`',
+parser.add_argument('-i', '--indicators',
+                    help='The indicator to process. options are all, or a specific indicator like `GDP`',
                     nargs='+')
 parser.add_argument('-f', '--filter-indicators',
                     help='The indicator to run. options are all, or a specific indicator like `GDP`')
@@ -20,8 +23,8 @@ parser.add_argument('-d', '--debug', type=bool,
                     help='Set log level to debug', default=False
                     )
 
-def run_pipeline():
 
+def run_pipeline():
     asyncio.run(main())
 
 
@@ -69,7 +72,7 @@ async def main():
                 indicator_id_contain_filter=indicators_from_args_contains
             )
         if args.run == 'transform':
-            await transform_sources(concurrent=True)
+            await transform_sources(concurrent=True, indicator_ids=indicators_from_args)
         if args.run == 'publish':
             await publish()
         if args.run == 'pipeline':

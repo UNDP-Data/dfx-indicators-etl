@@ -129,6 +129,17 @@ class StorageManager:
                 f'\t SOURCES_PATH: {self.SOURCES_PATH}\n'
                 f'\t OUTPUT_PATH: {self.OUTPUT_PATH}\n')
 
+    async def get_md5_checksum(self, blob_name: str):
+        """
+        :param blob_name:
+        :return:
+        """
+        assert blob_name is not None, f'blob_name is None'
+        assert await self.check_blob_exists(blob_name), f'Blob {blob_name} does not exist'
+        blob_client = self.container_client.get_blob_client(blob=blob_name)
+        properties = await blob_client.get_blob_properties()
+        return properties['content_settings']['content_md5']
+
     async def list_indicators(self):
         logger.info(f'Listing {self.INDICATORS_CFG_PATH}')
         async for blob in self.container_client.list_blobs(name_starts_with=self.INDICATORS_CFG_PATH):
