@@ -801,7 +801,7 @@ async def download_indicator_sources(
                         continue
                     if source_cfg['source'].get('save_as') is None:  # compute missing
                         save_as = f"{source_id}.{source_cfg['url'].split('.')[-1]}"
-                        logger.warning(f'Source data for indicator {indicator_id} wil be saved  to  {save_as}')
+                        logger.warning(f'Source data for {source_id} wil be saved  to  {save_as}')
                         source_cfg['source']['save_as'] = save_as
                     download_task = asyncio.create_task(
                         download_for_indicator(indicator_cfg=indicator_cfg, source_cfg=source_cfg,
@@ -828,7 +828,7 @@ async def download_indicator_sources(
                         source_id = done_task.get_name()
                         data_size_bytes = await done_task
                         if data_size_bytes < 100:  # TODO: establish  a realistic value
-                            logger.warning(f'No data was downloaded for indicator {indicator_id}')
+                            logger.warning(f'No data was downloaded for indicator {source_id}')
                             failed_source_ids.append(source_id)
                         else:
                             source_indicator_map[source_id] = source_indicator_map1[source_id]
