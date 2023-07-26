@@ -392,7 +392,7 @@ async def validate_indicator_transformed(storage_manager: StorageManager, indica
         raise
 
 
-async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, blob_name: str = None):
+async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, blob_name: str = None, project: str = None):
     """
     Uploads a DataFrame as a CSV file to Azure Blob Storage.
 
@@ -408,7 +408,7 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
 
     async with StorageManager() as storage_manager:
         pre_update_md5_checksum = await storage_manager.get_md5_checksum(
-            os.path.join(storage_manager.ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
+            os.path.join(storage_manager.ROOT_FOLDER, 'output', project, 'base', blob_name)
         )
         try:
             # Reset the index of the DataFrame
@@ -419,7 +419,7 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
 
             # Check if the blob file already exists in Azure Blob Storage
             blob_exists = await storage_manager.check_blob_exists(
-                blob_name=os.path.join(storage_manager.ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
+                blob_name=os.path.join(storage_manager.ROOT_FOLDER, 'output', project, 'base', blob_name)
             )
 
             # Create an empty DataFrame for the keys
@@ -432,7 +432,7 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
                 logger.info(f"Base file {blob_name} exists. Updating...")
                 # Download the base file as bytes and read it as a DataFrame
                 base_file_bytes = await storage_manager.download(
-                    blob_name=os.path.join(storage_manager.ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name),
+                    blob_name=os.path.join(storage_manager.ROOT_FOLDER, 'output', project, 'base', blob_name),
                     dst_path=None
                 )
                 base_file_df = pd.read_csv(io.BytesIO(base_file_bytes))
@@ -470,7 +470,7 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
             # base_file_df.reset_index(inplace=True)
 
             # Define the destination path for the CSV file
-            destination_path = os.path.join(storage_manager.ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
+            destination_path = os.path.join(storage_manager.ROOT_FOLDER, 'output', project, 'base', blob_name)
 
             await storage_manager.upload(
                 data=base_file_df.to_csv(encoding='utf-8'),

@@ -8,24 +8,26 @@ from dfpp.download import download_indicator_sources
 from dfpp.publish import publish
 from dfpp.run_transform import transform_sources
 from dfpp.storage import TMP_SOURCES
-from  distutils.util import strtobool
-from io import  StringIO
-from traceback import  print_exc
+from distutils.util import strtobool
+from io import StringIO
+from traceback import print_exc
 
-parser = argparse.ArgumentParser(description='Convert layers/bands from GDAL supported geospatial data files to COGs/PMtiles.',
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser = argparse.ArgumentParser(
+    description='Convert layers/bands from GDAL supported geospatial data files to COGs/PMtiles.',
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--run',
                     help='The function to run. options are download, transform, and publish, or all of the functions together like `pipeline`')
-parser.add_argument('-i', '--indicators', help='The indicator to process. options are all, or a specific indicator like `GDP`',
+parser.add_argument('-i', '--indicators',
+                    help='The indicator to process. options are all, or a specific indicator like `GDP`',
                     nargs='+')
 parser.add_argument('-f', '--filter-indicators',
                     help='The indicator to run. options are all, or a specific indicator like `GDP`')
 parser.add_argument('-d', '--debug', type=strtobool,
-                    help='Set log level to debug', default=False
-                    )
+                    help='Set log level to debug', default=False)
+parser.add_argument('-p', '--project', type=str, help='The project to run. options are access_all_data and vaccine_equity', default='access_all_data')
+
 
 def run_pipeline():
-
     asyncio.run(main())
 
 
@@ -53,7 +55,7 @@ async def main():
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
-    #logger.name = __name__
+    # logger.name = __name__
 
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     if args.debug is True:
@@ -69,7 +71,11 @@ async def main():
                 indicator_id_contain_filter=indicators_from_args_contains
             )
         if args.run == 'transform':
-            await transform_sources(concurrent=True, indicator_ids=indicators_from_args)
+            await transform_sources(
+                concurrent=True,
+                indicator_ids=indicators_from_args,
+                project=args.project,
+            )
         if args.run == 'publish':
             await publish()
         if args.run == 'pipeline':

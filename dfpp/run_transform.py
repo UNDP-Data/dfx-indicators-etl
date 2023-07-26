@@ -63,12 +63,14 @@ async def read_source_file_for_indicator(indicator_source: str = None):
             raise
 
 
-async def run_transformation_for_indicator(indicator_cfg: dict = None):
+async def run_transformation_for_indicator(indicator_cfg: dict = None, project: str = None):
     """
     Run transformation for a specific indicator.
 
     :param indicator_cfg: Configuration section for the indicator.
     :type indicator_cfg: dict
+    :param project: The name of the project.
+    :type project: str
     :return: The transformed data based on the indicator.
     :rtype: str
     """
@@ -162,6 +164,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None):
                 column_prefix=None if indicator_cfg.get('column_prefix', None) == "None" else indicator_cfg.get('column_prefix', None),
                 column_suffix=None if indicator_cfg.get('column_suffix', None) == "None" else indicator_cfg.get('column_suffix', None),
                 column_substring=None if indicator_cfg.get('column_substring', None) == "None" else indicator_cfg.get('column_substring', None),
+                project=project
             )
 
         else:
@@ -173,7 +176,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None):
         raise e
 
 
-async def transform_sources(concurrent=False, indicator_ids: List = None):
+async def transform_sources(concurrent=False, indicator_ids: List = None, project: str = None):
     """
     Perform transformations for a list of indicators.
     """
