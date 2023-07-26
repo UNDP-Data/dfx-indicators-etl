@@ -1905,7 +1905,6 @@ async def wbank_access_elec_transform_preprocessing(bytes_data: bytes = None, **
         # Rename the columns to match the desired format
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
-        print(source_df.head())
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:

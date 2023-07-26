@@ -6,6 +6,7 @@ import warnings
 import os
 import numpy as np
 import pandas as pd
+from dfpp.storage import StorageManager
 
 from dfpp.dfpp_exceptions import TransformationError, TransformationWarning
 from dfpp.storage import StorageManager
@@ -161,7 +162,7 @@ async def change_iso3_to_system_region_iso3(source_df, iso3_col):
     return source_df.drop(columns=drop_list)
 
 
-async def get_year_columns(columns, col_prefix=None, col_suffix=None, column_substring=None):
+async def get_year_columns(columns, col_prefix=None, col_suffix=None, column_substring=None, indicator_id=None):
     """
     Extracts year-based columns from a list of column names.
 
@@ -346,7 +347,7 @@ async def validate_indicator_transformed(indicator_id: str = None, pre_update_ch
 
     Args:
         indicator_id (str): The indicator ID.
-        base_df_checksum (str): The checksum of the base DataFrame.
+        pre_update_checksum (str): The checksum of the base DataFrame.
         df (pandas.DataFrame): The transformed indicator DataFrame.
 
     Raises:
@@ -357,34 +358,38 @@ async def validate_indicator_transformed(indicator_id: str = None, pre_update_ch
     assert df is not None, "DataFrame is required"
     assert isinstance(df, pd.DataFrame), "DataFrame must be a pandas DataFrame"
     assert pre_update_checksum is not None, "Base DataFrame checksum is required"
-    async with StorageManager() as storage_manager:
-        indicator_configuration = await storage_manager.get_indicator_cfg(indicator_id=indicator_id)
-        source_id = indicator_configuration.get("indicator").get("source_id")
-        base_file_name = f"{source_id}.csv"
+    try:
+        async with StorageManager() as storage_manager:
+            indicator_configuration = await storage_manager.get_indicator_cfg(indicator_id=indicator_id)
+            source_id = indicator_configuration.get("indicator").get("source_id")
+            base_file_name = f"{source_id}.csv"
 
-        df_columns = df.columns.to_list()
-        columns_with_indicators = [column for column in df_columns if column.startswith(f"{indicator_id}_")]
+            df_columns = df.columns.to_list()
+            columns_with_indicators = [column for column in df_columns if column.startswith(f"{indicator_id}_")]
 
-        # Check that the indicator columns are present
-        if len(columns_with_indicators) == 0:
-            raise TransformationError(
-                f"Indicator {indicator_id} not found in columns of base file {source_id}.csv. This is likely due to a transformation error that occurred during the transformation process. Please check the transformation logs for more details.")
-        years_columns = await get_year_columns(columns=df_columns, col_prefix=f"{indicator_id}_")
+            # Check that the indicator columns are present
+            if len(columns_with_indicators) == 0:
+                raise TransformationError(
+                    f"Indicator {indicator_id} not found in columns of base file {source_id}.csv. This is likely due to a transformation error that occurred during the transformation process. Please check the transformation logs for more details.")
+            years_columns = await get_year_columns(columns=df_columns, col_prefix=f"{indicator_id}_")
 
-        # if the columns are present, check that all the columns have at least some data
-        indicator_base_columns = [column for column in df_columns if column in years_columns.values()]
-        base_with_data = df[indicator_base_columns].dropna(how='all')
-        if base_with_data.empty:
-            raise TransformationError(
-                f"Indicator {indicator_id} has no data. This is likely due to a transformation error that occurred during the transformation process or absent data in the source file. Please check the transformation logs for more details.")
+            # if the columns are present, check that all the columns have at least some data
+            indicator_base_columns = [column for column in df_columns if column in years_columns.values()]
+            base_with_data = df[indicator_base_columns].dropna(how='all')
+            if base_with_data.empty:
+                raise TransformationError(
+                    f"Indicator {indicator_id} has no data. This is likely due to a transformation error that occurred during the transformation process or absent data in the source file. Please check the transformation logs for more details.")
 
-        # Compare previous md5 checksum with current md5 checksum
-        md5_checksum = await storage_manager.get_md5_checksum(
-            os.path.join(storage_manager.ROOT_FOLDER, 'output', 'access_all_data', 'base', base_file_name))
-        if md5_checksum == pre_update_checksum:
-            warnings.warn(
-                f"Base file {base_file_name} has not changed since the last transformation. This could be because of no new data since previous transformation, or that transformation failed for indicator {indicator_id}.",
-                TransformationWarning)
+            # Compare previous md5 checksum with current md5 checksum
+            md5_checksum = await storage_manager.get_md5_checksum(
+                os.path.join(storage_manager.ROOT_FOLDER, 'output', 'access_all_data', 'base', base_file_name))
+            if md5_checksum == pre_update_checksum:
+                warnings.warn(
+                    f"Base file {base_file_name} has not changed since the last transformation. This could be because of no new data since previous transformation, or that transformation failed for indicator {indicator_id}.",
+                    TransformationWarning)
+    except Exception as e:
+        logger.error(f"Error validating indicator {indicator_id}: {e}")
+        raise
 
 
 async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, blob_name: str = None):
@@ -473,9 +478,7 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
                 overwrite=True,
                 content_type="text/csv"
             )
-            await validate_indicator_transformed(indicator_id=indicator_id, pre_update_checksum=pre_update_md5_checksum,
-                                                 df=df)
-
+            await validate_indicator_transformed(indicator_id=indicator_id, df=base_file_df, pre_update_checksum=pre_update_md5_checksum)
         except Exception as e:
             logger.error(f"Error uploading to blob: {e}")
             raise

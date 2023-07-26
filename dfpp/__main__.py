@@ -8,23 +8,24 @@ from dfpp.download import download_indicator_sources
 from dfpp.publish import publish
 from dfpp.run_transform import transform_sources
 from dfpp.storage import TMP_SOURCES
+from  distutils.util import strtobool
+from io import  StringIO
+from traceback import  print_exc
 
-parser = argparse.ArgumentParser(
-    description='Convert layers/bands from GDAL supported geospatial data files to COGs/PMtiles.',
-    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser = argparse.ArgumentParser(description='Convert layers/bands from GDAL supported geospatial data files to COGs/PMtiles.',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--run',
                     help='The function to run. options are download, transform, and publish, or all of the functions together like `pipeline`')
-parser.add_argument('-i', '--indicators',
-                    help='The indicator to process. options are all, or a specific indicator like `GDP`',
+parser.add_argument('-i', '--indicators', help='The indicator to process. options are all, or a specific indicator like `GDP`',
                     nargs='+')
 parser.add_argument('-f', '--filter-indicators',
                     help='The indicator to run. options are all, or a specific indicator like `GDP`')
-parser.add_argument('-d', '--debug', type=bool,
+parser.add_argument('-d', '--debug', type=strtobool,
                     help='Set log level to debug', default=False
                     )
 
-
 def run_pipeline():
+
     asyncio.run(main())
 
 
@@ -52,21 +53,17 @@ async def main():
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
-    logger.name = __name__
-    for k, v in TMP_SOURCES.items():
-        exists = os.path.exists(v)
-        if exists:
-            logging.info(f'Removing cache {v} for source {k} ')
-            os.remove(v)
-    args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
+    #logger.name = __name__
 
-    if args.debug:
+    args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
+    if args.debug is True:
         logger.setLevel(logging.DEBUG)
     indicators_from_args = args.indicators
     indicators_from_args_contains = args.filter_indicators
     validate_env()
     try:
         if args.run == 'download':
+            logger.name = 'downloader'
             downloaded_indicators = await download_indicator_sources(
                 indicator_ids=indicators_from_args,
                 indicator_id_contain_filter=indicators_from_args_contains
@@ -94,12 +91,16 @@ async def main():
             # todo clear cache
 
     except Exception as e:
+        with StringIO() as m:
+            print_exc(file=m)
+            em = m.getvalue()
+            logger.error(em)
         logger.error(f'{args.run} failed with exception "{e}"')
     finally:
         for k, v in TMP_SOURCES.items():
             exists = os.path.exists(v)
             if exists:
-                logger.info(f'Removing cache {v} for source {k} ')
+                logger.debug(f'Removing cache {v} for {k} ')
                 os.remove(v)
 
 

@@ -73,6 +73,9 @@ async def type1_transform(**kwargs) -> None:
     for year in year_columns:
         indicator_rename[year_columns[year]] = await rename_indicator(indicator_id, year)
 
+
+
+
     inverted_dictionary = await invert_dictionary(indicator_rename)
     indicator_cols = list(inverted_dictionary.keys())
 

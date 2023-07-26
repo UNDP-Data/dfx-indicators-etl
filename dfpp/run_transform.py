@@ -177,62 +177,68 @@ async def transform_sources(concurrent=False, indicator_ids: List = None):
     """
     Perform transformations for a list of indicators.
     """
-
-    # Initialize the StorageManager
-    async with StorageManager() as storage_manager:
-        if indicator_ids is not None:
-            print(indicator_ids)
-            # Get configurations for specified indicator IDs
-            indicators_cfgs = await storage_manager.get_indicators_cfgs(indicator_ids=indicator_ids)
-        else:
-            # Get configurations for all indicators
-            indicators_cfgs = await storage_manager.get_indicators_cfgs()
-
-        # await storage_manager.delete_blob(blob_path=os.path.join('DataFuturePlatform', 'pipeline', 'config', 'indicators', 'mmrlatest_gii.cfg'))
-        tasks = list()
-        # List to store transformed indicator IDs
-        transformed_indicators = list()
-        # Loop through each indicator configuration and perform transformations
-        for indicator_cfg in indicators_cfgs:
-            indicator_section = indicator_cfg['indicator']
-            indicator_id = indicator_section['indicator_id']
-            if indicator_section.get('preprocessing') is None:
-                # Skip if no preprocessing function is specified
-                logger.info(
-                    f"Skipping preprocessing for indicator {indicator_id} as no preprocessing function is specified")
-                continue
-
-            if not concurrent:
-                # Perform transformation sequentially
-                transformed_indicator_id = await run_transformation_for_indicator(indicator_cfg=indicator_section)
-                transformed_indicators.append(transformed_indicator_id)
+    failed_indicators_ids = list()
+    try:
+        # Initialize the StorageManager
+        async with StorageManager() as storage_manager:
+            if indicator_ids is not None:
+                print(indicator_ids)
+                # Get configurations for specified indicator IDs
+                indicators_cfgs = await storage_manager.get_indicators_cfg(indicator_ids=indicator_ids)
             else:
-                # Create a task for running the transformation for the indicator
-                # Perform transformation concurrently using asyncio tasks
-                transformation_task = asyncio.create_task(
-                    run_transformation_for_indicator(indicator_cfg=indicator_section),
-                    name=indicator_id
-                )
-                tasks.append(transformation_task)
+                # Get configurations for all indicators
+                indicators_cfgs = await storage_manager.get_indicators_cfg()
 
-        if concurrent:
-            done, pending = await asyncio.wait(tasks, timeout=3600 * 3, return_when=asyncio.ALL_COMPLETED)
+            # await storage_manager.delete_blob(blob_path=os.path.join('DataFuturePlatform', 'pipeline', 'config', 'indicators', 'mmrlatest_gii.cfg'))
+            tasks = list()
+            # List to store transformed indicator IDs
+            transformed_indicators = list()
+            # Loop through each indicator configuration and perform transformations
+            for indicator_cfg in indicators_cfgs:
+                indicator_section = indicator_cfg['indicator']
+                indicator_id = indicator_section['indicator_id']
+                if indicator_section.get('preprocessing') is None:
+                    # Skip if no preprocessing function is specified
+                    logger.info(
+                        f"Skipping preprocessing for indicator {indicator_id} as no preprocessing function is specified")
+                    continue
 
-            for task in done:
-                indicator_id = task.get_name()
-                if task.exception():
-                    logger.error(f'Transform for {indicator_id} failed with error:\n'
-                                 f'"{task.exception()}"')
-                    await asyncio.sleep(3)
+                if not concurrent:
+                    # Perform transformation sequentially
+                    transformed_indicator_id = await run_transformation_for_indicator(indicator_cfg=indicator_section)
+                    transformed_indicators.append(transformed_indicator_id)
                 else:
-                    logger.info(f'Transform for {indicator_id} was executed successfully')
-                    transformed_indicators.append(indicator_id)
-            # # Handle timed out tasks
-            for task in pending:
-                # Cancel task and wait for cancellation to complete
-                task.cancel()
-                await task
-        return transformed_indicators
+                    # Create a task for running the transformation for the indicator
+                    # Perform transformation concurrently using asyncio tasks
+                    transformation_task = asyncio.create_task(
+                        run_transformation_for_indicator(indicator_cfg=indicator_section),
+                        name=indicator_id
+                    )
+                    tasks.append(transformation_task)
+
+            if concurrent:
+                done, pending = await asyncio.wait(tasks, timeout=3600 * 3, return_when=asyncio.ALL_COMPLETED)
+
+                for task in done:
+                    indicator_id = task.get_name()
+                    if task.exception():
+                        logger.error(f'Transform for {indicator_id} failed with error:\n'
+                                     f'"{task.exception()}"')
+                        await asyncio.sleep(3)
+                    else:
+                        logger.info(f'Transform for {indicator_id} was executed successfully')
+                        transformed_indicators.append(indicator_id)
+                # # Handle timed out tasks
+                for task in pending:
+                    # Cancel task and wait for cancellation to complete
+                    indicator_id = task.get_name()
+                    failed_indicators_ids.append(indicator_id)
+                    task.cancel()
+                    await task
+            logger.info(f'Transformation complete for {len(transformed_indicators)} indicators with {len(failed_indicators_ids)} failed indicators')
+            return transformed_indicators
+    except Exception as e:
+        raise e
 
 if __name__ == "__main__":
     logging.basicConfig()
