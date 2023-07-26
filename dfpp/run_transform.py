@@ -77,6 +77,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project: 
 
     # Ensure the indicator configuration is provided
     assert indicator_cfg is not None, 'Indicator config must be specified'
+    assert project is not None, 'Project must be specified'
     try:
         # Get the indicator ID from the configuration
         indicator_id = indicator_cfg['indicator_id']
@@ -208,13 +209,13 @@ async def transform_sources(concurrent=False, indicator_ids: List = None, projec
 
                 if not concurrent:
                     # Perform transformation sequentially
-                    transformed_indicator_id = await run_transformation_for_indicator(indicator_cfg=indicator_section)
+                    transformed_indicator_id = await run_transformation_for_indicator(indicator_cfg=indicator_section, project=project)
                     transformed_indicators.append(transformed_indicator_id)
                 else:
                     # Create a task for running the transformation for the indicator
                     # Perform transformation concurrently using asyncio tasks
                     transformation_task = asyncio.create_task(
-                        run_transformation_for_indicator(indicator_cfg=indicator_section),
+                        run_transformation_for_indicator(indicator_cfg=indicator_section, project=project),
                         name=indicator_id
                     )
                     tasks.append(transformation_task)
@@ -222,8 +223,11 @@ async def transform_sources(concurrent=False, indicator_ids: List = None, projec
             if concurrent:
                 done, pending = await asyncio.wait(tasks, timeout=3600 * 3, return_when=asyncio.ALL_COMPLETED)
 
+                logger.info(f"Collecting results from {len(done)} tasks")
                 for task in done:
                     indicator_id = task.get_name()
+                    done_t = task.result()
+                    print(done_t)
                     if task.exception():
                         logger.error(f'Transform for {indicator_id} failed with error:\n'
                                      f'"{task.exception()}"')
@@ -233,7 +237,7 @@ async def transform_sources(concurrent=False, indicator_ids: List = None, projec
                         transformed_indicators.append(indicator_id)
                 # # Handle timed out tasks
                 for task in pending:
-                    # Cancel task and wait for cancellation to complete
+                    # Cancel a task and wait for cancellation to complete
                     indicator_id = task.get_name()
                     failed_indicators_ids.append(indicator_id)
                     task.cancel()

@@ -400,9 +400,10 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
         indicator_id (str): The indicator ID.
         df (pandas.DataFrame): The DataFrame to upload.
         blob_name (str): The name of the blob file in Azure Blob Storage.
-
+        project (str): The project to upload the blob file to.
     Returns:
         bool: True if the upload was successful, False otherwise.
+        :param project:
     """
     # print(df.columns.to_list())
 
