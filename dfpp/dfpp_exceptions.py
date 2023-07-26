@@ -4,3 +4,11 @@ class ConfigError(Exception):
 
 class DFPSourceError(Exception):
     pass
+
+
+class TransformationError(Exception):
+    pass
+
+
+class TransformationWarning(Warning):
+    pass

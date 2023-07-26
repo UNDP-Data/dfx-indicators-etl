@@ -21,7 +21,7 @@ from dfpp.constants import STANDARD_KEY_COLUMN
 from dfpp.utils import chunker
 import asyncio
 
-DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=120,connect=5, sock_connect=5, sock_read=5)
+DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=120, connect=5, sock_connect=5, sock_read=5)
 
 logger = logging.getLogger(__name__)
 
@@ -759,13 +759,10 @@ async def download_indicator_sources(
         indicator_id_contain_filter: str = None,
         concurrent_chunk_size: int = 50
 ) -> list[str]:
-
-
     failed_source_ids = []
     skipped_source_ids = []
     source_indicator_map = {}
     source_indicator_map_tod = {}
-
 
     async with StorageManager() as storage_manager:
         logger.debug(f'Connected to Azure blob')

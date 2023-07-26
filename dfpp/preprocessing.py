@@ -364,7 +364,8 @@ async def eb_wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
     """
     basic_sanity(bytes_data=bytes_data)
     global df
-    indicator = kwargs.get("indicator")
+    indicator_name = "Ease of doing business score"
+    assert indicator_name is not None, f'indicator_id is not set in kwargs'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
@@ -375,24 +376,32 @@ async def eb_wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
             2010: '(DB10-14 methodology)'
         }
         group_df = source_df.groupby('DB Year')
+
         group_column_mapping = {}
         for year in group_df.groups.keys():
             for db_year in year_col_mapping.keys():
                 if int(year) >= db_year:
                     indicator_suffix = year_col_mapping[db_year]
-                    if (" ".join([indicator, indicator_suffix])) not in group_column_mapping.keys():
-                        group_column_mapping[" ".join([indicator, indicator_suffix])] = []
-                    group_column_mapping[" ".join([indicator, indicator_suffix])].append(year)
+                    if " ".join([indicator_name, indicator_suffix]) not in group_column_mapping.keys():
+                        group_column_mapping[" ".join([indicator_name, indicator_suffix])] = []
+                    group_column_mapping[" ".join([indicator_name, indicator_suffix])].append(year)
                     break
+
             for key in group_column_mapping.keys():
                 df = pd.concat(group_df.get_group(year) for year in group_column_mapping[key])
                 df['DB Year'] = df['DB Year'].apply(lambda x: datetime.strptime(str(int(float(x))), '%Y'))
-
         # Return the preprocessed DataFrame
+        pd.set_option('display.max_columns', None)
+        df = df[['Country code', 'Economy', 'Ease of doing business score (DB17-20 methodology)', 'Ease of doing business score (DB15 methodology)', 'Ease of doing business score (DB10-14 methodology)']]
+        df.rename(columns={
+            'Ease of doing business score (DB17-20 methodology)': '2016',
+            'Ease of doing business score (DB15 methodology)': '2014',
+            'Ease of doing business score (DB10-14 methodology)': '2010'
+        }, inplace=True)
         return df
     except Exception as e:
         logger.error(f"Error in eb_wbdb_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def fao_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1130,11 +1139,10 @@ async def mdp_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
 
         async def mdp_metadata():
-            storage = await StorageManager()
-            country_df_bytes = await storage.download(
-                blob_name=os.path.join(os.environ.get("ROOT_FOLDER"), 'config', 'utilities', 'MDP_META.json'))
-            await storage.close()
-            return country_df_bytes
+            async with StorageManager() as storage:
+                country_df_bytes = await storage.download(
+                    blob_name=os.path.join(os.environ.get("ROOT_FOLDER"), 'config', 'utilities', 'MDP_META.json'))
+                return country_df_bytes
 
         # Read the country metadata JSON file into a DataFrame
         country_df = pd.read_json(io.BytesIO(await mdp_metadata()))
@@ -1897,7 +1905,6 @@ async def wbank_access_elec_transform_preprocessing(bytes_data: bytes = None, **
         # Rename the columns to match the desired format
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
-
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
@@ -1947,6 +1954,8 @@ async def wbank_info_transform_preprocessing(bytes_data: bytes = None, sheet_nam
         pandas.DataFrame: The preprocessed DataFrame for the World Bank Information transform.
 
     """
+    assert sheet_name is not None, "Sheet name cannot be None"
+
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -1964,8 +1973,6 @@ async def wbank_info_transform_preprocessing(bytes_data: bytes = None, sheet_nam
 
         # Remove the first row (header row) from the DataFrame
         source_df = source_df.iloc[1:]
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
-                         inplace=True)
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:

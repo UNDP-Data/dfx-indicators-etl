@@ -2,14 +2,15 @@ import asyncio
 import io
 import itertools
 import logging
+import warnings
 import os
 import numpy as np
 import pandas as pd
 from dfpp.storage import StorageManager
+
+from dfpp.dfpp_exceptions import TransformationError, TransformationWarning
+from dfpp.storage import StorageManager
 from dfpp.constants import COUNTRY_LOOKUP_CSV_PATH, STANDARD_KEY_COLUMN
-
-
-
 
 logger = logging.getLogger(__name__)
 
@@ -201,8 +202,8 @@ async def get_year_columns(columns, col_prefix=None, col_suffix=None, column_sub
             year_columns[year] = column
         except Exception as e:
             pass
-    if not year_columns:
-        raise RuntimeError(f'Could not establish year data columns for {indicator_id}')
+    # if not year_columns:
+    #     raise RuntimeError(f'Could not establish year data columns for {indicator_id}')
     return year_columns
 
 
@@ -289,7 +290,6 @@ async def country_group_dataframe():
             # Concatenate the country group and aggregate territory group DataFrames
             df = pd.concat([df, df_aggregates], ignore_index=True)
 
-
             return df
         except Exception as e:
             logger.error("Error retrieving country group DataFrame: " + str(e))
@@ -340,18 +340,76 @@ def chunker(iterable, size):
         yield chunk
 
 
-async def update_base_file(df=None, blob_name=None):
+async def validate_indicator_transformed(indicator_id: str = None, pre_update_checksum: str = None,
+                                         df: pd.DataFrame = None):
+    """
+    Validates that a transformed indicator DataFrame contains the required columns.
+
+    Args:
+        indicator_id (str): The indicator ID.
+        pre_update_checksum (str): The checksum of the base DataFrame.
+        df (pandas.DataFrame): The transformed indicator DataFrame.
+
+    Raises:
+        ValueError: If the DataFrame does not contain the required columns.
+
+    """
+    assert indicator_id is not None, "Indicator ID is required"
+    assert df is not None, "DataFrame is required"
+    assert isinstance(df, pd.DataFrame), "DataFrame must be a pandas DataFrame"
+    assert pre_update_checksum is not None, "Base DataFrame checksum is required"
+    try:
+        async with StorageManager() as storage_manager:
+            indicator_configuration = await storage_manager.get_indicator_cfg(indicator_id=indicator_id)
+            source_id = indicator_configuration.get("indicator").get("source_id")
+            base_file_name = f"{source_id}.csv"
+
+            df_columns = df.columns.to_list()
+            columns_with_indicators = [column for column in df_columns if column.startswith(f"{indicator_id}_")]
+
+            # Check that the indicator columns are present
+            if len(columns_with_indicators) == 0:
+                raise TransformationError(
+                    f"Indicator {indicator_id} not found in columns of base file {source_id}.csv. This is likely due to a transformation error that occurred during the transformation process. Please check the transformation logs for more details.")
+            years_columns = await get_year_columns(columns=df_columns, col_prefix=f"{indicator_id}_")
+
+            # if the columns are present, check that all the columns have at least some data
+            indicator_base_columns = [column for column in df_columns if column in years_columns.values()]
+            base_with_data = df[indicator_base_columns].dropna(how='all')
+            if base_with_data.empty:
+                raise TransformationError(
+                    f"Indicator {indicator_id} has no data. This is likely due to a transformation error that occurred during the transformation process or absent data in the source file. Please check the transformation logs for more details.")
+
+            # Compare previous md5 checksum with current md5 checksum
+            md5_checksum = await storage_manager.get_md5_checksum(
+                os.path.join(storage_manager.ROOT_FOLDER, 'output', 'access_all_data', 'base', base_file_name))
+            if md5_checksum == pre_update_checksum:
+                warnings.warn(
+                    f"Base file {base_file_name} has not changed since the last transformation. This could be because of no new data since previous transformation, or that transformation failed for indicator {indicator_id}.",
+                    TransformationWarning)
+    except Exception as e:
+        logger.error(f"Error validating indicator {indicator_id}: {e}")
+        raise
+
+
+async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, blob_name: str = None):
     """
     Uploads a DataFrame as a CSV file to Azure Blob Storage.
 
     Args:
+        indicator_id (str): The indicator ID.
         df (pandas.DataFrame): The DataFrame to upload.
         blob_name (str): The name of the blob file in Azure Blob Storage.
 
     Returns:
         bool: True if the upload was successful, False otherwise.
     """
+    # print(df.columns.to_list())
+
     async with StorageManager() as storage_manager:
+        pre_update_md5_checksum = await storage_manager.get_md5_checksum(
+            os.path.join(storage_manager.ROOT_FOLDER, 'output', 'access_all_data', 'base', blob_name)
+        )
         try:
             # Reset the index of the DataFrame
             # df.reset_index(inplace=True)
@@ -420,11 +478,8 @@ async def update_base_file(df=None, blob_name=None):
                 overwrite=True,
                 content_type="text/csv"
             )
-
-
-
+            await validate_indicator_transformed(indicator_id=indicator_id, df=base_file_df, pre_update_checksum=pre_update_md5_checksum)
         except Exception as e:
-
             logger.error(f"Error uploading to blob: {e}")
             raise
 

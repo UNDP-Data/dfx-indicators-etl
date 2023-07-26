@@ -11,6 +11,7 @@ from dfpp.storage import TMP_SOURCES
 from  distutils.util import strtobool
 from io import  StringIO
 from traceback import  print_exc
+
 parser = argparse.ArgumentParser(description='Convert layers/bands from GDAL supported geospatial data files to COGs/PMtiles.',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--run',
@@ -68,7 +69,7 @@ async def main():
                 indicator_id_contain_filter=indicators_from_args_contains
             )
         if args.run == 'transform':
-            await transform_sources(concurrent=True)
+            await transform_sources(concurrent=True, indicator_ids=indicators_from_args)
         if args.run == 'publish':
             await publish()
         if args.run == 'pipeline':
