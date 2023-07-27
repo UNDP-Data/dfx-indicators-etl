@@ -63,12 +63,13 @@ async def read_source_file_for_indicator(indicator_source: str = None):
             raise
 
 
-async def run_transformation_for_indicator(indicator_cfg: dict = None):
+async def run_transformation_for_indicator(indicator_cfg: dict = None, project:str=None):
     """
     Run transformation for a specific indicator.
 
     :param indicator_cfg: Configuration section for the indicator.
     :type indicator_cfg: dict
+    :param project: The project to run the transformation for
     :return: The transformed data based on the indicator.
     :rtype: str
     """
@@ -162,6 +163,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None):
                 column_prefix=None if indicator_cfg.get('column_prefix', None) == "None" else indicator_cfg.get('column_prefix', None),
                 column_suffix=None if indicator_cfg.get('column_suffix', None) == "None" else indicator_cfg.get('column_suffix', None),
                 column_substring=None if indicator_cfg.get('column_substring', None) == "None" else indicator_cfg.get('column_substring', None),
+                project=project
             )
 
         else:
@@ -175,6 +177,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None):
 
 async def transform_sources(concurrent=False,
                             indicator_ids: List = None,
+                            project:str=None,
                             concurrent_chunk_size: int = 50) -> List[str]:
     """
     Perform transformations for a list of indicators.
@@ -183,7 +186,7 @@ async def transform_sources(concurrent=False,
     skipped_indicators_id = list()
 
 
-    logger.info(f'Tranforming {len(indicator_ids)}')
+    # logger.info(f'Tranforming {len(indicator_ids)}')
     # Initialize the StorageManager
     async with StorageManager() as storage_manager:
 
@@ -208,13 +211,13 @@ async def transform_sources(concurrent=False,
 
                 if not concurrent:
                     # Perform transformation sequentially
-                    transformed_indicator_id = await run_transformation_for_indicator(indicator_cfg=indicator_section)
+                    transformed_indicator_id = await run_transformation_for_indicator(indicator_cfg=indicator_section, project=project)
                     transformed_indicators.append(transformed_indicator_id)
                 else:
                     # Create a task for running the transformation for the indicator
                     # Perform transformation concurrently using asyncio tasks
                     transformation_task = asyncio.create_task(
-                        run_transformation_for_indicator(indicator_cfg=indicator_section),
+                        run_transformation_for_indicator(indicator_cfg=indicator_section, project=project),
                         name=indicator_id
                     )
                     tasks.append(transformation_task)

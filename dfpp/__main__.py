@@ -68,7 +68,7 @@ async def main():
                 indicator_id_contain_filter=indicators_from_args_contains
             )
         elif args.stage == 'transform':
-            await transform_sources(concurrent=True, indicator_ids=indicators_from_args)
+            await transform_sources(concurrent=True, indicator_ids=indicators_from_args, project="access_all_data")
         elif args.stage == 'publish':
             await publish()
         else:

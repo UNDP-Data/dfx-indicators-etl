@@ -1,5 +1,6 @@
 import asyncio
 import configparser
+import hashlib
 import logging
 from typing import Any, AsyncGenerator, Dict, Generator, List, Optional, Tuple
 from azure.core.exceptions import ResourceNotFoundError
@@ -106,7 +107,7 @@ class StorageManager:
         self.container_client = AContainerClient.from_connection_string(conn_str=self.conn_str,
                                                                         container_name=self.container_name)
         self.sync_container_client = ContainerClient.from_connection_string(conn_str=self.conn_str,
-                                                                        container_name=self.container_name)
+                                                                            container_name=self.container_name)
         self.clear_cache = clear_cache
         self.ROOT_FOLDER = root_folder
         self.INDICATORS_CFG_PATH = os.path.join(self.ROOT_FOLDER, self.REL_INDICATORS_CFG_PATH)
@@ -132,16 +133,24 @@ class StorageManager:
                 f'\t SOURCES_PATH: {self.SOURCES_PATH}\n'
                 f'\t OUTPUT_PATH: {self.OUTPUT_PATH}\n')
 
-    async def get_md5_checksum(self, blob_name: str):
+    async def get_md5_checksum(self, blob_name: str = None, data: bytes = None):
         """
         :param blob_name:
+        :param data:
         :return:
         """
         assert blob_name is not None, f'blob_name is None'
-        assert await self.check_blob_exists(blob_name), f'Blob {blob_name} does not exist'
-        blob_client = self.container_client.get_blob_client(blob=blob_name)
-        properties = await blob_client.get_blob_properties()
-        return properties['content_settings']['content_md5']
+        # assert await self.check_blob_exists(blob_name), f'Blob {blob_name} does not exist'
+        if await self.check_blob_exists(blob_name):
+            blob_client = self.container_client.get_blob_client(blob=blob_name)
+            properties = await blob_client.get_blob_properties()
+            return properties['content_settings']['content_md5']
+        else:
+            if data is not None:
+                md5_hash = hashlib.md5(data).hexdigest()
+                return md5_hash
+            else:
+                raise ValueError("Data is None and the blob does not exist.")
 
     async def list_indicators(self):
         logger.info(f'Listing {self.INDICATORS_CFG_PATH}')
@@ -402,9 +411,8 @@ class StorageManager:
                     data: bytes = None,
                     content_type: str = None,
                     overwrite: bool = True,
-                    max_concurrency:int = 8
+                    max_concurrency: int = 8
                     ):
-
 
         try:
 
@@ -414,7 +422,6 @@ class StorageManager:
                 progress = current / total * 100
                 rounded_progress = int(math.floor(progress))
                 logger.info(f'{blob_name} was uploaded - {rounded_progress}%')
-
 
             blob_client = self.sync_container_client.get_blob_client(blob=dst_path)
             if src_path:
@@ -441,9 +448,6 @@ class StorageManager:
                 raise ValueError("Either 'src_path' or 'data' must be provided.")
         except Exception as e:
             raise e
-
-
-
 
     async def download(
             self, blob_name: str = None, dst_path: str = None

@@ -12,7 +12,8 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-def basic_sanity(bytes_data:bytes=None):
+
+def basic_sanity(bytes_data: bytes = None):
     assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
 
 
@@ -191,7 +192,6 @@ async def cpia_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd
 
         # Read the CSV data into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data), header=2)
-
 
         # Replace ".." with NaN values
         source_df.replace("..", np.nan, inplace=True)
@@ -392,7 +392,9 @@ async def eb_wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
                 df['DB Year'] = df['DB Year'].apply(lambda x: datetime.strptime(str(int(float(x))), '%Y'))
         # Return the preprocessed DataFrame
         pd.set_option('display.max_columns', None)
-        df = df[['Country code', 'Economy', 'Ease of doing business score (DB17-20 methodology)', 'Ease of doing business score (DB15 methodology)', 'Ease of doing business score (DB10-14 methodology)']]
+        df = df[['Country code', 'Economy', 'Ease of doing business score (DB17-20 methodology)',
+                 'Ease of doing business score (DB15 methodology)',
+                 'Ease of doing business score (DB10-14 methodology)']]
         df.rename(columns={
             'Ease of doing business score (DB17-20 methodology)': '2016',
             'Ease of doing business score (DB15 methodology)': '2014',
@@ -851,6 +853,7 @@ async def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None, **k
 
         # Replace "--" values with NaN
         source_df.replace("--", np.nan, inplace=True)
+
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
         # Return the preprocessed DataFrame
@@ -875,7 +878,8 @@ async def imf_weo_gdp_transform_preprocessing(bytes_data: bytes = None, **kwargs
         source_df.replace("--", np.nan, inplace=True)
         return source_df
     except Exception as e:
-        logger.error(f"Error in imf_weo_gdp_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in imf_weo_gdp_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         # raise e
     pass
 
@@ -892,6 +896,7 @@ async def imf_weo_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
 
     """
     basic_sanity(bytes_data=bytes_data)
+
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -2186,7 +2191,6 @@ async def who_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the JSON data into a DataFrame
         source_df = pd.read_json(io.BytesIO(bytes_data))
-
         # Extract the "value" column
         source_df = source_df["value"]
 
@@ -2232,7 +2236,7 @@ async def ilo_spf_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
 
 async def imf_ifi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="financial assistance", header=3)
-    source_df2=pd.read_excel(io.BytesIO(bytes_data), sheet_name="debt-relief")
+    source_df2 = pd.read_excel(io.BytesIO(bytes_data), sheet_name="debt-relief")
     source_df2.rename(columns={"country": "Country", "source": "Type of Emergency Financing",
                                "amount approved in SDR": "Amount Approved in SDR",
                                "amount approved in USD": "Amount Approved in US$",
@@ -2242,6 +2246,13 @@ async def imf_ifi_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         lambda x: datetime.strptime(str(x).rsplit(" ")[0], '%Y-%m-%d'))
     source_df["Amount Approved in US$"] = source_df["Amount Approved in US$"].apply(
         lambda x: float(x.rsplit("mill")[0].replace(",", "").replace("US$", "")) * (10 ** 6))
+    return source_df
+
+
+async def who_global_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
+    source_df["Date_reported"] = source_df["Date_reported"].apply(lambda x: datetime.strptime(str(x), '%Y-%m-%d'))
+    print(source_df.head())
     return source_df
 
 

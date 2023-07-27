@@ -37,8 +37,8 @@ async def type1_transform(**kwargs) -> None:
         raise ValueError("The 'source_df' argument is required.")
 
     value_column = kwargs.get('value_column', None)
-    if value_column is None:
-        raise ValueError("The 'value_column' argument is required for type1_transform.")
+    # if value_column is None:
+    #     raise ValueError("The 'value_column' argument is required for type1_transform.")
 
     indicator_id = kwargs.get('indicator_id', None)
     base_filename = kwargs.get('base_filename', None)
@@ -66,7 +66,8 @@ async def type1_transform(**kwargs) -> None:
         df.dropna(inplace=True, axis=1, how="all")
     else:
         df = source_df.copy()
-
+    print("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
+    print(source_df.head())
     # Get year columns based on column_prefix, column_suffix, or column_substring
     year_columns = await get_year_columns(df.columns, col_prefix=column_prefix, col_suffix=column_suffix,
                                           column_substring=column_substring)
@@ -74,9 +75,6 @@ async def type1_transform(**kwargs) -> None:
     indicator_rename = {}
     for year in year_columns:
         indicator_rename[year_columns[year]] = await rename_indicator(indicator_id, year)
-
-
-
 
     inverted_dictionary = await invert_dictionary(indicator_rename)
     indicator_cols = list(inverted_dictionary.keys())
@@ -121,7 +119,7 @@ async def type1_transform(**kwargs) -> None:
     await update_base_file(indicator_id=indicator_id, df=df, blob_name=save_as, project=project)
 
 
-async def type2_transform(**kwargs) -> str:
+async def type2_transform(**kwargs):
     """
     Transforms a DataFrame based on the provided parameters.
 
@@ -297,6 +295,7 @@ async def type3_transform(**kwargs) -> None:
     region_column = kwargs.get('region_column', None)
     project = kwargs.get('project')
 
+
     assert isinstance(source_df, pd.DataFrame), "source_df must be a pandas DataFrame"
     assert indicator_id is not None, "indicator_id must be provided"
     assert base_filename is not None, "base_filename must be provided"
@@ -384,7 +383,7 @@ async def type3_transform(**kwargs) -> None:
                 unique_index_df.at[group] = df
 
         unique_index_df.reset_index(inplace=True)
-
     # Save the transformed DataFrame to a CSV file and upload it as a blob
-    await update_base_file(indicator_id=indicator_id, df=unique_index_df, blob_name=base_filename + ".csv", project=project)
+    await update_base_file(indicator_id=indicator_id, df=unique_index_df, blob_name=base_filename + ".csv",
+                           project=project)
     # await update_base_file(df=unique_index_df, blob_name=

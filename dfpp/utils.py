@@ -382,7 +382,7 @@ async def validate_indicator_transformed(storage_manager: StorageManager, indica
 
         # Compare previous md5 checksum with current md5 checksum
         md5_checksum = await storage_manager.get_md5_checksum(
-            os.path.join(storage_manager.ROOT_FOLDER, 'output', 'access_all_data', 'base', base_file_name))
+            blob_name=os.path.join(storage_manager.ROOT_FOLDER, 'output', 'access_all_data', 'base', base_file_name))
         if md5_checksum == pre_update_checksum:
             warnings.warn(
                 f"Base file {base_file_name} has not changed since the last transformation. This could be because of no new data since previous transformation, or that transformation failed for indicator {indicator_id}.",
@@ -403,13 +403,13 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
         project (str): The project to upload the blob file to.
     Returns:
         bool: True if the upload was successful, False otherwise.
-        :param project:
     """
     # print(df.columns.to_list())
 
     async with StorageManager() as storage_manager:
         pre_update_md5_checksum = await storage_manager.get_md5_checksum(
-            os.path.join(storage_manager.ROOT_FOLDER, 'output', project, 'base', blob_name)
+            blob_name=os.path.join(storage_manager.ROOT_FOLDER, 'output', project, 'base', blob_name),
+            data=df.to_csv().encode('utf-8')
         )
         try:
             # Reset the index of the DataFrame
