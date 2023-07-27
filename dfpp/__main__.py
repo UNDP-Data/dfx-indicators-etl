@@ -20,7 +20,7 @@ parser.add_argument('-i', '--indicators', help='The indicator/s to process. If n
                                                'will be processed',
                     nargs='+')
 parser.add_argument('-f', '--filter-indicators',
-                    help='Process only indicatpors whose id contains this string')
+                    help='Process only indicators whose id contains this string')
 parser.add_argument('-d', '--debug', type=strtobool,
                     help='Set log level to debug', default=False
                     )

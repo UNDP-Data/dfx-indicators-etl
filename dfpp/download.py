@@ -773,7 +773,7 @@ async def download_indicator_sources(
                     except Exception as e:
 
                         raise e
-            download_tasks = []
+
 
     downloaded_indicators = sorted([item for sublist in source_indicator_map.values() for item in sublist])
 
