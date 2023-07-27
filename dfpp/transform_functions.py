@@ -23,6 +23,7 @@ async def type1_transform(**kwargs) -> None:
         group_name (str): Name of the group.
         aggregate (bool): Flag indicating whether to aggregate the data.
         keep (str): Value to keep during aggregation.
+        project (str): Project to run.
 
     Returns:
         None
@@ -50,6 +51,7 @@ async def type1_transform(**kwargs) -> None:
     group_name = kwargs.get('group_name', None)
     aggregate = kwargs.get('aggregate', False)
     keep = kwargs.get('keep', 'last')
+    project = kwargs.get('project')
 
     assert isinstance(source_df, pd.DataFrame), "source_df must be a pandas DataFrame"
     assert indicator_id is not None, "indicator_id must be provided"
@@ -116,7 +118,7 @@ async def type1_transform(**kwargs) -> None:
         df = df[[key_column, country_column] + indicator_cols]
 
     save_as = base_filename + ".csv"
-    await update_base_file(indicator_id=indicator_id, df=df, blob_name=save_as)
+    await update_base_file(indicator_id=indicator_id, df=df, blob_name=save_as, project=project)
 
 
 async def type2_transform(**kwargs) -> str:
@@ -138,6 +140,7 @@ async def type2_transform(**kwargs) -> str:
         return_dataframe (bool): Whether to return the transformed DataFrame.
         country_code_aggregate (bool): Whether to aggregate by country code.
         region_column (str): The name of the region column.
+        project (str): The project to run.
 
     Returns:
         str: The name of the uploaded CSV file in the blob storage.
@@ -163,6 +166,7 @@ async def type2_transform(**kwargs) -> str:
     return_dataframe = kwargs.get('return_dataframe', True)
     country_code_aggregate = kwargs.get('country_code_aggregate', False)
     region_column = kwargs.get('region_column', None)
+    project = kwargs.get('project')
 
     assert isinstance(source_df, pd.DataFrame), "source_df must be a pandas DataFrame"
     assert indicator_id is not None, "indicator_id must be provided"
@@ -240,7 +244,7 @@ async def type2_transform(**kwargs) -> str:
 
     # Save the transformed DataFrame to a CSV file and upload it as a blob
     save_as = base_filename + ".csv"
-    await update_base_file(indicator_id=indicator_id, df=df, blob_name=save_as)
+    await update_base_file(indicator_id=indicator_id, df=df, blob_name=save_as, project=project)
 
 
 async def type3_transform(**kwargs) -> None:
@@ -263,6 +267,7 @@ async def type3_transform(**kwargs) -> None:
         country_code_aggregate (bool): Flag indicating whether to aggregate by country code.
         return_dataframe (bool): Flag indicating whether to return the transformed DataFrame.
         region_column (str): Name of the region column.
+        project (str): Project to run.
 
     Returns:
         None
@@ -290,6 +295,7 @@ async def type3_transform(**kwargs) -> None:
     country_code_aggregate = kwargs.get('country_code_aggregate', False)
     return_dataframe = kwargs.get('return_dataframe', False)
     region_column = kwargs.get('region_column', None)
+    project = kwargs.get('project')
 
     assert isinstance(source_df, pd.DataFrame), "source_df must be a pandas DataFrame"
     assert indicator_id is not None, "indicator_id must be provided"
@@ -380,5 +386,5 @@ async def type3_transform(**kwargs) -> None:
         unique_index_df.reset_index(inplace=True)
 
     # Save the transformed DataFrame to a CSV file and upload it as a blob
-    await update_base_file(indicator_id=indicator_id, df=unique_index_df, blob_name=base_filename + ".csv")
+    await update_base_file(indicator_id=indicator_id, df=unique_index_df, blob_name=base_filename + ".csv", project=project)
     # await update_base_file(df=unique_index_df, blob_name=
