@@ -14,18 +14,18 @@ from traceback import  print_exc
 
 parser = argparse.ArgumentParser(description='Convert layers/bands from GDAL supported geospatial data files to COGs/PMtiles.',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('--run',
-                    help='The function to run. options are download, transform, and publish, or all of the functions together like `pipeline`')
-parser.add_argument('-i', '--indicators', help='The indicator to process. options are all, or a specific indicator like `GDP`',
+parser.add_argument('-s', '--stage',
+                    help='The stage to run. Options are: download, transform, and publish')
+parser.add_argument('-i', '--indicators', help='The indicator/s to process. If not supplied all detected indicators '
+                                               'will be processed',
                     nargs='+')
 parser.add_argument('-f', '--filter-indicators',
-                    help='The indicator to run. options are all, or a specific indicator like `GDP`')
+                    help='Process only indicatpors whose id contains this string')
 parser.add_argument('-d', '--debug', type=strtobool,
                     help='Set log level to debug', default=False
                     )
 
 def run_pipeline():
-
     asyncio.run(main())
 
 
@@ -53,7 +53,7 @@ async def main():
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
-    #logger.name = __name__
+    logger.name = 'dfpp'
 
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     if args.debug is True:
@@ -62,40 +62,37 @@ async def main():
     indicators_from_args_contains = args.filter_indicators
     validate_env()
     try:
-        if args.run == 'download':
-            logger.name = 'downloader'
-            downloaded_indicators = await download_indicator_sources(
+        if args.stage == 'download':
+            await download_indicator_sources(
                 indicator_ids=indicators_from_args,
                 indicator_id_contain_filter=indicators_from_args_contains
             )
-        if args.run == 'transform':
+        elif args.stage == 'transform':
             await transform_sources(concurrent=True, indicator_ids=indicators_from_args)
-        if args.run == 'publish':
+        elif args.stage == 'publish':
             await publish()
-        if args.run == 'pipeline':
+        else:
             logging.info('Starting pipeline....')
-            await sleep(5)
+            await sleep(1)
             logger.info('Downloading data....')
             downloaded_indicator_ids = await download_indicator_sources(indicator_ids=indicators_from_args)
             logger.info('Downloading Data Complete....')
             logger.info('Transforming data....')
-            await sleep(5)
+            await sleep(1)
             transformed_indicator_ids = await transform_sources(indicator_ids=downloaded_indicator_ids)
             logger.info('Transforming Data Complete....')
-            logger.info('Publishing data....')
-            await sleep(5)
-            await publish(indicator_ids=transformed_indicator_ids)
-            logger.info('Publishing Data Complete....')
-            # TODO report function
+            # logger.info('Publishing data....')
+            # await sleep(1)
+            # await publish(indicator_ids=transformed_indicator_ids)
+            # logger.info('Publishing Data Complete....')
 
-            # todo clear cache
 
     except Exception as e:
         with StringIO() as m:
             print_exc(file=m)
             em = m.getvalue()
             logger.error(em)
-        logger.error(f'{args.run} failed with exception "{e}"')
+        
     finally:
         for k, v in TMP_SOURCES.items():
             exists = os.path.exists(v)
