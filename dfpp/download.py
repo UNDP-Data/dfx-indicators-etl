@@ -609,12 +609,13 @@ async def call_function(function_name, *args, **kwargs) -> Any:
 
 
 async def download_for_indicator(indicator_cfg: Dict[str, Any], source_cfg: Dict[str, Any],
-                                 storage_manager: StorageManager):
+                                 storage_manager: StorageManager, sync_upload=False):
     """
 
     :param indicator_cfg:
     :param source_cfg:
     :param storage_manager:
+    :param sync_upload: default=False, use sync blob client to upload
     :return: number of downloaded/uploaded bytes
     """
     source_id = indicator_cfg['indicator']['source_id']
@@ -659,14 +660,23 @@ async def download_for_indicator(indicator_cfg: Dict[str, Any], source_cfg: Dict
     if data is not None:
 
         dst_path = os.path.join(storage_manager.SOURCES_PATH, source_cfg['source']['save_as'])
-        await asyncio.create_task(
-            storage_manager.upload(
+        if sync_upload is False:
+            await asyncio.create_task(
+                storage_manager.upload(
+                    data=data,
+                    content_type=content_type,
+                    dst_path=dst_path,
+                    overwrite=True
+                )
+            )
+        else:
+            storage_manager.sync_upload(
                 data=data,
                 content_type=content_type,
                 dst_path=dst_path,
                 overwrite=True
             )
-        )
+
 
         return len(data)
     else:

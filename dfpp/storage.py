@@ -101,9 +101,12 @@ class StorageManager:
                  container_name: str = AZURE_STORAGE_CONTAINER_NAME,
                  root_folder=ROOT_FOLDER,
                  clear_cache: bool = False):
-        self.container_client = AContainerClient.from_connection_string(conn_str=connection_string,
-                                                                        container_name=container_name)
+        self.conn_str = connection_string
         self.container_name = container_name
+        self.container_client = AContainerClient.from_connection_string(conn_str=self.conn_str,
+                                                                        container_name=self.container_name)
+        self.sync_container_client = ContainerClient.from_connection_string(conn_str=self.conn_str,
+                                                                        container_name=self.container_name)
         self.clear_cache = clear_cache
         self.ROOT_FOLDER = root_folder
         self.INDICATORS_CFG_PATH = os.path.join(self.ROOT_FOLDER, self.REL_INDICATORS_CFG_PATH)
@@ -392,6 +395,55 @@ class StorageManager:
                 raise ValueError("Either 'src_path' or 'data' must be provided.")
         except Exception as e:
             raise e
+
+    def sync_upload(self,
+                    dst_path: str = None,
+                    src_path: str = None,
+                    data: bytes = None,
+                    content_type: str = None,
+                    overwrite: bool = True,
+                    max_concurrency:int=8
+                    ):
+
+
+        try:
+
+            _, blob_name = os.path.split(dst_path)
+
+            def _progress_(current, total) -> None:
+                progress = current / total * 100
+                rounded_progress = int(math.floor(progress))
+                logger.info(f'{blob_name} was uploaded - {rounded_progress}%')
+
+
+            blob_client = self.sync_container_client.get_blob_client(blob=dst_path)
+            if src_path:
+                with open(src_path, "rb") as f:
+                    logger.debug(f'Uploading {src_path} to {dst_path}')
+                    blob_client.upload_blob(
+                        data=f,
+                        overwrite=overwrite,
+                        content_settings=ContentSettings(content_type=content_type),
+                        progress_hook=_progress_,
+                        max_concurrency=max_concurrency
+                    )
+            elif data:
+                logger.debug(f'Uploading bytes/data to {dst_path}')
+                blob_client.upload_blob(
+                    data=data,
+                    overwrite=overwrite,
+                    content_settings=ContentSettings(content_type=content_type),
+                    progress_hook=_progress_,
+                    max_concurrency=max_concurrency
+
+                )
+            else:
+                raise ValueError("Either 'src_path' or 'data' must be provided.")
+        except Exception as e:
+            raise e
+
+
+
 
     async def download(
             self, blob_name: str = None, dst_path: str = None
