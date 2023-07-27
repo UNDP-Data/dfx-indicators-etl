@@ -29,7 +29,7 @@ async def main():
             try:
                 # Perform transformation sequentially
                 transformed_indicator_id = await run_transformation_for_indicator(indicator_cfg=indicator_section,
-                                                                                  project='access_all_data')
+                                                                                  )
                 transformed_indicators.append(transformed_indicator_id)
 
             except Exception as te:

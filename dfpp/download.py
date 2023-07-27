@@ -609,7 +609,7 @@ async def call_function(function_name, *args, **kwargs) -> Any:
 
 
 async def download_for_indicator(indicator_cfg: Dict[str, Any], source_cfg: Dict[str, Any],
-                                 storage_manager: StorageManager, sync_upload=False):
+                                 storage_manager: StorageManager, sync_upload=True):
     """
 
     :param indicator_cfg:

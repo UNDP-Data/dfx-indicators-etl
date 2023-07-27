@@ -402,7 +402,7 @@ class StorageManager:
                     data: bytes = None,
                     content_type: str = None,
                     overwrite: bool = True,
-                    max_concurrency:int=8
+                    max_concurrency:int = 8
                     ):
 
 
