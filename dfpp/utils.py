@@ -29,6 +29,7 @@ async def add_country_code(source_df, country_name_column=None):
         :param country_name_column:
 
     """
+    pd.set_option('display.max_rows', None)
     async with StorageManager() as storage_manager:
         country_lookup_bytes = await storage_manager.download(blob_name=COUNTRY_LOOKUP_CSV_PATH)
         country_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_lookup")
@@ -404,7 +405,6 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
     Returns:
         bool: True if the upload was successful, False otherwise.
     """
-    # print(df.columns.to_list())
 
     async with StorageManager() as storage_manager:
         pre_update_md5_checksum = await storage_manager.get_md5_checksum(
@@ -437,7 +437,7 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
                     dst_path=None
                 )
                 base_file_df = pd.read_csv(io.BytesIO(base_file_bytes))
-                base_file_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
+                # base_file_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
             else:
                 logger.info("Base file does not exist. Creating...")
                 base_file_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])

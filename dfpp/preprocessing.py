@@ -6,7 +6,7 @@ import re
 import pandas as pd
 import numpy as np
 from dfpp.storage import StorageManager
-from dfpp.utils import change_iso3_to_system_region_iso3, fix_iso_country_codes, add_country_code
+from dfpp.utils import change_iso3_to_system_region_iso3, fix_iso_country_codes, add_country_code, add_region_code
 import logging
 
 logger = logging.getLogger(__name__)
@@ -975,20 +975,19 @@ async def imsmy_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> p
 
         # Rename the "Region, development group, country or area" column to "Country"
 
-        # source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
-        #                  inplace=True)
+        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
+                         inplace=True)
 
         # Remove spaces and asterisks from the "Country" column values
-        # source_df["Country"] = source_df["Country"].apply(lambda x: x.replace(" ", "").replace("*", ""))
+        source_df["Country"] = source_df["Country"].apply(lambda x: x.replace(" ", "").replace("*", ""))
 
         # Convert the "Year" column to datetime format
         source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(x), '%Y'))
 
         # Add country codes to the DataFrame
-        source_df = await add_country_code(source_df)
-
+        source_df = await add_country_code(source_df, "Country")
         # Add region codes to the DataFrame
-        # source_df = await add_region_code(source_df, "Country")
+        source_df = await add_region_code(source_df, "Country")
 
         # Return the preprocessed DataFrame
         return source_df
@@ -1115,7 +1114,6 @@ async def mdp_bpl_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         source_df = source_df.iloc[1:]
         # Extract the country name from the "countryname" column
         source_df["Country"] = source_df["Country"].apply(lambda x: " ".join(x.rsplit(" ")[1:]))
-        # print(source_df.head())
         # Extract the year from the "period" column
         source_df["period"] = source_df["period"].apply(lambda x: datetime.strptime(str(x).rsplit(" ")[-1], '%Y'))
         # Return the preprocessed DataFrame
@@ -2252,9 +2250,10 @@ async def imf_ifi_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
 async def who_global_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     source_df = pd.read_csv(io.BytesIO(bytes_data))
     source_df["Date_reported"] = source_df["Date_reported"].apply(lambda x: datetime.strptime(str(x), '%Y-%m-%d'))
-    print(source_df.head())
     return source_df
 
+async def sme_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
+    pass
 
 if __name__ == "__main__":
     pass
