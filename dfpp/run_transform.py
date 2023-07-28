@@ -9,7 +9,8 @@ from dfpp import preprocessing
 from dfpp.utils import chunker
 # This is importing all transform functions from transform_functions.py. DO NOT REMOVE EVEN IF IDE SAYS IT IS UNUSED
 from dfpp import transform_functions
-
+from io import StringIO
+from traceback import print_exc
 logger = logging.getLogger(__name__)
 
 
@@ -227,13 +228,24 @@ async def transform_sources(concurrent=False,
 
                 for task in done:
                     indicator_id = task.get_name()
-                    if task.exception():
-                        logger.error(f'Transform for {indicator_id} failed with error:\n'
-                                     f'"{task.exception()}"')
-                        await asyncio.sleep(3)
-                    else:
+                    try:
+                        await task
                         logger.info(f'Transform for {indicator_id} was executed successfully')
                         transformed_indicators.append(indicator_id)
+                    except Exception as e:
+                        failed_indicators_ids.append(indicator_id)
+                        with StringIO() as m:
+                            print_exc(file=m)
+                            em = m.getvalue()
+                            logger.error(f'Error {em} was encountered while processing  {indicator_id}')
+
+                    # if task.exception():
+                    #     logger.error(f'Transform for {indicator_id} failed with error:\n'
+                    #                  f'"{task.exception()}"')
+                    #     await asyncio.sleep(3)
+                    # else:
+                    #     logger.info(f'Transform for {indicator_id} was executed successfully')
+                    #     transformed_indicators.append(indicator_id)
                 # # Handle timed out tasks
                 for task in pending:
                     # Cancel task and wait for cancellation to complete

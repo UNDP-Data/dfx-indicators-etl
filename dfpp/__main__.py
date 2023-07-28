@@ -79,7 +79,7 @@ async def main():
             logger.info('Downloading Data Complete....')
             logger.info('Transforming data....')
             await sleep(1)
-            transformed_indicator_ids = await transform_sources(indicator_ids=downloaded_indicator_ids)
+            transformed_indicator_ids = await transform_sources(concurrent=True,indicator_ids=downloaded_indicator_ids, project="access_all_data")
             logger.info('Transforming Data Complete....')
             # logger.info('Publishing data....')
             # await sleep(1)
