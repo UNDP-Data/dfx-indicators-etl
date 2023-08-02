@@ -8,16 +8,11 @@ import numpy as np
 
 from dfpp.constants import STANDARD_COUNTRY_COLUMN, STANDARD_KEY_COLUMN
 from dfpp.storage import StorageManager
-from dfpp.utils import change_iso3_to_system_region_iso3, fix_iso_country_codes, add_country_code, add_region_code, \
-    rename_indicator, update_base_file
+from dfpp.utils import change_iso3_to_system_region_iso3, fix_iso_country_codes, add_country_code, add_region_code
 import logging
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-
-def basic_sanity(bytes_data: bytes = None):
-    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
 
 
 async def acctoi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -32,7 +27,7 @@ async def acctoi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
 
     """
 
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
 
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
@@ -52,7 +47,7 @@ async def acctoi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         return source_df
     except Exception as e:
         logger.error(f"Error in acctoi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def bti_project_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -66,7 +61,7 @@ async def bti_project_transform_preprocessing(bytes_data: bytes = None, **kwargs
         pandas.DataFrame: The preprocessed DataFrame for the BTI project transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
@@ -86,7 +81,7 @@ async def bti_project_transform_preprocessing(bytes_data: bytes = None, **kwargs
     except Exception as e:
         logger.error(
             f"Error in bti_project_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def cpi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -100,7 +95,7 @@ async def cpi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         pandas.DataFrame: The preprocessed DataFrame for the CPI transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
@@ -116,7 +111,7 @@ async def cpi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         return source_df
     except Exception as e:
         logger.error(f"Error in cpi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def cpia_rlpr_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -130,7 +125,7 @@ async def cpia_rlpr_transform_preprocessing(bytes_data: bytes = None, **kwargs) 
         pandas.DataFrame: The preprocessed DataFrame for the CPIA RLPR transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
@@ -147,7 +142,7 @@ async def cpia_rlpr_transform_preprocessing(bytes_data: bytes = None, **kwargs) 
     except Exception as e:
         logger.error(
             f"Error in cpia_rlpr_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def cpia_spca_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -161,7 +156,7 @@ async def cpia_spca_transform_preprocessing(bytes_data: bytes = None, **kwargs) 
         pandas.DataFrame: The preprocessed DataFrame for the CPIA SPCA transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
@@ -175,7 +170,7 @@ async def cpia_spca_transform_preprocessing(bytes_data: bytes = None, **kwargs) 
     except Exception as e:
         logger.error(
             f"Error in cpia_spca_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def cpia_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -189,7 +184,7 @@ async def cpia_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd
         pandas.DataFrame: The preprocessed DataFrame for the CPIA transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
 
@@ -220,7 +215,7 @@ async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         pandas.DataFrame: The preprocessed DataFrame for the CW NDC transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         source_df = pd.read_csv(io.BytesIO(bytes_data))
@@ -340,7 +335,7 @@ async def cw_t2_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> p
         pandas.DataFrame: The preprocessed DataFrame for the CW T2 transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
@@ -353,7 +348,7 @@ async def cw_t2_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> p
         return source_df
     except Exception as e:
         logger.error(f"Error in cw_t2_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def eb_wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -367,7 +362,7 @@ async def eb_wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         pandas.DataFrame: The preprocessed DataFrame for the EB WBDB transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     global df
     indicator_name = "Ease of doing business score"
     assert indicator_name is not None, f'indicator_id is not set in kwargs'
@@ -422,7 +417,7 @@ async def fao_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         pandas.DataFrame: The preprocessed DataFrame for the FAO transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
@@ -436,7 +431,7 @@ async def fao_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         return source_df
     except Exception as e:
         logger.error(f"Error in fao_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def ff_dc_ce_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -450,7 +445,7 @@ async def ff_dc_ce_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         pandas.DataFrame: The preprocessed DataFrame for the FF-DC-CE transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
@@ -466,7 +461,7 @@ async def ff_dc_ce_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         return source_df
     except Exception as e:
         logger.error(f"Error in ff_dc_ce_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def ghg_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -480,7 +475,7 @@ async def ghg_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         pandas.DataFrame: The preprocessed DataFrame for the GHG-NDC transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
@@ -496,7 +491,7 @@ async def ghg_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         return source_df
     except Exception as e:
         logger.error(f"Error in ghg_ndc_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def gii_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -510,7 +505,7 @@ async def gii_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         pandas.DataFrame: The preprocessed DataFrame for the GII transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
@@ -521,7 +516,7 @@ async def gii_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         return source_df
     except Exception as e:
         logger.error(f"Error in gii_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def global_data_fsi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -535,7 +530,7 @@ async def global_data_fsi_transform_preprocessing(bytes_data: bytes = None, **kw
         pandas.DataFrame: The preprocessed DataFrame for the Global Data FSI transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
@@ -547,7 +542,7 @@ async def global_data_fsi_transform_preprocessing(bytes_data: bytes = None, **kw
     except Exception as e:
         logger.error(
             f"Error in global_data_fsi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def global_findex_database_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -561,7 +556,7 @@ async def global_findex_database_transform_preprocessing(bytes_data: bytes = Non
         pandas.DataFrame: The preprocessed DataFrame for the Global Findex Database transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel data into a DataFrame
@@ -579,7 +574,7 @@ async def global_findex_database_transform_preprocessing(bytes_data: bytes = Non
     except Exception as e:
         logger.error(
             f"Error in global_findex_database_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def global_pi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -593,7 +588,7 @@ async def global_pi_transform_preprocessing(bytes_data: bytes = None, **kwargs) 
         pandas.DataFrame: The preprocessed DataFrame for the Global Political Institutions transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV data into a DataFrame
@@ -605,7 +600,7 @@ async def global_pi_transform_preprocessing(bytes_data: bytes = None, **kwargs) 
     except Exception as e:
         logger.error(
             f"Error in global_pi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def eil_pe_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -619,7 +614,7 @@ async def eil_pe_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         pandas.DataFrame: The preprocessed DataFrame for the EIL PE transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -638,7 +633,7 @@ async def eil_pe_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         return source_df
     except Exception as e:
         logger.error(f"Error in eil_pe_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def ec_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -652,7 +647,7 @@ async def ec_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         pandas.DataFrame: The preprocessed DataFrame for the EC EDU transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame, skipping rows and selecting columns
@@ -688,7 +683,7 @@ async def ec_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         return source_df
     except Exception as e:
         logger.error(f"Error in ec_edu_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def hdr_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -702,7 +697,7 @@ async def hdr_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         pandas.DataFrame: The preprocessed DataFrame for the HDR transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         source_df = pd.read_csv(io.BytesIO(bytes_data))
@@ -714,7 +709,7 @@ async def hdr_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         return source_df
     except Exception as e:
         logger.error(f"Error in hdr_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def heritage_id_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -728,7 +723,7 @@ async def heritage_id_transform_preprocessing(bytes_data: bytes = None, **kwargs
         pandas.DataFrame: The preprocessed DataFrame for the Heritage Index of Economic Freedom transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -743,14 +738,18 @@ async def heritage_id_transform_preprocessing(bytes_data: bytes = None, **kwargs
     except Exception as e:
         logger.error(
             f"Error in heritage_id_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def ilo_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
-    basic_sanity(bytes_data=bytes_data)
-    source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
-    source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
-    return source_df
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
+    try:
+        source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
+        source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
+        return source_df
+    except Exception as e:
+        logger.error(f"Error in ilo_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        raise e
 
 
 async def ilo_ee_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -764,7 +763,7 @@ async def ilo_ee_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         pandas.DataFrame: The preprocessed DataFrame for the ILO Employment and Earnings transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
@@ -781,7 +780,7 @@ async def ilo_ee_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         return source_df
     except Exception as e:
         logger.error(f"Error in ilo_ee_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def ilo_lfs_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -795,7 +794,7 @@ async def ilo_lfs_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         pandas.DataFrame: The preprocessed DataFrame for the ILO LFS transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame, skipping the first 5 rows
@@ -809,7 +808,7 @@ async def ilo_lfs_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         return source_df
     except Exception as e:
         logger.error(f"Error in ilo_lfs_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def ilo_nifl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -823,7 +822,7 @@ async def ilo_nifl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         pandas.DataFrame: The preprocessed DataFrame for the ILO NIFL transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame, skipping the first 5 rows
@@ -837,7 +836,7 @@ async def ilo_nifl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         return source_df
     except Exception as e:
         logger.error(f"Error in ilo_nifl_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -851,7 +850,7 @@ async def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None, **k
         pandas.DataFrame: The preprocessed DataFrame for the IMF WEO baseline transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -867,7 +866,7 @@ async def imf_weo_baseline_transform_preprocessing(bytes_data: bytes = None, **k
     except Exception as e:
         logger.error(
             f"Error in imf_weo_baseline_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def imf_weo_gdp_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -876,7 +875,7 @@ async def imf_weo_gdp_transform_preprocessing(bytes_data: bytes = None, **kwargs
     :param kwargs:
     :return:
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -886,8 +885,7 @@ async def imf_weo_gdp_transform_preprocessing(bytes_data: bytes = None, **kwargs
     except Exception as e:
         logger.error(
             f"Error in imf_weo_gdp_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
-    pass
+        raise e
 
 
 async def imf_weo_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -901,7 +899,7 @@ async def imf_weo_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         pandas.DataFrame: The preprocessed DataFrame for the IMF WEO transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
 
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
@@ -916,7 +914,7 @@ async def imf_weo_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         return source_df
     except Exception as e:
         logger.error(f"Error in imf_weo_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def iec_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -930,7 +928,7 @@ async def iec_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         pandas.DataFrame: The preprocessed DataFrame for the IEC transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -957,7 +955,7 @@ async def iec_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         return source_df
     except Exception as e:
         logger.error(f"Error in iec_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def imsmy_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -971,7 +969,7 @@ async def imsmy_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> p
         pandas.DataFrame: The preprocessed DataFrame for the IMSMY transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -999,7 +997,7 @@ async def imsmy_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> p
         return source_df
     except Exception as e:
         logger.error(f"Error in imsmy_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def inequality_hdi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1013,7 +1011,7 @@ async def inequality_hdi_transform_preprocessing(bytes_data: bytes = None, **kwa
         pandas.DataFrame: The preprocessed DataFrame for the Inequality and HDI transform.
 
     """
-    basic_sanity(bytes_data=bytes_data)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -1031,7 +1029,7 @@ async def inequality_hdi_transform_preprocessing(bytes_data: bytes = None, **kwa
     except Exception as e:
         logger.error(
             f"Error in inequality_hdi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def isabo_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1045,6 +1043,7 @@ async def isabo_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> p
         pandas.DataFrame: The preprocessed DataFrame for the ISABO transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the JSON file into a DataFrame
@@ -1072,7 +1071,7 @@ async def isabo_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> p
         return source_df
     except Exception as e:
         logger.error(f"Error in isabo_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def itu_ict_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1086,6 +1085,7 @@ async def itu_ict_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         pandas.DataFrame: The preprocessed DataFrame for the ITU ICT transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -1096,7 +1096,7 @@ async def itu_ict_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         return source_df
     except Exception as e:
         logger.error(f"Error in itu_ict_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def mdp_bpl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1110,6 +1110,7 @@ async def mdp_bpl_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         pandas.DataFrame: The preprocessed DataFrame for the MDP BPL transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -1126,7 +1127,7 @@ async def mdp_bpl_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         return source_df
     except Exception as e:
         logger.error(f"Error in mdp_bpl_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 # async def mdp_indicators_taf_transform_preprocessing(bytes_data: bytes= None):
@@ -1144,6 +1145,7 @@ async def mdp_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         pandas.DataFrame: The preprocessed DataFrame for the MDP transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
 
@@ -1185,7 +1187,7 @@ async def mdp_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         return source_df
     except Exception as e:
         logger.error(f"Error in mdp_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def natural_capital_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1199,6 +1201,7 @@ async def natural_capital_transform_preprocessing(bytes_data: bytes = None, **kw
         pandas.DataFrame: The preprocessed DataFrame for the natural capital transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -1213,7 +1216,7 @@ async def natural_capital_transform_preprocessing(bytes_data: bytes = None, **kw
     except Exception as e:
         logger.error(
             f"Error in natural_capital_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def nature_co2_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1227,6 +1230,7 @@ async def nature_co2_transform_preprocessing(bytes_data: bytes = None, **kwargs)
         pandas.DataFrame: The preprocessed DataFrame for the nature CO2 transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -1241,7 +1245,7 @@ async def nature_co2_transform_preprocessing(bytes_data: bytes = None, **kwargs)
     except Exception as e:
         logger.error(
             f"Error in nature_co2_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def nd_climate_readiness_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1255,6 +1259,7 @@ async def nd_climate_readiness_transform_preprocessing(bytes_data: bytes = None,
         pandas.DataFrame: The preprocessed DataFrame for the climate readiness transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
@@ -1276,7 +1281,7 @@ async def nd_climate_readiness_transform_preprocessing(bytes_data: bytes = None,
     except Exception as e:
         logger.error(
             f"Error in nd_climate_readiness_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def oecd_raw_mat_consumption_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1290,6 +1295,7 @@ async def oecd_raw_mat_consumption_transform_preprocessing(bytes_data: bytes = N
         pandas.DataFrame: The preprocessed DataFrame for the OECD raw material consumption transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
@@ -1307,7 +1313,7 @@ async def oecd_raw_mat_consumption_transform_preprocessing(bytes_data: bytes = N
     except Exception as e:
         logger.error(
             f"Error in oecd_raw_mat_consumption_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def owid_energy_data_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1321,6 +1327,7 @@ async def owid_energy_data_transform_preprocessing(bytes_data: bytes = None, **k
         pandas.DataFrame: The preprocessed DataFrame for the OWID energy data transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
@@ -1341,7 +1348,7 @@ async def owid_energy_data_transform_preprocessing(bytes_data: bytes = None, **k
     except Exception as e:
         logger.error(
             f"Error in owid_energy_data_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def owid_export_transform(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1355,6 +1362,7 @@ async def owid_export_transform(bytes_data: bytes = None, **kwargs) -> pd.DataFr
         pandas.DataFrame: The preprocessed DataFrame for the OWID export transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
@@ -1374,7 +1382,7 @@ async def owid_export_transform(bytes_data: bytes = None, **kwargs) -> pd.DataFr
         return source_df
     except Exception as e:
         logger.error(f"Error in owid_export_transform: {e}")
-        # raise e
+        raise e
 
 
 async def owid_oz_consumption_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1388,6 +1396,7 @@ async def owid_oz_consumption_transform_preprocessing(bytes_data: bytes = None, 
         pandas.DataFrame: The preprocessed DataFrame for the OWID ozone consumption transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
@@ -1415,7 +1424,7 @@ async def owid_oz_consumption_transform_preprocessing(bytes_data: bytes = None, 
     except Exception as e:
         logger.error(
             f"Error in owid_oz_consumption_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def owid_t3_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1429,6 +1438,7 @@ async def owid_t3_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         pandas.DataFrame: The preprocessed DataFrame for the OWID T3 transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Mapping dictionaries for column names and formats
@@ -1462,7 +1472,7 @@ async def owid_t3_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         return source_df
     except Exception as e:
         logger.error(f"Error in owid_t3_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def owid_trade_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1476,6 +1486,7 @@ async def owid_trade_transform_preprocessing(bytes_data: bytes = None, **kwargs)
         pandas.DataFrame: The preprocessed DataFrame for the OWID trade transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
 
@@ -1512,6 +1523,7 @@ async def oxcgrt_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs) 
         pandas.DataFrame: The preprocessed DataFrame for the OxCGRT RL transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
@@ -1530,7 +1542,7 @@ async def oxcgrt_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs) 
     except Exception as e:
         logger.error(
             f"Error in oxcgrt_rl_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def pts_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1544,6 +1556,7 @@ async def pts_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         pandas.DataFrame: The preprocessed DataFrame for the PTS transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
@@ -1560,7 +1573,7 @@ async def pts_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         return source_df
     except Exception as e:
         logger.error(f"Error in pts_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def sdg_mr_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1574,6 +1587,7 @@ async def sdg_mr_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         pandas.DataFrame: The preprocessed DataFrame for the SDG MR transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -1584,7 +1598,7 @@ async def sdg_mr_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         return source_df
     except Exception as e:
         logger.error(f"Error in sdg_mr_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def sdg_rap_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1598,6 +1612,7 @@ async def sdg_rap_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         pandas.DataFrame: The preprocessed DataFrame for the SDG RAP transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -1611,6 +1626,7 @@ async def sdg_rap_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         return source_df
     except Exception as e:
         logger.error(f"Error in sdg_mr_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        raise e
 
 
 async def sipri_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1624,6 +1640,7 @@ async def sipri_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> p
         pandas.DataFrame: The preprocessed DataFrame for the SIPRI transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -1637,7 +1654,7 @@ async def sipri_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> p
         return source_df
     except Exception as e:
         logger.error(f"Error in sipri_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def undp_gii_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1651,6 +1668,7 @@ async def undp_gii_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         pandas.DataFrame: The preprocessed DataFrame for the UNDP GII transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -1667,7 +1685,7 @@ async def undp_gii_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         return source_df
     except Exception as e:
         logger.error(f"Error in undp_gii_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def undp_hdi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1681,6 +1699,7 @@ async def undp_hdi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         pandas.DataFrame: The preprocessed DataFrame for the UNDP HDI transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
@@ -1691,7 +1710,7 @@ async def undp_hdi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         return source_df
     except Exception as e:
         logger.error(f"Error in undp_hdi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def undp_mpi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1705,6 +1724,7 @@ async def undp_mpi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         pandas.DataFrame: The preprocessed DataFrame for the UNDP MPI transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame (Table 2)
@@ -1737,7 +1757,7 @@ async def undp_mpi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         return source_df
     except Exception as e:
         logger.error(f"Error in undp_mpi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def unescwa_fr_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1751,6 +1771,7 @@ async def unescwa_fr_transform_preprocessing(bytes_data: bytes = None, **kwargs)
         pandas.DataFrame: The preprocessed DataFrame for the UNESCWA FR transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -1766,7 +1787,7 @@ async def unescwa_fr_transform_preprocessing(bytes_data: bytes = None, **kwargs)
     except Exception as e:
         logger.error(
             f"Error in unescwa_fr_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def unicef_dev_ontrk_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1780,6 +1801,7 @@ async def unicef_dev_ontrk_transform_preprocessing(bytes_data: bytes = None, **k
         pandas.DataFrame: The preprocessed DataFrame for the UNICEF Development On-Track transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
@@ -1800,7 +1822,7 @@ async def unicef_dev_ontrk_transform_preprocessing(bytes_data: bytes = None, **k
     except Exception as e:
         logger.error(
             f"Error in unicef_dev_ontrk_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def untp_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1814,6 +1836,7 @@ async def untp_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd
         pandas.DataFrame: The preprocessed DataFrame for the United Nations Population Estimates transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -1837,7 +1860,7 @@ async def untp_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd
         return source_df
     except Exception as e:
         logger.error(f"Error in untp_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def vdem_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1851,6 +1874,7 @@ async def vdem_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd
         pandas.DataFrame: The preprocessed DataFrame for the Varieties of Democracy transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
@@ -1864,7 +1888,7 @@ async def vdem_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd
         return source_df
     except Exception as e:
         logger.error(f"Error in vdem_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def time_udc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1878,6 +1902,7 @@ async def time_udc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         pandas.DataFrame: The preprocessed DataFrame for the Time UDC transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the CSV file into a DataFrame
@@ -1891,7 +1916,7 @@ async def time_udc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         return source_df
     except Exception as e:
         logger.error(f"Error in time_udc_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def wbank_access_elec_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1905,6 +1930,7 @@ async def wbank_access_elec_transform_preprocessing(bytes_data: bytes = None, **
         pandas.DataFrame: The preprocessed DataFrame for the World Bank Electricity Access transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -1918,7 +1944,7 @@ async def wbank_access_elec_transform_preprocessing(bytes_data: bytes = None, **
     except Exception as e:
         logger.error(
             f"Error in wbank_access_elec_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def wbank_info_eco_transform_preprocessing(bytes_data: bytes = None, sheet_name=None, **kwargs) -> pd.DataFrame:
@@ -1933,6 +1959,7 @@ async def wbank_info_eco_transform_preprocessing(bytes_data: bytes = None, sheet
         pandas.DataFrame: The preprocessed DataFrame for the World Bank Economic Information transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -1948,7 +1975,7 @@ async def wbank_info_eco_transform_preprocessing(bytes_data: bytes = None, sheet
     except Exception as e:
         logger.error(
             f"Error in wbank_info_eco_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def wbank_info_transform_preprocessing(bytes_data: bytes = None, sheet_name=None, **kwargs) -> pd.DataFrame:
@@ -1963,6 +1990,7 @@ async def wbank_info_transform_preprocessing(bytes_data: bytes = None, sheet_nam
         pandas.DataFrame: The preprocessed DataFrame for the World Bank Information transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     assert sheet_name is not None, "Sheet name cannot be None"
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
@@ -1985,7 +2013,7 @@ async def wbank_info_transform_preprocessing(bytes_data: bytes = None, sheet_nam
     except Exception as e:
         logger.error(
             f"Error in wbank_info_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def wbank_poverty_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1999,6 +2027,7 @@ async def wbank_poverty_transform_preprocessing(bytes_data: bytes = None, **kwar
         pandas.DataFrame: The preprocessed DataFrame for the World Bank Poverty transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -2025,7 +2054,7 @@ async def wbank_poverty_transform_preprocessing(bytes_data: bytes = None, **kwar
     except Exception as e:
         logger.error(
             f"Error in wbank_poverty_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def wbank_energy_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -2039,6 +2068,7 @@ async def wbank_energy_transform_preprocessing(bytes_data: bytes = None, **kwarg
         pandas.DataFrame: The preprocessed DataFrame for the World Bank Energy transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -2073,7 +2103,7 @@ async def wbank_energy_transform_preprocessing(bytes_data: bytes = None, **kwarg
     except Exception as e:
         logger.error(
             f"Error in wbank_energy_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def wbank_rai_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -2087,6 +2117,7 @@ async def wbank_rai_transform_preprocessing(bytes_data: bytes = None, **kwargs) 
         pandas.DataFrame: The preprocessed DataFrame for the World Bank RAI transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -2104,7 +2135,7 @@ async def wbank_rai_transform_preprocessing(bytes_data: bytes = None, **kwargs) 
     except Exception as e:
         logger.error(
             f"Error in wbank_rai_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def wbank_t1_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -2118,6 +2149,7 @@ async def wbank_t1_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         pandas.DataFrame: The preprocessed DataFrame for the World Bank Table 1 transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
@@ -2128,7 +2160,7 @@ async def wbank_t1_transform_preprocessing(bytes_data: bytes = None, **kwargs) -
         return source_df
     except Exception as e:
         logger.error(f"Error in wbank_t1_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def who_pre_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -2142,6 +2174,7 @@ async def who_pre_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs
         pandas.DataFrame: The preprocessed DataFrame for the WHO Pre-Education Statistics transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the JSON data into a DataFrame
@@ -2175,7 +2208,7 @@ async def who_pre_edu_transform_preprocessing(bytes_data: bytes = None, **kwargs
     except Exception as e:
         logger.error(
             f"Error in who_pre_edu_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def who_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -2189,6 +2222,7 @@ async def who_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         pandas.DataFrame: The preprocessed DataFrame for the WHO Right to Health transform.
 
     """
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the JSON data into a DataFrame
@@ -2213,62 +2247,95 @@ async def who_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         return source_df
     except Exception as e:
         logger.error(f"Error in who_rl_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
-    source_df = pd.read_excel(io.BytesIO(bytes_data))
-    source_df["Economy"] = source_df["Economy"].apply(lambda x: x.rsplit("*")[0] if '*' in str(x) else x)
-    source_df.dropna(subset=["Year"], inplace=True)
-    source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(int(x)), '%Y'))
-    return source_df
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
+    try:
+        source_df = pd.read_excel(io.BytesIO(bytes_data))
+        source_df["Economy"] = source_df["Economy"].apply(lambda x: x.rsplit("*")[0] if '*' in str(x) else x)
+        source_df.dropna(subset=["Year"], inplace=True)
+        source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(int(x)), '%Y'))
+        return source_df
+    except Exception as e:
+        logger.error(f"Error in wbdb_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        raise e
 
 
 async def ilo_sdg_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
-    source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
-    source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
-    return source_df
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
+    try:
+        source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
+        source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
+        return source_df
+    except Exception as e:
+        logger.error(f"Error in ilo_sdg_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        raise e
 
 
 async def ilo_spf_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
-    source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
-    source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
-    return source_df
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
+    try:
+        source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
+        source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
+        return source_df
+    except Exception as e:
+        logger.error(f"Error in ilo_spf_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        raise e
 
 
 async def imf_ifi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
-    source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="financial assistance", header=3, engine='openpyxl')
-    source_df2 = pd.read_excel(io.BytesIO(bytes_data), sheet_name="debt-relief", engine='openpyxl')
-    source_df2.rename(columns={"country": "Country", "source": "Type of Emergency Financing",
-                               "amount approved in SDR": "Amount Approved in SDR",
-                               "amount approved in USD": "Amount Approved in US$",
-                               "date of approval": "Date of Approval"}, inplace=True)
-    source_df = pd.concat([source_df, source_df2], ignore_index=True)
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
+    try:
+        source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="financial assistance", header=3,
+                                  engine='openpyxl')
+        source_df2 = pd.read_excel(io.BytesIO(bytes_data), sheet_name="debt-relief", engine='openpyxl')
+        source_df2.rename(columns={"country": "Country", "source": "Type of Emergency Financing",
+                                   "amount approved in SDR": "Amount Approved in SDR",
+                                   "amount approved in USD": "Amount Approved in US$",
+                                   "date of approval": "Date of Approval"}, inplace=True)
+        source_df = pd.concat([source_df, source_df2], ignore_index=True)
 
-    # source_df["Date of Approval"] = source_df["Date of Approval"].apply(lambda x: "20" + x.rsplit("-")[-1])
-    source_df.dropna(subset=["Date of Approval"], inplace=True)
-    # Convert the 'Date of Approval' column to datetime using datetime.strptime
-    source_df['Date of Approval'] = source_df['Date of Approval'].apply(
-        lambda x: datetime.strptime(str(x).rsplit(" ")[0], '%Y-%m-%d'))
-    source_df["Amount Approved in US$"] = source_df["Amount Approved in US$"].apply(
-        lambda x: float(x.rsplit("mill")[0].replace(",", "").replace("US$", "")) * (10 ** 6))
-    return source_df
+        # source_df["Date of Approval"] = source_df["Date of Approval"].apply(lambda x: "20" + x.rsplit("-")[-1])
+        source_df.dropna(subset=["Date of Approval"], inplace=True)
+        # Convert the 'Date of Approval' column to datetime using datetime.strptime
+        source_df['Date of Approval'] = source_df['Date of Approval'].apply(
+            lambda x: datetime.strptime(str(x).rsplit(" ")[0], '%Y-%m-%d'))
+        source_df["Amount Approved in US$"] = source_df["Amount Approved in US$"].apply(
+            lambda x: float(x.rsplit("mill")[0].replace(",", "").replace("US$", "")) * (10 ** 6))
+        return source_df
+    except Exception as e:
+        logger.error(f"Error in imf_ifi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        raise e
 
 
 async def who_global_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
-    source_df = pd.read_csv(io.BytesIO(bytes_data))
-    source_df["Date_reported"] = source_df["Date_reported"].apply(lambda x: datetime.strptime(str(x), '%Y-%m-%d'))
-    return source_df
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
+    try:
+        source_df = pd.read_csv(io.BytesIO(bytes_data))
+        source_df["Date_reported"] = source_df["Date_reported"].apply(lambda x: datetime.strptime(str(x), '%Y-%m-%d'))
+        return source_df
+    except Exception as e:
+        logger.error(
+            f"Error in who_global_rl_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        raise e
 
 
 async def sme_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
-    source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Time Series", engine='openpyxl')
-    source_df.replace(":", np.nan, inplace=True)
-    source_df = source_df.iloc[1:]
-    source_df.reset_index(inplace=True)
-    source_df.rename(columns={"Country": STANDARD_COUNTRY_COLUMN, "Country Code": STANDARD_KEY_COLUMN}, inplace=True)
-    source_df.rename(columns=lambda x: x.replace("\n", ""), inplace=True)
-    return source_df
+    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
+    try:
+        source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Time Series", engine='openpyxl')
+        source_df.replace(":", np.nan, inplace=True)
+        source_df = source_df.iloc[1:]
+        source_df.reset_index(inplace=True)
+        source_df.rename(columns={"Country": STANDARD_COUNTRY_COLUMN, "Country Code": STANDARD_KEY_COLUMN},
+                         inplace=True)
+        source_df.rename(columns=lambda x: x.replace("\n", ""), inplace=True)
+        return source_df
+    except Exception as e:
+        logger.error(f"Error in sme_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        raise e
 
 
 if __name__ == "__main__":
