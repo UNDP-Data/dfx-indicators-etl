@@ -182,11 +182,10 @@ async def get_year_columns(columns, col_prefix=None, col_suffix=None, column_sub
     # Map each column to itself initially
     for column in columns:
         column_map[column] = column
-
     # Remove column substring if specified
     if column_substring is not None:
         for column in columns:
-            column_map[column] = column_map[column].replace(column_substring, "")
+            column_map[column] = str(column_map[column]).replace(column_substring, "")
     # Remove col_prefix and/or col_suffix if specified
     elif col_prefix is not None or col_suffix is not None:
         if col_prefix is not None:
@@ -203,8 +202,8 @@ async def get_year_columns(columns, col_prefix=None, col_suffix=None, column_sub
             year_columns[year] = column
         except Exception as e:
             pass
-    # if not year_columns:
-    #     raise RuntimeError(f'Could not establish year data columns for {indicator_id}')
+    if not year_columns:
+        raise RuntimeError(f'Could not establish year data columns for {indicator_id}')
     return year_columns
 
 
@@ -413,7 +412,7 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
         )
         try:
             # Reset the index of the DataFrame
-            # df.reset_index(inplace=True)
+            df.reset_index(inplace=True)
 
             # Drop rows with missing values in the STANDARD_KEY_COLUMN
             df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
@@ -445,7 +444,6 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
 
             # Filter base_file_df to include only rows with keys present in country_group_df
             base_file_df = base_file_df[base_file_df[STANDARD_KEY_COLUMN].isin(country_group_df[STANDARD_KEY_COLUMN])]
-
             # Select the keys from country_group_df that are not present in base_file_df
             key_df[STANDARD_KEY_COLUMN] = \
                 country_group_df[~country_group_df[STANDARD_KEY_COLUMN].isin(base_file_df[STANDARD_KEY_COLUMN])][
@@ -457,7 +455,6 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
             # Set STANDARD_KEY_COLUMN as the index for base_file_df and df
             base_file_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
             df.set_index(STANDARD_KEY_COLUMN, inplace=True)
-
             # Update columns that exist in both base_file_df and df
             update_cols = list(set(base_file_df.columns.to_list()).intersection(set(df.columns.to_list())))
             base_file_df.update(df[update_cols])

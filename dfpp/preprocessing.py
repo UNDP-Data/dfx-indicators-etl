@@ -5,8 +5,11 @@ from datetime import datetime
 import re
 import pandas as pd
 import numpy as np
+
+from dfpp.constants import STANDARD_COUNTRY_COLUMN, STANDARD_KEY_COLUMN
 from dfpp.storage import StorageManager
-from dfpp.utils import change_iso3_to_system_region_iso3, fix_iso_country_codes, add_country_code, add_region_code
+from dfpp.utils import change_iso3_to_system_region_iso3, fix_iso_country_codes, add_country_code, add_region_code, \
+    rename_indicator, update_base_file
 import logging
 
 logger = logging.getLogger(__name__)
@@ -75,10 +78,10 @@ async def bti_project_transform_preprocessing(bytes_data: bytes = None, **kwargs
         # Replace special characters with NaN values
         source_df = source_df.replace(['…', '-', 'x[16]'], [np.nan, np.nan, np.nan])
 
+        country_col_name = 'Regions:\n1 | East-Central and Southeast Europe\n2 | Latin America and the Caribbean\n3 | West and Central Africa\n4 | Middle East and North Africa\n5 | Southern and Eastern Africa\n6 | Post-Soviet Eurasia\n7 | Asia and Oceania'
         # Rename the column with long name to "Country"
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
+        source_df.rename(columns={country_col_name: "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
-
         return source_df
     except Exception as e:
         logger.error(
@@ -225,7 +228,7 @@ async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
 
-        async def reorganize_number_ranges(text):
+        def reorganize_number_ranges(text):
             # Reorganize number ranges in the text to have consistent formatting
             pattern = re.compile(r'(-?\d+)-(-?\d+)')
             match = re.findall(pattern, text)
@@ -236,7 +239,7 @@ async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
                 pass
             return text
 
-        async def extract_minimum_number(text):
+        def extract_minimum_number(text):
             # Extract the minimum number from the text
             numbers = re.findall(r"-?\d+\.?\d*", text)
             numbers = [float(x) for x in numbers]
@@ -246,7 +249,7 @@ async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
             else:
                 return text
 
-        async def extract_number_with_suffix(text):
+        def extract_number_with_suffix(text):
             # Extract the number with suffix " Gg" from the text
             numbers = re.findall(r"-?\d+\.?\d* Gg", text)
             if len(numbers) == 1:
@@ -254,15 +257,15 @@ async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
             else:
                 return text
 
-        async def get_number_count(text):
+        def get_number_count(text):
             # Get the count of numbers in the text
             return len(re.findall(r"-?\d+\.?\d*", text))
 
-        async def reorganize_floating_numbers(text):
+        def reorganize_floating_numbers(text):
             # Reorganize floating point numbers in the text to have consistent formatting
             return re.sub(r'(?<!\d)\.(\d+)', r'0.\1', text)
 
-        async def extract_and_change(text):
+        def extract_and_change(text):
             # Extract the number and apply changes to the text based on the unit
             numbers = re.findall(r"-?\d+\.?\d*", text)
             if numbers:
@@ -286,29 +289,31 @@ async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         # ****clean column values - M_TarA2****
         # replace n/a to empty string
         source_df.replace("n/a", "", inplace=True)
-        # drop the row if either one of column values are empty
+        # drop the row if either one of column values is empty
         source_df.dropna(subset=["M_TarA2", "M_TarA3", "M_TarYr"], inplace=True)
-        # drop the row if either one of column contains sub string "Not Specified"
+        # drop the row if either one of the columns contains sub string "Not Specified"
         source_df = source_df[~source_df["M_TarA3"].str.contains("Not Specified")]
         source_df = source_df[~source_df["M_TarA2"].str.contains("Not Specified")]
 
         source_df["M_TarA2"] = source_df["M_TarA2"].str.replace("%", "")
+        # 26-28 -> 26 - 28
+        # because 28 will be minus if this transformation is not done
+        source_df["M_TarA2"] = source_df["M_TarA2"].apply(reorganize_number_ranges)
+        # If there are multiple values in M_TarA2 take the lower one
+        source_df["M_TarA2"] = source_df["M_TarA2"].apply(extract_minimum_number)
+        # ****clean column values - M_TarA3****
         for key, value in replacement_string_values.items():
             source_df["M_TarA3"] = source_df["M_TarA3"].str.replace(key, value, regex=False)
+        # extract the numbers that has suffix " Gg"
+        source_df["M_TarA3"] = source_df["M_TarA3"].apply(extract_number_with_suffix)
+        # calculate how many numbers are in the "M_TarA3" column cells because we drop the rows that the number count is more than 1
+        source_df["M_TarA3 Number Count"] = source_df["M_TarA3"].apply(get_number_count)
+
         source_df = source_df[source_df["M_TarA3 Number Count"] == 1]
-        processing_tasks = []
-        for row in source_df.iterrows():
-            processing_tasks.append(
-                reorganize_number_ranges(asyncio.create_task(reorganize_number_ranges(row[1]["M_TarA3"]))))
-            processing_tasks.append(
-                extract_minimum_number(asyncio.create_task(extract_minimum_number(row[1]["M_TarA3"]))))
-            processing_tasks.append(get_number_count(asyncio.create_task(get_number_count(row[1]["M_TarA3"]))))
-            processing_tasks.append(
-                reorganize_floating_numbers(asyncio.create_task(reorganize_floating_numbers(row[1]["M_TarA3"]))))
-            processing_tasks.append(extract_and_change(asyncio.create_task(extract_and_change(row[1]["M_TarA3"]))))
-            processing_tasks.append(
-                extract_number_with_suffix(asyncio.create_task(extract_number_with_suffix(row[1]["M_TarA3"]))))
-        await asyncio.gather(*processing_tasks)
+        # replace .23 with 0.23 otherwise it will recognize as number 23
+        source_df["M_TarA3"] = source_df["M_TarA3"].apply(reorganize_floating_numbers)
+        # extract the number and apply changes if the unit is not the standard one
+        source_df["M_TarA3"] = source_df["M_TarA3"].apply(extract_and_change)
         source_df["M_TarA2"] = source_df["M_TarA2"].astype(float)
         source_df["M_TarA3"] = source_df["M_TarA3"].astype(float)
 
@@ -321,7 +326,7 @@ async def cw_ndc_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         return source_df
     except Exception as e:
         logger.error(f"Error in eb_ndc_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def cw_t2_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -566,6 +571,7 @@ async def global_findex_database_transform_preprocessing(bytes_data: bytes = Non
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
 
+        source_df.rename(columns=lambda x: x.replace("%", "percentage").replace("+", "_plus"), inplace=True)
         # Convert "Year" column to datetime format
         source_df["Year"] = pd.to_datetime(source_df["Year"], format='%Y')
         # Return the preprocessed DataFrame
@@ -1083,7 +1089,7 @@ async def itu_ict_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
-        source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="i99H", header=5)
+        source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="i99H")
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
         # Return the preprocessed DataFrame
@@ -1327,7 +1333,7 @@ async def owid_energy_data_transform_preprocessing(bytes_data: bytes = None, **k
         source_df["year"] = source_df["year"].apply(lambda x: datetime.strptime(str(round(float(x))), '%Y'))
 
         # Add region codes to the DataFrame
-        # source_df = await add_region_code(source_df, "country", "iso_code")
+        source_df = await add_region_code(source_df, "country", "iso_code")
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
         # Return the preprocessed DataFrame
@@ -1361,7 +1367,7 @@ async def owid_export_transform(bytes_data: bytes = None, **kwargs) -> pd.DataFr
         source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(round(float(x))), '%Y'))
 
         # Add region codes to the DataFrame
-        # source_df = await add_region_code(source_df, "Entity", "Code")
+        source_df = await add_region_code(source_df, "Entity", "Code")
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
         # Return the preprocessed DataFrame
@@ -1472,20 +1478,19 @@ async def owid_trade_transform_preprocessing(bytes_data: bytes = None, **kwargs)
     """
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
-        country_col_name = 'Entity'  # Column name for country names
-        iso_col_name = 'Code'  # Column name for ISO country codes
 
         # Read the CSV file into a DataFrame
         source_df = pd.read_csv(io.BytesIO(bytes_data))
+        country_col_name = 'Entity'
+        iso_col_name = 'Code'
 
         # Drop rows with missing values in the Year column
         source_df.dropna(subset=["Year"], inplace=True)
-
-        # Convert the Year column to datetime format
         source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(round(float(x))), '%Y'))
 
-        # Add region code to the DataFrame using the add_region_code function (assuming it exists)
-        # source_df = await add_region_code(source_df, country_col_name, iso_col_name)
+        # Add region code to the DataFrame using the add_region_code function
+        source_df = await add_region_code(source_df=source_df, region_name_col=country_col_name,
+                                          region_key_col=iso_col_name)
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
         # Return the preprocessed DataFrame
@@ -1493,7 +1498,7 @@ async def owid_trade_transform_preprocessing(bytes_data: bytes = None, **kwargs)
     except Exception as e:
         logger.error(
             f"Error in owid_trade_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        # raise e
+        raise e
 
 
 async def oxcgrt_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -1825,7 +1830,7 @@ async def untp_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd
             "Total Population, as of 1 January (thousands)"].apply(lambda x: x * 1000)
 
         # Perform additional preprocessing if required, e.g., adding region codes
-        # source_df = await add_region_code(source_df, "Region, subregion, country or area *", "ISO3 Alpha-code")
+        source_df = await add_region_code(source_df, "Region, subregion, country or area *", "ISO3 Alpha-code")
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
         # Return the preprocessed DataFrame
@@ -1932,7 +1937,8 @@ async def wbank_info_eco_transform_preprocessing(bytes_data: bytes = None, sheet
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name=sheet_name, header=0)
-
+        # strip the column names in pandas dataframe
+        source_df.rename(columns=lambda x: str(x).strip(), inplace=True)
         # Rename the columns to match the desired format
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
@@ -1958,12 +1964,10 @@ async def wbank_info_transform_preprocessing(bytes_data: bytes = None, sheet_nam
 
     """
     assert sheet_name is not None, "Sheet name cannot be None"
-
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name=sheet_name, header=13)
-
         # Create a dictionary to hold the column renaming information
         column_rename = {}
 
@@ -2233,13 +2237,17 @@ async def ilo_spf_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
 
 
 async def imf_ifi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
-    source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="financial assistance", header=3)
-    source_df2 = pd.read_excel(io.BytesIO(bytes_data), sheet_name="debt-relief")
+    source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="financial assistance", header=3, engine='openpyxl')
+    source_df2 = pd.read_excel(io.BytesIO(bytes_data), sheet_name="debt-relief", engine='openpyxl')
     source_df2.rename(columns={"country": "Country", "source": "Type of Emergency Financing",
                                "amount approved in SDR": "Amount Approved in SDR",
                                "amount approved in USD": "Amount Approved in US$",
                                "date of approval": "Date of Approval"}, inplace=True)
     source_df = pd.concat([source_df, source_df2], ignore_index=True)
+
+    # source_df["Date of Approval"] = source_df["Date of Approval"].apply(lambda x: "20" + x.rsplit("-")[-1])
+    source_df.dropna(subset=["Date of Approval"], inplace=True)
+    # Convert the 'Date of Approval' column to datetime using datetime.strptime
     source_df['Date of Approval'] = source_df['Date of Approval'].apply(
         lambda x: datetime.strptime(str(x).rsplit(" ")[0], '%Y-%m-%d'))
     source_df["Amount Approved in US$"] = source_df["Amount Approved in US$"].apply(
@@ -2252,8 +2260,16 @@ async def who_global_rl_transform_preprocessing(bytes_data: bytes = None, **kwar
     source_df["Date_reported"] = source_df["Date_reported"].apply(lambda x: datetime.strptime(str(x), '%Y-%m-%d'))
     return source_df
 
+
 async def sme_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
-    pass
+    source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Time Series", engine='openpyxl')
+    source_df.replace(":", np.nan, inplace=True)
+    source_df = source_df.iloc[1:]
+    source_df.reset_index(inplace=True)
+    source_df.rename(columns={"Country": STANDARD_COUNTRY_COLUMN, "Country Code": STANDARD_KEY_COLUMN}, inplace=True)
+    source_df.rename(columns=lambda x: x.replace("\n", ""), inplace=True)
+    return source_df
+
 
 if __name__ == "__main__":
     pass

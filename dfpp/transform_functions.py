@@ -1,3 +1,7 @@
+import ast
+import json
+
+import numpy as np
 import pandas as pd
 
 pd.options.mode.chained_assignment = None
@@ -66,8 +70,6 @@ async def type1_transform(**kwargs) -> None:
         df.dropna(inplace=True, axis=1, how="all")
     else:
         df = source_df.copy()
-    print("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
-    print(source_df.head())
     # Get year columns based on column_prefix, column_suffix, or column_substring
     year_columns = await get_year_columns(df.columns, col_prefix=column_prefix, col_suffix=column_suffix,
                                           column_substring=column_substring)
@@ -245,11 +247,12 @@ async def type2_transform(**kwargs):
     await update_base_file(indicator_id=indicator_id, df=df, blob_name=save_as, project=project)
 
 
-async def type3_transform(**kwargs) -> None:
+async def type3_transform(**kwargs) -> pd.DataFrame or None:
     """
     Perform a type 3 transformation on the source DataFrame.
-
     Args:
+        **kwargs: Arbitrary keyword arguments.
+    Keyword Args:
         source_df (pd.DataFrame): Source DataFrame for transformation.
         indicator_id (str): Identifier for the indicator.
         value_column (str): Name of the column containing indicator values.
@@ -268,7 +271,7 @@ async def type3_transform(**kwargs) -> None:
         project (str): Project to run.
 
     Returns:
-        None
+        None or pd.DataFrame: None if the 'return_dataframe' argument is False, otherwise the transformed DataFrame.
 
     Raises:
         ValueError: If the required 'source_df' and 'value_column' are not provided.
@@ -295,14 +298,13 @@ async def type3_transform(**kwargs) -> None:
     region_column = kwargs.get('region_column', None)
     project = kwargs.get('project')
 
-
     assert isinstance(source_df, pd.DataFrame), "source_df must be a pandas DataFrame"
     assert indicator_id is not None, "indicator_id must be provided"
     assert base_filename is not None, "base_filename must be provided"
 
     # If 'key_column' is not provided, use 'country_column' as the index column
     index_col = key_column if key_column else country_column
-
+    pd.set_option('display.max_rows', None)
     if group_name and group_column:
         # Filter the DataFrame based on the group name
         df = source_df.groupby(group_column).get_group(group_name)
@@ -369,9 +371,8 @@ async def type3_transform(**kwargs) -> None:
     if country_code_aggregate:
         # Perform aggregation by country code
         index_df = unique_index_df.copy()
-        group_df = index_df.groupby(key_column)
-        unique_index_df.set_index(key_column, inplace=True)
-
+        group_df = index_df.groupby(index_col)
+        unique_index_df.set_index(index_col, inplace=True)
         for group in group_df.groups:
             df = group_df.get_group(group)
 
@@ -386,4 +387,92 @@ async def type3_transform(**kwargs) -> None:
     # Save the transformed DataFrame to a CSV file and upload it as a blob
     await update_base_file(indicator_id=indicator_id, df=unique_index_df, blob_name=base_filename + ".csv",
                            project=project)
+    if return_dataframe:
+        return unique_index_df
     # await update_base_file(df=unique_index_df, blob_name=
+
+
+async def sme_transform(**kwargs) -> None:
+    """Transforms the SME data and saves it to a CSV file.
+
+    Args:
+        **kwargs: Arbitrary keyword arguments.
+
+    Keyword Args:
+        source_df (pd.DataFrame): The source DataFrame.
+        indicator_id (str): The indicator ID.
+        base_filename (str): The base filename of the CSV file.
+        project (str): The project name.
+        dividend (str): The dividend column name.
+        divisor (str): The divisor column name.
+    Returns:
+        None
+
+    Raises:
+        ValueError: If the required 'source_df' and 'value_column' are not provided.
+    """
+
+    # Extract all the arguments with their default values from kwargs
+    source_df = kwargs.get("source_df", None)
+
+    if source_df is None:
+        raise ValueError("The 'source_df' argument is required.")
+    if not isinstance(source_df, pd.DataFrame):
+        raise ValueError("The 'source_df' argument must be a DataFrame.")
+
+    indicator_id = kwargs.get('indicator_id', None)
+    base_filename = kwargs.get('base_filename', None)
+    dividend = kwargs.get('dividend', None)
+    divisor = kwargs.get('divisor', None)
+    project = kwargs.get('project')
+
+    async def get_float_values(row, dividend_, divisor_):
+        divisor_val = []
+        row.replace(" ", np.nan, inplace=True)
+        if isinstance(row[dividend_], str):
+            dividend_val = float(row[dividend_].replace(",", "").replace(" ", "").replace(":", ""))
+        else:
+            dividend_val = row[dividend_]
+        for col in divisor_:
+            if isinstance(row[col], str):
+                divisor_val.append(float(row[col].replace(",", "").replace(" ", "").replace(":", "")))
+            else:
+                divisor_val.append(row[col])
+        return dividend_val, divisor_val
+
+    assert isinstance(source_df, pd.DataFrame), "source_df must be a pandas DataFrame"
+    assert indicator_id is not None, "indicator_id must be provided"
+    assert base_filename is not None, "base_filename must be provided"
+    assert dividend is not None, "dividend must be provided"
+    assert divisor is not None, "divisor must be provided"
+    assert project is not None, "project must be provided"
+    source_unique_df = \
+        source_df.drop_duplicates(subset=[STANDARD_KEY_COLUMN], keep="last").set_index(STANDARD_KEY_COLUMN)[
+            [STANDARD_COUNTRY_COLUMN]]
+    cols = list(set(source_df.columns))
+    group_df = source_df.groupby(STANDARD_KEY_COLUMN)
+    for country in group_df.groups.keys():
+        country_df = group_df.get_group(country)
+        year_group = country_df.groupby("Year")
+        for year in year_group.groups.keys():
+            year_df = year_group.get_group(year)
+            sources_group = year_df.groupby("Source")
+            sources_list = list(sources_group.groups.keys())
+            sources_list.sort()
+            sources_list.reverse()
+            df = pd.DataFrame(columns=cols)
+            df.at[0, STANDARD_KEY_COLUMN] = country
+            df.set_index(STANDARD_KEY_COLUMN, inplace=True)
+            for sources in sources_list:
+                df.update(sources_group.get_group(sources).set_index(STANDARD_KEY_COLUMN))
+            df.reset_index(inplace=True)
+            dividends, divisors = await get_float_values(df.iloc[0], str(dividend), json.loads(divisor))
+            indicator_val = np.nan
+            if sum(divisors) != 0 and (not (np.isnan(sum(divisors)))):
+                indicator_val = dividends / sum(divisors) * 100
+            source_unique_df.at[
+                df.iloc[0][STANDARD_KEY_COLUMN], await rename_indicator(indicator_id, year)] = indicator_val
+    source_unique_df.reset_index(inplace=True)
+
+    data = await update_base_file(indicator_id=indicator_id, df=source_unique_df, project=project,
+                                  blob_name=base_filename + ".csv")

@@ -11,6 +11,7 @@ from dfpp.utils import chunker
 from dfpp import transform_functions
 from io import StringIO
 from traceback import print_exc
+
 logger = logging.getLogger(__name__)
 
 
@@ -50,7 +51,8 @@ async def read_source_file_for_indicator(indicator_source: str = None):
             source_cfg = await storage_manager.get_source_cfg(source_path=source_config_path)
 
             # Compose the path to the source file
-            source_file_name = os.path.join(storage_manager.SOURCES_PATH, f"{indicator_source.upper()}.{source_cfg['source']['file_format']}")
+            source_file_name = os.path.join(storage_manager.SOURCES_PATH,
+                                            f"{indicator_source.upper()}.{source_cfg['source']['file_format']}")
 
             # Download the source file from Azure Storage
             data = await storage_manager.cached_download(source_path=source_file_name)
@@ -64,7 +66,7 @@ async def read_source_file_for_indicator(indicator_source: str = None):
             raise
 
 
-async def run_transformation_for_indicator(indicator_cfg: dict = None, project:str=None):
+async def run_transformation_for_indicator(indicator_cfg: dict = None, project: str = None):
     """
     Run transformation for a specific indicator.
 
@@ -82,20 +84,22 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project:s
         indicator_id = indicator_cfg['indicator_id']
 
         # Read the source file for the indicator asynchronously
-        source_data_bytes, source_cfg = await read_source_file_for_indicator(indicator_source=indicator_cfg['source_id'])
+        source_data_bytes, source_cfg = await read_source_file_for_indicator(
+            indicator_source=indicator_cfg['source_id'])
 
         # Get the preprocessing function for the indicator from the 'preprocessing' field in the configuration
         preprocessing_function_name = indicator_cfg['preprocessing']
-        assert hasattr(preprocessing, preprocessing_function_name), f'The preprocessing function {preprocessing_function_name} specified in ' \
+        assert hasattr(preprocessing,
+                       preprocessing_function_name), f'The preprocessing function {preprocessing_function_name} specified in ' \
                                                      f'indicator config "{indicator_id}" was not implemented'
         preprocessing_function = getattr(preprocessing, preprocessing_function_name)
 
         # Retrieve necessary columns for transformation from the source configuration
         country_column = r"{}".format(source_cfg['source'].get('country_name_column', None))
         group_name = indicator_cfg.get('group_name')
-        key_column = source_cfg.get('country_iso3_column', None)
+        key_column = source_cfg['source'].get('country_iso3_column', None)
         sheet_name = indicator_cfg.get('sheet_name', None)
-        year = source_cfg.get('year', None)
+        year = source_cfg['source'].get('year', None)
 
         # Preprocess the source data using the preprocessing function
         source_df = await preprocessing_function(
@@ -141,7 +145,6 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project:s
 
             # Log the transform function being executed
             logger.info(f"Running transform function {transform_function_name} for indicator {indicator_id}")
-
             # Execute the transform function with specified parameters
             await run_transform(
                 source_df=source_df,
@@ -152,19 +155,28 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project:s
                 key_column=key_column,
                 datetime_column=None if source_info.get('datetime_column', None) == "None" else source_info.get(
                     'datetime_column', None),
-                group_column=None if source_info.get('group_column', None) == "None" else source_info.get('group_column', None),
-                group_name=None if source_info.get('group_name', None) == "None" else source_info.get('group_name', None),
-                aggregate=False,
+                group_column=None if source_info.get('group_column', None) == "None" else source_info.get(
+                    'group_column', None),
+                group_name=None if source_info.get('group_name', None) == "None" else source_info.get('group_name',
+                                                                                                      None),
+                aggregate=False if source_info.get('aggregate', None) != "True" else True,
                 aggregate_type="sum",
                 keep="last",
-                country_code_aggregate=False,
+                country_code_aggregate=False if source_info.get('country_code_aggregate', None) != "True" else True,
                 return_dataframe=False,
-                region_column=None if source_info.get('region_column', None) == "None" else source_info.get('region_column', None),
+                region_column=None if source_info.get('region_column', None) == "None" else source_info.get(
+                    'region_column', None),
                 year=indicator_cfg.get('year', None),
-                column_prefix=None if indicator_cfg.get('column_prefix', None) == "None" else indicator_cfg.get('column_prefix', None),
-                column_suffix=None if indicator_cfg.get('column_suffix', None) == "None" else indicator_cfg.get('column_suffix', None),
-                column_substring=None if indicator_cfg.get('column_substring', None) == "None" else indicator_cfg.get('column_substring', None),
-                project=project
+                column_prefix=None if indicator_cfg.get('column_prefix', None) == "None" else indicator_cfg.get(
+                    'column_prefix', None),
+                column_suffix=None if indicator_cfg.get('column_suffix', None) == "None" else indicator_cfg.get(
+                    'column_suffix', None),
+                column_substring=None if indicator_cfg.get('column_substring', None) == "None" else indicator_cfg.get(
+                    'column_substring', None),
+                project=project,
+                #     The following arguments are used only in the sme_transform function
+                dividend=None if indicator_cfg.get('dividend', None) == "None" else indicator_cfg.get('dividend', None),
+                divisor=None if indicator_cfg.get('divisor', None) == "None" else indicator_cfg.get('divisor', None),
             )
 
         else:
@@ -178,14 +190,13 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project:s
 
 async def transform_sources(concurrent=False,
                             indicator_ids: List = None,
-                            project:str=None,
+                            project: str = None,
                             concurrent_chunk_size: int = 50) -> List[str]:
     """
     Perform transformations for a list of indicators.
     """
     failed_indicators_ids = list()
     skipped_indicators_id = list()
-
 
     # logger.info(f'Tranforming {len(indicator_ids)}')
     # Initialize the StorageManager
@@ -212,7 +223,8 @@ async def transform_sources(concurrent=False,
 
                 if not concurrent:
                     # Perform transformation sequentially
-                    transformed_indicator_id = await run_transformation_for_indicator(indicator_cfg=indicator_section, project=project)
+                    transformed_indicator_id = await run_transformation_for_indicator(indicator_cfg=indicator_section,
+                                                                                      project=project)
                     transformed_indicators.append(transformed_indicator_id)
                 else:
                     # Create a task for running the transformation for the indicator
@@ -254,9 +266,10 @@ async def transform_sources(concurrent=False,
                     task.cancel()
                     await task
 
-
-        logger.info(f'Transformation complete for {len(transformed_indicators)} indicators with {len(failed_indicators_ids)} failed indicators')
+        logger.info(
+            f'Transformation complete for {len(transformed_indicators)} indicators with {len(failed_indicators_ids)} failed indicators')
         return transformed_indicators
+
 
 if __name__ == "__main__":
     logging.basicConfig()
