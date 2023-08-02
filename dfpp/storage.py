@@ -332,7 +332,7 @@ class StorageManager:
                 }
                 return config_dict
         else:
-            raise ConfigError(f"Utitlity source not valid")
+            raise ConfigError(f"Utility source not valid")
 
     async def check_blob_exists(self, blob_name: str) -> bool:
         """

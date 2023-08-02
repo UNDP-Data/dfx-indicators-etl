@@ -9,12 +9,10 @@ import os
 import asyncio
 from typing import List
 
-import swifter
 import numpy as np
 import pandas as pd
 
 from dfpp.constants import STANDARD_KEY_COLUMN, OUTPUT_FOLDER
-# from dfpp.run_transform import read_indicators_config
 from dfpp.storage import  StorageManager
 from dfpp.utils import country_group_dataframe, region_group_dataframe
 
