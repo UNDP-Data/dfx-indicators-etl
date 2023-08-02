@@ -742,7 +742,7 @@ async def download_indicator_sources(
                     failed_source_ids.append(source_id)
                     continue
             if download_tasks:
-                logger.info(f'Downloading {len(download_task)} indicator sources concurrently')
+                logger.info(f'Downloading {len(download_tasks)} indicator sources concurrently')
                 done, pending = await asyncio.wait(download_tasks,
                                                    return_when=asyncio.ALL_COMPLETED,
                                                    timeout=concurrent_chunk_size * DEFAULT_TIMEOUT.total + 10
