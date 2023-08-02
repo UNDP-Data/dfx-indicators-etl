@@ -724,7 +724,8 @@ async def download_indicator_sources(
                     source_cfg = await storage_manager.get_source_cfg(source_id=source_id)
                     if source_cfg['source']['source_type'] == "Manual":
                         logger.info(f"Skipping manual source {source_id}")
-                        skipped_source_ids.append(source_id)
+                        #skipped_source_ids.append(source_id)
+                        source_indicator_map[source_id] = source_indicator_map_tod[source_id]
                         continue
                     if source_cfg['source'].get('save_as') is None:  # compute missing
                         save_as = f"{source_id}.{source_cfg['url'].split('.')[-1]}"
@@ -740,50 +741,51 @@ async def download_indicator_sources(
                     logger.error(e)
                     failed_source_ids.append(source_id)
                     continue
+            if download_tasks:
+                logger.info(f'Downloading {len(download_task)} indicator sources concurrently')
+                done, pending = await asyncio.wait(download_tasks,
+                                                   return_when=asyncio.ALL_COMPLETED,
+                                                   timeout=concurrent_chunk_size * DEFAULT_TIMEOUT.total + 10
+                                                   # to make 100% sure the download
+                                                   # never gets stuck
+                                                   )
+                if done:
+                    logger.info(f'Collecting results for {len(chunk)} sources')
+                    for done_task in done:
 
-            logger.info(f'Downloading {len(chunk)} indicator sources concurrently')
-            done, pending = await asyncio.wait(download_tasks,
-                                               return_when=asyncio.ALL_COMPLETED,
-                                               timeout=concurrent_chunk_size * DEFAULT_TIMEOUT.total + 10
-                                               # to make 100% sure the download
-                                               # never gets stuck
-                                               )
-            if done:
-                logger.info(f'Collecting results for {len(chunk)} sources')
-                for done_task in done:
-
-                    try:
-                        source_id = done_task.get_name()
-                        data_size_bytes = await done_task
-                        if data_size_bytes < 100:  # TODO: establish  a realistic value
-                            logger.warning(f'No data was downloaded for indicator {source_id}')
+                        try:
+                            source_id = done_task.get_name()
+                            data_size_bytes = await done_task
+                            if data_size_bytes < 100:  # TODO: establish  a realistic value
+                                logger.warning(f'No data was downloaded for indicator {source_id}')
+                                failed_source_ids.append(source_id)
+                            else:
+                                source_indicator_map[source_id] = source_indicator_map_tod[source_id]
+                        except Exception as e:
                             failed_source_ids.append(source_id)
-                        else:
-                            source_indicator_map[source_id] = source_indicator_map_tod[source_id]
-                    except Exception as e:
-                        failed_source_ids.append(source_id)
-                        with StringIO() as m:
-                            print_exc(file=m)
-                            em = m.getvalue()
-                            logger.error(f'Error {em} was encountered while processing  {source_id}')
+                            with StringIO() as m:
+                                print_exc(file=m)
+                                em = m.getvalue()
+                                logger.error(f'Error {em} was encountered while processing  {source_id}')
 
-            if pending:
-                logger.debug(f'{len(pending)} out of {len(chunk)} sources  have timed out')
+                if pending:
+                    logger.debug(f'{len(pending)} out of {len(chunk)} sources  have timed out')
 
-                for pending_task in pending:
+                    for pending_task in pending:
 
-                    try:
-                        source_id, indicator_id = done_task.get_name().split('::')
-                        pending_task.cancel()
-                        await pending_task
-                        failed_source_ids.append(source_id)
-                    except asyncio.CancelledError:
-                        logger.debug(
-                            f'Pending future for source {source_id} has been cancelled')
-                    except Exception as e:
+                        try:
+                            source_id, indicator_id = done_task.get_name().split('::')
+                            pending_task.cancel()
+                            await pending_task
+                            failed_source_ids.append(source_id)
+                        except asyncio.CancelledError:
+                            logger.debug(
+                                f'Pending future for source {source_id} has been cancelled')
+                        except Exception as e:
 
-                        raise e
-
+                            raise e
+            else:
+                logger.info(f'No sources were downloaded')
 
     downloaded_indicators = sorted([item for sublist in source_indicator_map.values() for item in sublist])
 

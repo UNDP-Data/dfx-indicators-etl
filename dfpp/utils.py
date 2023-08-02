@@ -29,8 +29,9 @@ async def add_country_code(source_df, country_name_column=None):
         :param country_name_column:
 
     """
+    pd.set_option('display.max_rows', None)
     async with StorageManager() as storage_manager:
-        country_lookup_bytes = await storage_manager.download(blob_name=COUNTRY_LOOKUP_CSV_PATH)
+        country_lookup_bytes = await storage_manager.cached_download(source_path=COUNTRY_LOOKUP_CSV_PATH)
         country_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_lookup")
         if country_name_column != country_df.index.name:
             country_df.set_index(country_name_column, inplace=True)
@@ -63,7 +64,7 @@ async def add_region_code(source_df=None, region_name_col=None, region_key_col=N
         """
     try:
         async with StorageManager() as storage_manager:
-            country_lookup_bytes = await storage_manager.download(blob_name=COUNTRY_LOOKUP_CSV_PATH)
+            country_lookup_bytes = await storage_manager.cached_download(source_path=COUNTRY_LOOKUP_CSV_PATH)
             region_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="region_lookup")
             region_df = region_df.drop_duplicates(subset=["Region"], keep='last')
             region_df.dropna(subset=["Region"], inplace=True)
@@ -113,7 +114,7 @@ async def add_alpha_code_3_column(source_df, country_col):
 
         """
     async with StorageManager() as storage_manager:
-        country_lookup_bytes = await storage_manager.download(COUNTRY_LOOKUP_CSV_PATH)
+        country_lookup_bytes = await storage_manager.cached_download(source_path=COUNTRY_LOOKUP_CSV_PATH)
         country_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_lookup")
         country_df = country_df.rename(columns={'Country': country_col})
         return pd.merge(source_df, country_df[['Alpha-3 code', country_col]], on=[country_col], how='left')
@@ -134,7 +135,7 @@ async def fix_iso_country_codes(df: pd.DataFrame = None, col: str = None, source
 
         """
     async with StorageManager() as storage_manager:
-        country_lookup_bytes = await storage_manager.download(COUNTRY_LOOKUP_CSV_PATH)
+        country_lookup_bytes = await storage_manager.cached_download(source_path=COUNTRY_LOOKUP_CSV_PATH)
         country_code_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_code_lookup")
         for index, row in country_code_df.iterrows():
             if source_id is None or source_id == row.get("Only For Source ID"):
@@ -181,11 +182,10 @@ async def get_year_columns(columns, col_prefix=None, col_suffix=None, column_sub
     # Map each column to itself initially
     for column in columns:
         column_map[column] = column
-
     # Remove column substring if specified
     if column_substring is not None:
         for column in columns:
-            column_map[column] = column_map[column].replace(column_substring, "")
+            column_map[column] = str(column_map[column]).replace(column_substring, "")
     # Remove col_prefix and/or col_suffix if specified
     elif col_prefix is not None or col_suffix is not None:
         if col_prefix is not None:
@@ -248,8 +248,8 @@ async def country_group_dataframe():
     async with StorageManager() as storage_manager:
         try:
             # Read the country and territory group DataFrame from JSON in Azure Blob Storage
-            df = pd.read_json(io.BytesIO(await storage_manager.download(
-                blob_name=os.path.join(
+            df = pd.read_json(io.BytesIO(await storage_manager.cached_download(
+                source_path=os.path.join(
                     storage_manager.ROOT_FOLDER,
                     'config',
                     'utilities',
@@ -268,8 +268,8 @@ async def country_group_dataframe():
             df['Longitude (average)'] = df["Longitude (average)"].astype(np.float64)
 
             # Read the aggregate territory group DataFrame from JSON in Azure Blob Storage
-            df_aggregates = pd.read_json(io.BytesIO(await storage_manager.download(
-                blob_name=os.path.join(
+            df_aggregates = pd.read_json(io.BytesIO(await storage_manager.cached_download(
+                source_path=os.path.join(
                     storage_manager.ROOT_FOLDER,
                     'config',
                     'utilities',
@@ -306,8 +306,8 @@ async def region_group_dataframe():
     async with StorageManager() as storage_manager:
         try:
             # Read the region group DataFrame from JSON in Azure Blob Storage
-            df = pd.read_json(io.BytesIO(await storage_manager.download(
-                blob_name=os.path.join(
+            df = pd.read_json(io.BytesIO(await storage_manager.cached_download(
+                source_path=os.path.join(
                     storage_manager.ROOT_FOLDER,
                     'config',
                     'utilities',
@@ -382,7 +382,7 @@ async def validate_indicator_transformed(storage_manager: StorageManager, indica
 
         # Compare previous md5 checksum with current md5 checksum
         md5_checksum = await storage_manager.get_md5_checksum(
-            os.path.join(storage_manager.ROOT_FOLDER, 'output', 'access_all_data', 'base', base_file_name))
+            blob_name=os.path.join(storage_manager.ROOT_FOLDER, 'output', 'access_all_data', 'base', base_file_name))
         if md5_checksum == pre_update_checksum:
             warnings.warn(
                 f"Base file {base_file_name} has not changed since the last transformation. This could be because of no new data since previous transformation, or that transformation failed for indicator {indicator_id}.",
@@ -403,17 +403,16 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
         project (str): The project to upload the blob file to.
     Returns:
         bool: True if the upload was successful, False otherwise.
-        :param project:
     """
-    # print(df.columns.to_list())
 
     async with StorageManager() as storage_manager:
         pre_update_md5_checksum = await storage_manager.get_md5_checksum(
-            os.path.join(storage_manager.ROOT_FOLDER, 'output', project, 'base', blob_name)
+            blob_name=os.path.join(storage_manager.ROOT_FOLDER, 'output', project, 'base', blob_name),
+            data=df.to_csv().encode('utf-8')
         )
         try:
             # Reset the index of the DataFrame
-            # df.reset_index(inplace=True)
+            df.reset_index(inplace=True)
 
             # Drop rows with missing values in the STANDARD_KEY_COLUMN
             df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
@@ -432,12 +431,11 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
             if blob_exists:
                 logger.info(f"Base file {blob_name} exists. Updating...")
                 # Download the base file as bytes and read it as a DataFrame
-                base_file_bytes = await storage_manager.download(
-                    blob_name=os.path.join(storage_manager.ROOT_FOLDER, 'output', project, 'base', blob_name),
-                    dst_path=None
+                base_file_bytes = await storage_manager.cached_download(
+                    source_path=os.path.join(storage_manager.ROOT_FOLDER, 'output', project, 'base', blob_name),
                 )
                 base_file_df = pd.read_csv(io.BytesIO(base_file_bytes))
-                base_file_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
+                # base_file_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
             else:
                 logger.info("Base file does not exist. Creating...")
                 base_file_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
@@ -445,7 +443,6 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
 
             # Filter base_file_df to include only rows with keys present in country_group_df
             base_file_df = base_file_df[base_file_df[STANDARD_KEY_COLUMN].isin(country_group_df[STANDARD_KEY_COLUMN])]
-
             # Select the keys from country_group_df that are not present in base_file_df
             key_df[STANDARD_KEY_COLUMN] = \
                 country_group_df[~country_group_df[STANDARD_KEY_COLUMN].isin(base_file_df[STANDARD_KEY_COLUMN])][
@@ -457,7 +454,6 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
             # Set STANDARD_KEY_COLUMN as the index for base_file_df and df
             base_file_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
             df.set_index(STANDARD_KEY_COLUMN, inplace=True)
-
             # Update columns that exist in both base_file_df and df
             update_cols = list(set(base_file_df.columns.to_list()).intersection(set(df.columns.to_list())))
             base_file_df.update(df[update_cols])
