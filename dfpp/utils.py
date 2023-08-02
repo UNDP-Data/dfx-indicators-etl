@@ -490,7 +490,6 @@ async def list_command(indicators=False, sources=False, config=True) -> List[str
     """
     async with StorageManager() as storage_manager:
         logger.debug(f'Connected to Azure blob')
-
         if sources:
             source_files = await storage_manager.list_sources_cfgs()
             source_ids = [os.path.split(sf)[-1].split('.cfg')[0].upper() for sf in source_files]
@@ -498,6 +497,16 @@ async def list_command(indicators=False, sources=False, config=True) -> List[str
         if indicators:
             indicator_files =  [indicator_blob.name async for indicator_blob in storage_manager.list_indicators()]
             indicator_ids = [os.path.split(sf)[-1].split('.cfg')[0] for sf in indicator_files]
+        '''
+            the code below could be sued if we decide to validate the configs and list only those that are valid
+        '''
+        # if sources:
+        #     source_configs = await storage_manager.get_sources_cfgs()
+        #     source_ids = [scfg['source']['id'] for scfg in source_configs]
+        #
+        # if indicators:
+        #     indicator_configs = await storage_manager.get_indicators_cfg()
+        #     indicator_ids = [icfg['indicator']['indicator_id'] for icfg in indicator_configs]
         if config:
             keys = ['ROOT_FOLDER', 'INDICATORS_CFG_PATH', 'SOURCES_CFG_PATH','UTILITIES_PATH', 'SOURCES_PATH', 'OUTPUT_PATH', 'container_name', 'conn_str']
             pipeline_cfg = dict( )

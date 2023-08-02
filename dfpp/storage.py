@@ -193,6 +193,7 @@ class StorageManager:
             #     indicator_path, max_concurrency=8
             # )
             # content = await stream.readall()
+
             content = await self.cached_download(source_path=indicator_path)
             content_str = content.decode("utf-8")
 
