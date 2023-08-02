@@ -188,7 +188,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project: 
         raise e
 
 
-async def transform_sources(concurrent=False,
+async def transform_sources(concurrent=True,
                             indicator_ids: List = None,
                             project: str = None,
                             concurrent_chunk_size: int = 50) -> List[str]:
