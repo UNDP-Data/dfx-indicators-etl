@@ -15,7 +15,8 @@ dependencies = [
     'aiohttp',
     'python-dotenv',
     'build',
-    'openpyxl'
+    'openpyxl==3.0.10',
+    'xlrd'
 ]
 
 [tool.setuptools.packages.find]

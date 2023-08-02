@@ -3,6 +3,6 @@ azure-storage-blob
 swifter
 aiohttp
 python-dotenv
-openpyxl
+openpyxl==3.0.10
 build
-
+xlrd
