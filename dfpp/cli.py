@@ -17,7 +17,8 @@ logging.Logger.trace = partialmethod(logging.Logger.log, logging.TRACE)
 logging.trace = partial(logging.log, logging.TRACE)
 
 
-
+def run_pipeline():
+    asyncio.run(main())
 
 def validate_env():
 

@@ -26,4 +26,4 @@ where = ["./"]
 universal = true
 
 [project.scripts]
-dfp_pipeline = "dfpp.__main__:run_pipeline"
+dfp_pipeline = "dfpp.cli:run_pipeline"
