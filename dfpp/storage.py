@@ -213,14 +213,8 @@ class StorageManager:
     async def get_indicators_cfg(self, contain_filter: str = None, indicator_ids: List = None):
 
         tasks = []
-        if indicator_ids:
-            for indicator_id in indicator_ids:
-                t = asyncio.create_task(
-                    self.get_indicator_cfg(indicator_id=indicator_id)
-                )
-                tasks.append(t)
-            results = await asyncio.gather(*tasks)
-        elif contain_filter:
+
+        if contain_filter:
             async for indicator_blob in self.list_indicators():
 
                 if contain_filter and contain_filter not in indicator_blob.name: continue
@@ -229,14 +223,21 @@ class StorageManager:
                     self.get_indicator_cfg(indicator_path=indicator_blob.name)
                 )
                 tasks.append(t)
-            results = await asyncio.gather(*tasks)
         else:
-            async for indicator_blob in self.list_indicators():
-                t = asyncio.create_task(
-                    self.get_indicator_cfg(indicator_path=indicator_blob.name)
-                )
-                tasks.append(t)
-            results = await asyncio.gather(*tasks)
+            if indicator_ids is None:
+                async for indicator_blob in self.list_indicators():
+                    t = asyncio.create_task(
+                        self.get_indicator_cfg(indicator_path=indicator_blob.name)
+                    )
+                    tasks.append(t)
+            else:
+                if indicator_ids:
+                    for indicator_id in indicator_ids:
+                        t = asyncio.create_task(
+                            self.get_indicator_cfg(indicator_id=indicator_id)
+                        )
+                        tasks.append(t)
+        results = await asyncio.gather(*tasks)
         return [e for e in results if e]
 
     async def get_source_cfg(self, source_id=None, source_path=None):
@@ -493,7 +494,7 @@ class StorageManager:
         """
         return self.container_client.delete_blob(blob_path)
 
-    async def list_base_files(self, ):
+    async def list_base_files(self):
         """
         List
         :param indicator_id:

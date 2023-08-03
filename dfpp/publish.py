@@ -48,14 +48,8 @@ async def update_and_get_output_csv(storage_manager: StorageManager,
         io.BytesIO(
             await storage_manager.download(blob_name=output_csv_file_path)))
 
-
-    # if area_type == 'countries':
-    #
-    # elif area_type == 'region':
-    #     output_df = pd.read_csv(io.BytesIO(await storage_manager.download(blob_name=os.path.join(OUTPUT_FOLDER, project, 'output_regions.csv'))))
-
     logger.info("Starting reading base files...")
-    if not indicator_cfgs:
+    if indicator_cfgs is None:
         base_files_list = await storage_manager.list_base_files()
     else:
         base_files_list = []
@@ -524,66 +518,66 @@ async def publish(indicator_ids: list,
     """
     assert project not in ['', None], f'Invalid project={project}.'
 
-    if indicator_ids:
-        logger.info(f"Starting to publish {len(indicator_ids)} indicators")
-
     async with StorageManager() as storage_manager:
-        logger.info("Connected to Azure Blob Storage")
+        logger.debug("Connected to Azure Blob Storage")
         logger.info("Starting to read indicator configurations...")
+
 
 
         indicator_cfgs = await storage_manager.get_indicators_cfg(
             indicator_ids=indicator_ids,
             contain_filter=indicator_id_contain_filter
         )
+        if indicator_cfgs:
+            for area_type in AREA_TYPES:
 
-        for area_type in AREA_TYPES:
-
-            '''
-                CURRENTLY
-                1. got a indicator cfg
-                2. update output.csv with data and cols from indicator and upload the big CSV to azure 
-                3. create JSON putput per indicator and upload  to azure
-                4. create JSON output per AREA_TYPES and upload to azure
-                
-                
-                DESIRED
-                for indicator_cfg in indicators:
-                    1. export each indicator to postgresql
-                    2. optionally export to JSON
-            '''
-
-
-            # update and get the updated output csv
-            # this SHOULD not be necessary
+                '''
+                    CURRENTLY
+                    1. got a indicator cfg
+                    2. update output.csv with data and cols from indicator and upload the big CSV to azure 
+                    3. create JSON putput per indicator and upload  to azure
+                    4. create JSON output per AREA_TYPES and upload to azure
+                    
+                    
+                    DESIRED
+                    for indicator_cfg in indicators:
+                        1. export each indicator to postgresql
+                        2. optionally export to JSON
+                '''
 
 
-            output_df = await update_and_get_output_csv(
-                storage_manager=storage_manager,
-                area_type=area_type,
-                indicator_cfgs=indicator_cfgs
-            )
-            # output_df = pd.read_csv('/home/thuha/Downloads/output.csv')
-            await generate_output_per_indicator(storage_manager=storage_manager, dataframe=output_df,
-                                                indicator_cfgs=indicator_cfgs)
-            if output_data_type == "timeseries":
-                output_df = await process_time_series_data(
+                # update and get the updated output csv
+                # this SHOULD not be necessary
+
+
+                output_df = await update_and_get_output_csv(
                     storage_manager=storage_manager,
-                    dataframe=output_df,
-                    indicator_cfgs=indicator_cfgs,
-                    area_type=area_type
+                    area_type=area_type,
+                    indicator_cfgs=indicator_cfgs
                 )
+                # output_df = pd.read_csv('/home/thuha/Downloads/output.csv')
+                await generate_output_per_indicator(storage_manager=storage_manager, dataframe=output_df,
+                                                    indicator_cfgs=indicator_cfgs)
+                if output_data_type == "timeseries":
+                    output_df = await process_time_series_data(
+                        storage_manager=storage_manager,
+                        dataframe=output_df,
+                        indicator_cfgs=indicator_cfgs,
+                        area_type=area_type
+                    )
 
-            # elif output_data_type == "latestavailabledata":
-            #     output_df = await process_latest_data(
-            #         storage_manager=storage_manager,
-            #         dataframe=output_df,
-            #         indicator_cfgs=indicator_cfgs,
-            #         area_type=value
-            #     )
-            #
+                # elif output_data_type == "latestavailabledata":
+                #     output_df = await process_latest_data(
+                #         storage_manager=storage_manager,
+                #         dataframe=output_df,
+                #         indicator_cfgs=indicator_cfgs,
+                #         area_type=value
+                #     )
+                #
 
 
 
 
-        logger.info("Finished publishing of data")
+            logger.info("Finished publishing of data")
+        else:
+            logger.info('No indicators supplied')

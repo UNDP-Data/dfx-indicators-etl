@@ -76,7 +76,6 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project: 
     :return: The transformed data based on the indicator.
     :rtype: str
     """
-
     # Ensure the indicator configuration is provided
     assert indicator_cfg is not None, 'Indicator config must be specified'
     try:

@@ -70,12 +70,12 @@ async def main():
         description='Run specific states or the whole pipeline'
     )
     run_parser.add_argument('-i', '--indicator_ids',
-                        help='The id of indicator/s to process. If not supplied all detected indicators '
-                             'will be processed',
-                        nargs='+')
+                                 help='The id of indicator/s to process. If not supplied all detected indicators '
+                                      'will be processed',
+                                 nargs='+')
 
     run_parser.add_argument('-f', '--filter-indicators-string',
-                        help='Process only indicators whose id contains this string', type=str)
+                                 help='Process only indicators whose id contains this string', type=str)
 
     stage_subparsers = run_parser.add_subparsers(help='pipeline stages', dest='stage')
 
@@ -86,6 +86,13 @@ async def main():
         description='Download data sources for specific indicators as defined in the configuration files.'
                     'The downloaded raw source files are uploaded to Azure'
     )
+    download_parser.add_argument('-i', '--indicator_ids',
+                            help='The id of indicator/s to process. If not supplied all detected indicators '
+                                 'will be processed',
+                            nargs='+')
+
+    download_parser.add_argument('-f', '--filter-indicators-string',
+                            help='Process only indicators whose id contains this string', type=str)
 
     transform_parser = stage_subparsers.add_parser(
         name='transform',
@@ -93,19 +100,27 @@ async def main():
         description='Transform/homogenize specific indicators and upload the results into base files'
     )
 
+    transform_parser.add_argument('-i', '--indicator_ids',
+                                 help='The id of indicator/s to process. If not supplied all detected indicators '
+                                      'will be processed',
+                                 nargs='+')
+
+    transform_parser.add_argument('-f', '--filter-indicators-string',
+                                 help='Process only indicators whose id contains this string', type=str)
+
     publish_parser = stage_subparsers.add_parser(
         name='publish',
         help='Publish/upload specific indicators to the specified end point',
         description='Publish/upload specific indicators to the specified end point'
     )
-    #
-    # publish_parser.add_argument('-i', '--indicator_ids',
-    #                               help='The id of indicator/s to process. If not supplied all detected indicators '
-    #                                    'will be processed',
-    #                               nargs='+')
-    #
-    # publish_parser.add_argument('-f', '--filter-indicators-string',
-    #                               help='Process only indicators whose id contains this string', type=str)
+
+    publish_parser.add_argument('-i', '--indicator_ids',
+                                  help='The id of indicator/s to process. If not supplied all detected indicators '
+                                       'will be processed',
+                                  nargs='+')
+
+    publish_parser.add_argument('-f', '--filter-indicators-string',
+                                  help='Process only indicators whose id contains this string', type=str)
 
 
     # display help by default
@@ -165,6 +180,7 @@ async def main():
                     indicator_ids=downloaded_indicators,
                     project='access_all_data'
                 )
+
                 published_indicators = await  publish(
                     indicator_ids=transformed_indicators,
                     project='access_all_data'
