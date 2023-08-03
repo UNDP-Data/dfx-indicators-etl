@@ -1,4 +1,3 @@
-import asyncio
 import io
 import os
 from datetime import datetime
@@ -2251,27 +2250,85 @@ async def who_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
 
 
 async def wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
+    """
+    Preprocesses the given Excel data in bytes format and returns it as a Pandas DataFrame.
+
+    Args:
+        bytes_data (bytes): The Excel data in bytes format.
+        **kwargs: Additional keyword arguments.
+
+    Returns:
+        pd.DataFrame: The preprocessed DataFrame.
+
+    Raises:
+        AssertionError: If `bytes_data` argument is not of type bytes.
+        Exception: If any error occurs during preprocessing.
+
+    Example:
+        bytes_data = b'...'  # Some Excel data in bytes format
+        df = await wbdb_transform_preprocessing(bytes_data)
+    """
+    # Check if bytes_data is of type bytes
     assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
+
     try:
+        # Read Excel data into a DataFrame using pandas
         source_df = pd.read_excel(io.BytesIO(bytes_data))
+
+        # Remove the "*" character and any following text from the "Economy" column
         source_df["Economy"] = source_df["Economy"].apply(lambda x: x.rsplit("*")[0] if '*' in str(x) else x)
+
+        # Drop rows with missing values in the "Year" column
         source_df.dropna(subset=["Year"], inplace=True)
+
+        # Convert the "Year" column to datetime objects, assuming it contains year values
         source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(int(x)), '%Y'))
+
+        # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
+        # Log the error and raise the exception again
         logger.error(f"Error in wbdb_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         raise e
 
 
+
 async def ilo_sdg_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
+    """
+    Preprocesses the given Excel data in bytes format and returns it as a Pandas DataFrame.
+
+    Args:
+        bytes_data (bytes): The Excel data in bytes format.
+        **kwargs: Additional keyword arguments.
+
+    Returns:
+        pd.DataFrame: The preprocessed DataFrame.
+
+    Raises:
+        AssertionError: If `bytes_data` argument is not of type bytes.
+        Exception: If any error occurs during preprocessing.
+
+    Example:
+        bytes_data = b'...'  # Some Excel data in bytes format
+        df = await ilo_sdg_transform_preprocessing(bytes_data)
+    """
+    # Check if bytes_data is of type bytes
     assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
+
     try:
+        # Read Excel data into a DataFrame using pandas with header starting from the 6th row (0-indexed)
         source_df = pd.read_excel(io.BytesIO(bytes_data), header=5)
+
+        # Convert the "Time" column to datetime objects, assuming it contains year values
         source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(x), '%Y'))
+
+        # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
+        # Log the error and raise the exception again
         logger.error(f"Error in ilo_sdg_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         raise e
+
 
 
 async def ilo_spf_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -2286,54 +2343,148 @@ async def ilo_spf_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
 
 
 async def imf_ifi_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
+    """
+    Preprocesses the given Excel data in bytes format and returns it as a Pandas DataFrame.
+
+    Args:
+        bytes_data (bytes): The Excel data in bytes format.
+        **kwargs: Additional keyword arguments.
+
+    Returns:
+        pd.DataFrame: The preprocessed DataFrame.
+
+    Raises:
+        AssertionError: If `bytes_data` argument is not of type bytes.
+        Exception: If any error occurs during preprocessing.
+
+    Example:
+        bytes_data = b'...'  # Some Excel data in bytes format
+        df = await imf_ifi_transform_preprocessing(bytes_data)
+    """
+    # Check if bytes_data is of type bytes
     assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
+
     try:
+        # Read Excel data into a DataFrame using pandas for "financial assistance" sheet
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="financial assistance", header=3,
                                   engine='openpyxl')
+
+        # Read Excel data into another DataFrame using pandas for "debt-relief" sheet
         source_df2 = pd.read_excel(io.BytesIO(bytes_data), sheet_name="debt-relief", engine='openpyxl')
+
+        # Rename columns in the second DataFrame to match the first DataFrame
         source_df2.rename(columns={"country": "Country", "source": "Type of Emergency Financing",
                                    "amount approved in SDR": "Amount Approved in SDR",
                                    "amount approved in USD": "Amount Approved in US$",
                                    "date of approval": "Date of Approval"}, inplace=True)
+
+        # Concatenate the two DataFrames together
         source_df = pd.concat([source_df, source_df2], ignore_index=True)
 
-        # source_df["Date of Approval"] = source_df["Date of Approval"].apply(lambda x: "20" + x.rsplit("-")[-1])
+        # Drop rows with missing values in the "Date of Approval" column
         source_df.dropna(subset=["Date of Approval"], inplace=True)
+
         # Convert the 'Date of Approval' column to datetime using datetime.strptime
         source_df['Date of Approval'] = source_df['Date of Approval'].apply(
             lambda x: datetime.strptime(str(x).rsplit(" ")[0], '%Y-%m-%d'))
+
+        # Convert the 'Amount Approved in US$' column to numeric format
         source_df["Amount Approved in US$"] = source_df["Amount Approved in US$"].apply(
             lambda x: float(x.rsplit("mill")[0].replace(",", "").replace("US$", "")) * (10 ** 6))
+
+        # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
+        # Log the error and raise the exception again
         logger.error(f"Error in imf_ifi_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         raise e
 
 
 async def who_global_rl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
+    """
+    Preprocesses the given CSV data in bytes format and returns it as a Pandas DataFrame.
+
+    Args:
+        bytes_data (bytes): The CSV data in bytes format.
+        **kwargs: Additional keyword arguments.
+
+    Returns:
+        pd.DataFrame: The preprocessed DataFrame.
+
+    Raises:
+        AssertionError: If `bytes_data` argument is not of type bytes.
+        Exception: If any error occurs during preprocessing.
+
+    Example:
+        bytes_data = b'...'  # Some CSV data in bytes format
+        df = await who_global_rl_transform_preprocessing(bytes_data)
+    """
+    # Check if bytes_data is of type bytes
     assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
+
     try:
+        # Read CSV data into a DataFrame using pandas
         source_df = pd.read_csv(io.BytesIO(bytes_data))
+
+        # Convert the "Date_reported" column to datetime objects
         source_df["Date_reported"] = source_df["Date_reported"].apply(lambda x: datetime.strptime(str(x), '%Y-%m-%d'))
+
+        # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
+        # Log the error and raise the exception again
         logger.error(
             f"Error in who_global_rl_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         raise e
 
 
+
 async def sme_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
+    """
+    Preprocesses the given Excel data in bytes format and returns it as a Pandas DataFrame.
+
+    Args:
+        bytes_data (bytes): The Excel data in bytes format.
+        **kwargs: Additional keyword arguments.
+
+    Returns:
+        pd.DataFrame: The preprocessed DataFrame.
+
+    Raises:
+        AssertionError: If `bytes_data` argument is not of type bytes.
+        Exception: If any error occurs during preprocessing.
+
+    Example:
+        bytes_data = b'...'  # Some Excel data in bytes format
+        df = await sme_transform_preprocessing(bytes_data)
+    """
+    # Check if bytes_data is of type bytes
     assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
+
     try:
+        # Read Excel data into a DataFrame using pandas
         source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Time Series", engine='openpyxl')
+
+        # Replace ":" with NaN values in the DataFrame
         source_df.replace(":", np.nan, inplace=True)
+
+        # Drop the first row (assuming it contains headers)
         source_df = source_df.iloc[1:]
+
+        # Reset the index of the DataFrame
         source_df.reset_index(inplace=True)
+
+        # Rename columns to standardized names
         source_df.rename(columns={"Country": STANDARD_COUNTRY_COLUMN, "Country Code": STANDARD_KEY_COLUMN},
                          inplace=True)
+
+        # Remove any newline characters in column names
         source_df.rename(columns=lambda x: x.replace("\n", ""), inplace=True)
+
+        # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
+        # Log the error and raise the exception again
         logger.error(f"Error in sme_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         raise e
 
