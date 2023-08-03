@@ -128,7 +128,7 @@ async def main():
 
     try:
         if args.command == 'list':
-            if not (args.indicators and args.sources and args.config):
+            if not (args.indicators or args.sources or args.config):
                 parser = locals()[f'{args.command}_parser']
                 parser.parse_args(['--help'])
             await list_command(
