@@ -193,6 +193,7 @@ class StorageManager:
             #     indicator_path, max_concurrency=8
             # )
             # content = await stream.readall()
+
             content = await self.cached_download(source_path=indicator_path)
             content_str = content.decode("utf-8")
 
@@ -210,6 +211,7 @@ class StorageManager:
             raise
 
     async def get_indicators_cfg(self, contain_filter: str = None, indicator_ids: List = None):
+
         tasks = []
         if indicator_ids:
             for indicator_id in indicator_ids:
@@ -332,7 +334,7 @@ class StorageManager:
                 }
                 return config_dict
         else:
-            raise ConfigError(f"Utitlity source not valid")
+            raise ConfigError(f"Utility source not valid")
 
     async def check_blob_exists(self, blob_name: str) -> bool:
         """
@@ -503,7 +505,7 @@ class StorageManager:
     async def cached_download(self, source_path=None, chunked=False):
         if source_path in TMP_SOURCES:
             cached_src_path = TMP_SOURCES[source_path]
-            logger.info(f'Rereading {source_path} from {cached_src_path} ')
+            logger.info(f'Rereading cached {source_path} from {cached_src_path} ')
             data = open(cached_src_path, 'rb').read()
         else:
 

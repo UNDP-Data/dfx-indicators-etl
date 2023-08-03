@@ -1,6 +1,7 @@
 import asyncio
 import io
 import itertools
+import json
 import logging
 import warnings
 import os
@@ -9,7 +10,7 @@ import pandas as pd
 from dfpp.dfpp_exceptions import TransformationError, TransformationWarning
 from dfpp.storage import StorageManager
 from dfpp.constants import COUNTRY_LOOKUP_CSV_PATH, STANDARD_KEY_COLUMN
-
+from typing import List, Union
 logger = logging.getLogger(__name__)
 
 
@@ -477,6 +478,51 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
         except Exception as e:
             logger.error(f"Error uploading to blob: {e}")
             raise
+
+
+async def list_command(
+        indicators=False,
+        sources=False,
+        config=True,
+
+    ) -> List[str]:
+
+
+    async with StorageManager() as storage_manager:
+        logger.debug(f'Connected to Azure blob')
+        if sources:
+            source_files = await storage_manager.list_sources_cfgs()
+            source_ids = [os.path.split(sf)[-1].split('.cfg')[0].upper() for sf in source_files]
+
+        if indicators:
+            indicator_files =  [indicator_blob.name async for indicator_blob in storage_manager.list_indicators()]
+            indicator_ids = [os.path.split(sf)[-1].split('.cfg')[0] for sf in indicator_files]
+        '''
+            the code below could be sued if we decide to validate the configs and list only those that are valid
+        '''
+        # if sources:
+        #     source_configs = await storage_manager.get_sources_cfgs()
+        #     source_ids = [scfg['source']['id'] for scfg in source_configs]
+        #
+        # if indicators:
+        #     indicator_configs = await storage_manager.get_indicators_cfg()
+        #     indicator_ids = [icfg['indicator']['indicator_id'] for icfg in indicator_configs]
+        if config:
+            keys = ['ROOT_FOLDER', 'INDICATORS_CFG_PATH', 'SOURCES_CFG_PATH','UTILITIES_PATH', 'SOURCES_PATH', 'OUTPUT_PATH', 'container_name', 'conn_str']
+            pipeline_cfg = dict( )
+            for k in keys:
+                pipeline_cfg[k] = getattr(storage_manager, k, None)
+
+
+
+        if indicators:
+            logger.info(f'{len(indicator_ids)} indicators were detected: {json.dumps(indicator_ids, indent=4)}')
+        if sources:
+            logger.info(f'{len(source_ids)} indicator sources were detected: {json.dumps(source_ids, indent=4)}')
+        if config:
+            logger.info(f'Pipeline configuration: {json.dumps([pipeline_cfg], indent=4)}')
+
+
 
 
 if __name__ == "__main__":

@@ -190,26 +190,33 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project: 
 
 async def transform_sources(concurrent=True,
                             indicator_ids: List = None,
+                            indicator_id_contain_filter: str = None,
                             project: str = None,
                             concurrent_chunk_size: int = 50) -> List[str]:
     """
     Perform transformations for a list of indicators.
     """
+    assert project not in ['', None], f'Invalid project={project}.'
+
     failed_indicators_ids = list()
     skipped_indicators_id = list()
+    transformed_indicators = list()
 
-    # logger.info(f'Tranforming {len(indicator_ids)}')
     # Initialize the StorageManager
     async with StorageManager() as storage_manager:
 
-        indicators_cfgs = await storage_manager.get_indicators_cfg(indicator_ids=indicator_ids)
-
+        indicators_cfgs = await storage_manager.get_indicators_cfg(indicator_ids=indicator_ids,
+                                                                   contain_filter=indicator_id_contain_filter
+                                                                   )
+        if not indicators_cfgs:
+            logger.info(f'No indicators were retrieved  using indicator_ids={indicator_ids} and indicator_id_contain_filter={indicator_id_contain_filter}')
+            return
         for chunk in chunker(indicators_cfgs, concurrent_chunk_size):
 
             # await storage_manager.delete_blob(blob_path=os.path.join('DataFuturePlatform', 'pipeline', 'config', 'indicators', 'mmrlatest_gii.cfg'))
             tasks = list()
             # List to store transformed indicator IDs
-            transformed_indicators = list()
+            chunk_transformed_indicators = list()
             # Loop through each indicator configuration and perform transformations
             for indicator_cfg in chunk:
                 indicator_section = indicator_cfg['indicator']
@@ -225,7 +232,7 @@ async def transform_sources(concurrent=True,
                     # Perform transformation sequentially
                     transformed_indicator_id = await run_transformation_for_indicator(indicator_cfg=indicator_section,
                                                                                       project=project)
-                    transformed_indicators.append(transformed_indicator_id)
+                    chunk_transformed_indicators.append(transformed_indicator_id)
                 else:
                     # Create a task for running the transformation for the indicator
                     # Perform transformation concurrently using asyncio tasks
@@ -243,7 +250,7 @@ async def transform_sources(concurrent=True,
                     try:
                         await task
                         logger.info(f'Transform for {indicator_id} was executed successfully')
-                        transformed_indicators.append(indicator_id)
+                        chunk_transformed_indicators.append(indicator_id)
                     except Exception as e:
                         failed_indicators_ids.append(indicator_id)
                         with StringIO() as m:
@@ -251,13 +258,6 @@ async def transform_sources(concurrent=True,
                             em = m.getvalue()
                             logger.error(f'Error {em} was encountered while processing  {indicator_id}')
 
-                    # if task.exception():
-                    #     logger.error(f'Transform for {indicator_id} failed with error:\n'
-                    #                  f'"{task.exception()}"')
-                    #     await asyncio.sleep(3)
-                    # else:
-                    #     logger.info(f'Transform for {indicator_id} was executed successfully')
-                    #     transformed_indicators.append(indicator_id)
                 # # Handle timed out tasks
                 for task in pending:
                     # Cancel task and wait for cancellation to complete
@@ -265,9 +265,21 @@ async def transform_sources(concurrent=True,
                     failed_indicators_ids.append(indicator_id)
                     task.cancel()
                     await task
+            transformed_indicators += chunk_transformed_indicators
 
+        logger.info('#' * 100)
+        logger.info(f'TASKED: {len(indicators_cfgs)} indicators')
         logger.info(
-            f'Transformation complete for {len(transformed_indicators)} indicators with {len(failed_indicators_ids)} failed indicators')
+            f'TRANSFORMED:   {len(transformed_indicators)} indicators')
+        if failed_indicators_ids:
+
+            logger.info(f'FAILED: {len(failed_indicators_ids)} indicators')
+        if skipped_indicators_id:
+
+            logger.info(f'SKIPPED: {len(skipped_indicators_id)} indicators')
+        logger.info('#' * 100)
+
+
         return transformed_indicators
 
 
