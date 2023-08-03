@@ -10,7 +10,7 @@ import pandas as pd
 from dfpp.dfpp_exceptions import TransformationError, TransformationWarning
 from dfpp.storage import StorageManager
 from dfpp.constants import COUNTRY_LOOKUP_CSV_PATH, STANDARD_KEY_COLUMN
-from typing import List
+from typing import List, Union
 logger = logging.getLogger(__name__)
 
 
@@ -480,14 +480,14 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
             raise
 
 
+async def list_command(
+        indicators=False,
+        sources=False,
+        config=True,
 
-async def list_command(indicators=False, sources=False, config=True) -> List[str]:
-    """
-    List various props of the pipeline
-    :param indicator_ids:
-    :param contain_filter:
-    :return:
-    """
+    ) -> List[str]:
+
+
     async with StorageManager() as storage_manager:
         logger.debug(f'Connected to Azure blob')
         if sources:
@@ -521,6 +521,7 @@ async def list_command(indicators=False, sources=False, config=True) -> List[str
             logger.info(f'{len(source_ids)} indicator sources were detected: {json.dumps(source_ids, indent=4)}')
         if config:
             logger.info(f'Pipeline configuration: {json.dumps([pipeline_cfg], indent=4)}')
+
 
 
 

@@ -70,8 +70,13 @@ async def main():
         description='Download data sources for specific indicators as defined in the configuration files.'
                     'The downloaded raw source files are uploaded to Azure'
     )
+    download_parser.add_argument('-i', '--indicator_ids',
+                        help='The id of indicator/s to process. If not supplied all detected indicators '
+                             'will be processed',
+                        nargs='+')
 
-
+    download_parser.add_argument('-f', '--filter-indicators-string',
+                        help='Process only indicators whose id contains this string', type=str)
 
 
     transform_parser = subparsers.add_parser(
@@ -79,11 +84,30 @@ async def main():
         help='Transform/homogenize specific indicators',
         description='Transform/homogenize specific indicators and upload the results into base files'
     )
+
+
+    transform_parser.add_argument('-i', '--indicator_ids',
+                        help='The id of indicator/s to process. If not supplied all detected indicators '
+                             'will be processed',
+                        nargs='+')
+
+    transform_parser.add_argument('-f', '--filter-indicators-string',
+                        help='Process only indicators whose id contains this string', type=str)
+
     publish_parser = subparsers.add_parser(
         name='publish',
         help='Publish/upload specific indicators to the specified end point',
         description='Publish/upload specific indicators to the specified end point'
     )
+
+    publish_parser.add_argument('-i', '--indicator_ids',
+                                  help='The id of indicator/s to process. If not supplied all detected indicators '
+                                       'will be processed',
+                                  nargs='+')
+
+    publish_parser.add_argument('-f', '--filter-indicators-string',
+                                  help='Process only indicators whose id contains this string', type=str)
+
     run_parser = subparsers.add_parser(
         name='run',
         help='Execute the whole pipeline',
@@ -91,12 +115,12 @@ async def main():
     )
     # display help by default
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
+
+
     # display help for subcommands by default
-    if args.command == sys.argv[-1]:
-        parser = locals()[f'{args.command}_parser']
-        parser.parse_args(['--help'])
-
-
+    # if args.command == sys.argv[-1]:
+    #     parser = locals()[f'{args.command}_parser']
+    #     parser.parse_args(['--help'])
 
     if args.log_level:
         logger.setLevel(args.log_level)
@@ -113,13 +137,38 @@ async def main():
     from dfpp.storage import TMP_SOURCES
     from dfpp.utils import list_command
     logger.info(args)
-    if args.command == 'list':
-        await list_command(indicators=args.indicators, sources=args.sources, config=args.config)
 
-    if args.command == 'download':
-        downloaded_indicators = await download_indicator_sources()
+    try:
+        if args.command == 'list':
+            await list_command(
+                indicators=args.indicators,
+                sources=args.sources,
+                config=args.config
+            )
 
+        if args.command == 'download':
+            downloaded_indicators = await download_indicator_sources(
+                indicator_ids=args.indicator_ids,
+                indicator_id_contain_filter=args.filter_indicators_string
+            )
 
+        if args.command == 'transform':
+            transformed_indicators = await transform_sources(
+                indicator_ids=args.indicator_ids,
+                indicator_id_contain_filter=args.filter_indicators_string,
+                project='access_all_data'
+            )
+    except Exception as e:
+        with StringIO() as m:
+            print_exc(file=m)
+            em = m.getvalue()
+            logger.error(em)
+    finally:
+        for k, v in TMP_SOURCES.items():
+            exists = os.path.exists(v)
+            if exists:
+                logger.debug(f'Removing cache {v} for {k} ')
+                os.remove(v)
 
 if __name__ == '__main__':
     asyncio.run(main())
