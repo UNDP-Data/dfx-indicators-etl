@@ -83,7 +83,6 @@ async def update_and_get_output_csv(storage_manager: StorageManager,
     base_dfs = await asyncio.gather(*basefile_reading_tasks)
     for base_df, name in base_dfs:
 
-
         columns_to_update = list(set(output_df.columns.to_list()).intersection(set(base_df.columns.to_list())))
         columns_to_add = list(set(base_df.columns.to_list()).difference(set(output_df.columns.to_list()))) + [STANDARD_KEY_COLUMN]
         # as no index was set the common columns needs to be removed from update list
@@ -516,11 +515,15 @@ async def generate_output_per_indicator(storage_manager: StorageManager, datafra
     await asyncio.gather(*upload_tasks)
 
 
-async def publish(indicator_ids: list, project='access_all_data'):
+async def publish(indicator_ids: list,
+                    indicator_id_contain_filter: str = None,
+                  project=None):
     """
     Publish the data to the Data Futures Platform
     :return:
     """
+    assert project not in ['', None], f'Invalid project={project}.'
+
     if indicator_ids:
         logger.info(f"Starting to publish {len(indicator_ids)} indicators")
 
@@ -528,11 +531,11 @@ async def publish(indicator_ids: list, project='access_all_data'):
         logger.info("Connected to Azure Blob Storage")
         logger.info("Starting to read indicator configurations...")
 
-        # Read indicator configurations
-        if indicator_ids:
-            indicator_cfgs = await storage_manager.get_indicators_cfg(indicator_ids=indicator_ids)
-        else:
-            indicator_cfgs = await storage_manager.get_indicators_cfg()
+
+        indicator_cfgs = await storage_manager.get_indicators_cfg(
+            indicator_ids=indicator_ids,
+            contain_filter=indicator_id_contain_filter
+        )
 
         for area_type in AREA_TYPES:
 

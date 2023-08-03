@@ -63,65 +63,53 @@ async def main():
     list_parser.add_argument('-i', '--indicators', help='List available indicators',   action='store_true')
     list_parser.add_argument('-s', '--sources', help='List available sources',  action='store_true')
     list_parser.add_argument( '-c', '--config', help='List available configuration', action='store_true')
-    #list_parser.set_defaults(func=await list_command)
-    download_parser = subparsers.add_parser(
+
+    run_parser = subparsers.add_parser(
+        name='run',
+        help='Run specific stages or the whole pipeline',
+        description='Run specific states or the whole pipeline'
+    )
+    run_parser.add_argument('-i', '--indicator_ids',
+                        help='The id of indicator/s to process. If not supplied all detected indicators '
+                             'will be processed',
+                        nargs='+')
+
+    run_parser.add_argument('-f', '--filter-indicators-string',
+                        help='Process only indicators whose id contains this string', type=str)
+
+    stage_subparsers = run_parser.add_subparsers(help='pipeline stages', dest='stage')
+
+    # #list_parser.set_defaults(func=await list_command)
+    download_parser = stage_subparsers.add_parser(
         name='download',
         help='Download indicators source raw data',
         description='Download data sources for specific indicators as defined in the configuration files.'
                     'The downloaded raw source files are uploaded to Azure'
     )
-    download_parser.add_argument('-i', '--indicator_ids',
-                        help='The id of indicator/s to process. If not supplied all detected indicators '
-                             'will be processed',
-                        nargs='+')
 
-    download_parser.add_argument('-f', '--filter-indicators-string',
-                        help='Process only indicators whose id contains this string', type=str)
-
-
-    transform_parser = subparsers.add_parser(
+    transform_parser = stage_subparsers.add_parser(
         name='transform',
         help='Transform/homogenize specific indicators',
         description='Transform/homogenize specific indicators and upload the results into base files'
     )
 
-
-    transform_parser.add_argument('-i', '--indicator_ids',
-                        help='The id of indicator/s to process. If not supplied all detected indicators '
-                             'will be processed',
-                        nargs='+')
-
-    transform_parser.add_argument('-f', '--filter-indicators-string',
-                        help='Process only indicators whose id contains this string', type=str)
-
-    publish_parser = subparsers.add_parser(
+    publish_parser = stage_subparsers.add_parser(
         name='publish',
         help='Publish/upload specific indicators to the specified end point',
         description='Publish/upload specific indicators to the specified end point'
     )
+    #
+    # publish_parser.add_argument('-i', '--indicator_ids',
+    #                               help='The id of indicator/s to process. If not supplied all detected indicators '
+    #                                    'will be processed',
+    #                               nargs='+')
+    #
+    # publish_parser.add_argument('-f', '--filter-indicators-string',
+    #                               help='Process only indicators whose id contains this string', type=str)
 
-    publish_parser.add_argument('-i', '--indicator_ids',
-                                  help='The id of indicator/s to process. If not supplied all detected indicators '
-                                       'will be processed',
-                                  nargs='+')
 
-    publish_parser.add_argument('-f', '--filter-indicators-string',
-                                  help='Process only indicators whose id contains this string', type=str)
-
-    run_parser = subparsers.add_parser(
-        name='run',
-        help='Execute the whole pipeline',
-        description='Execute the whole pipeline'
-    )
     # display help by default
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
-
-
-    # display help for subcommands by default
-    # if args.command == sys.argv[-1]:
-    #     parser = locals()[f'{args.command}_parser']
-    #     parser.parse_args(['--help'])
-
     if args.log_level:
         logger.setLevel(args.log_level)
     if args.load_env_file  is True:
@@ -140,24 +128,48 @@ async def main():
 
     try:
         if args.command == 'list':
+            if not (args.indicators and args.sources and args.config):
+                parser = locals()[f'{args.command}_parser']
+                parser.parse_args(['--help'])
             await list_command(
                 indicators=args.indicators,
                 sources=args.sources,
                 config=args.config
             )
+        if args.command == 'run':
+            if args.stage == 'download':
+                downloaded_indicators = await download_indicator_sources(
+                    indicator_ids=args.indicator_ids,
+                    indicator_id_contain_filter=args.filter_indicators_string
+                )
 
-        if args.command == 'download':
-            downloaded_indicators = await download_indicator_sources(
-                indicator_ids=args.indicator_ids,
-                indicator_id_contain_filter=args.filter_indicators_string
-            )
+            if args.stage == 'transform':
+                transformed_indicators = await transform_sources(
+                    indicator_ids=args.indicator_ids,
+                    indicator_id_contain_filter=args.filter_indicators_string,
+                    project='access_all_data'
+                )
+            if args.stage == 'publish':
+                published_indicators = await  publish(
+                    indicator_ids=args.indicator_ids,
+                    indicator_id_contain_filter=args.filter_indicators_string,
+                    project='access_all_data'
+                )
 
-        if args.command == 'transform':
-            transformed_indicators = await transform_sources(
-                indicator_ids=args.indicator_ids,
-                indicator_id_contain_filter=args.filter_indicators_string,
-                project='access_all_data'
-            )
+            if args.stage is None:
+                downloaded_indicators = await download_indicator_sources(
+                    indicator_ids=args.indicator_ids,
+                    indicator_id_contain_filter=args.filter_indicators_string
+                )
+                transformed_indicators = await transform_sources(
+                    indicator_ids=downloaded_indicators,
+                    project='access_all_data'
+                )
+                published_indicators = await  publish(
+                    indicator_ids=transformed_indicators,
+                    project='access_all_data'
+                )
+
     except Exception as e:
         with StringIO() as m:
             print_exc(file=m)
