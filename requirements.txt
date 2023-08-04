@@ -1,6 +1,5 @@
 pandas
 azure-storage-blob
-swifter
 aiohttp
 python-dotenv
 openpyxl==3.0.10
