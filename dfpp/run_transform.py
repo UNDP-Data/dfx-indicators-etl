@@ -191,7 +191,7 @@ async def transform_sources(concurrent=True,
                             indicator_ids: List = None,
                             indicator_id_contain_filter: str = None,
                             project: str = None,
-                            concurrent_chunk_size: int = 50) -> List[str]:
+                            concurrent_chunk_size: int = 50) -> List[str] or None:
     """
     Perform transformations for a list of indicators.
     """

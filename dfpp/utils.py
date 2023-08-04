@@ -266,28 +266,29 @@ async def country_group_dataframe():
             df['Latitude (average)'] = df["Latitude (average)"].astype(np.float64)
             df['Longitude (average)'] = df["Longitude (average)"].astype(np.float64)
 
+            # TODO: The following code is commented out because the aggregate territory group DataFrame is no longer needed.
             # Read the aggregate territory group DataFrame from JSON in Azure Blob Storage
-            df_aggregates = pd.read_json(io.BytesIO(await storage_manager.cached_download(
-                source_path=os.path.join(
-                    storage_manager.ROOT_FOLDER,
-                    'config',
-                    'utilities',
-                    'aggregate_territory_groups.json'
-                )
-            )))
-
-            # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
-            df_aggregates.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
-
-            # Replace empty strings with NaN values
-            df_aggregates['Longitude (average)'] = df_aggregates['Longitude (average)'].replace(r'', np.NaN)
-
-            # Convert 'Latitude (average)' and 'Longitude (average)' columns to float64
-            df_aggregates['Latitude (average)'] = df_aggregates["Latitude (average)"].astype(np.float64)
-            df_aggregates['Longitude (average)'] = df_aggregates["Longitude (average)"].astype(np.float64)
-
-            # Concatenate the country group and aggregate territory group DataFrames
-            df = pd.concat([df, df_aggregates], ignore_index=True)
+            # df_aggregates = pd.read_json(io.BytesIO(await storage_manager.cached_download(
+            #     source_path=os.path.join(
+            #         storage_manager.ROOT_FOLDER,
+            #         'config',
+            #         'utilities',
+            #         'aggregate_territory_groups.json'
+            #     )
+            # )))
+            #
+            # # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
+            # df_aggregates.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
+            #
+            # # Replace empty strings with NaN values
+            # df_aggregates['Longitude (average)'] = df_aggregates['Longitude (average)'].replace(r'', np.NaN)
+            #
+            # # Convert 'Latitude (average)' and 'Longitude (average)' columns to float64
+            # df_aggregates['Latitude (average)'] = df_aggregates["Latitude (average)"].astype(np.float64)
+            # df_aggregates['Longitude (average)'] = df_aggregates["Longitude (average)"].astype(np.float64)
+            #
+            # # Concatenate the country group and aggregate territory group DataFrames
+            # df = pd.concat([df, df_aggregates], ignore_index=True)
 
             return df
         except Exception as e:
