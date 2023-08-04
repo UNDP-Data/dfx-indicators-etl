@@ -494,7 +494,7 @@ class StorageManager:
         """
         return self.container_client.delete_blob(blob_path)
 
-    async def list_base_files(self):
+    async def list_base_files(self, indicator_ids=None):
         """
         List
         :param indicator_id:
