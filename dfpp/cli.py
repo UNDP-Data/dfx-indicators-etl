@@ -136,7 +136,8 @@ async def main():
     These import are here in case the 
     """
     from dfpp.download import download_indicator_sources
-    from dfpp.publish import publish
+    # from dfpp.publish import publish
+    from dfpp.publishpg import publish
     from dfpp.run_transform import transform_sources
     from dfpp.storage import TMP_SOURCES
     from dfpp.utils import list_command
@@ -166,12 +167,11 @@ async def main():
                     project='access_all_data'
                 )
             if args.stage == 'publish':
-                published_indicators = await  publish(
+                published_indicators = await publish(
                     indicator_ids=args.indicator_ids,
                     indicator_id_contain_filter=args.filter_indicators_string,
                     project='access_all_data'
                 )
-
             if args.stage is None:
                 downloaded_indicators = await download_indicator_sources(
                     indicator_ids=args.indicator_ids,

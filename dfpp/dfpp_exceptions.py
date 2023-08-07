@@ -12,3 +12,11 @@ class TransformationError(Exception):
 
 class TransformationWarning(Warning):
     pass
+
+
+class PublishError(Exception):
+    pass
+
+
+class SourceDoesNotExist(Exception):
+    pass
