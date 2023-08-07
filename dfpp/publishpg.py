@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 project = 'access_all_data'
 output_data_type = 'timeseries'
 
-
 async def publish_indicator(base_file=None, indicator_id=None, outdf=None ):
     """
     group by years and add yeach year to out
