@@ -2,7 +2,6 @@
 Functions to publish indicators to PostgreSQL
 """
 import io
-import json
 import logging
 import os
 import asyncio
@@ -10,13 +9,12 @@ from traceback import print_exc
 from typing import List
 import pandas as pd
 
-from dfpp.constants import STANDARD_KEY_COLUMN, OUTPUT_FOLDER
+from dfpp.constants import STANDARD_KEY_COLUMN
 from dfpp.dfpp_exceptions import PublishError
 from dfpp.storage import StorageManager
 from dfpp.utils import chunker
 
 logger = logging.getLogger(__name__)
-# project = 'vaccine_equity'
 project = 'access_all_data'
 output_data_type = 'timeseries'
 
@@ -33,7 +31,7 @@ async def base_df_for_indicator(storage_manager: StorageManager, indicator_id: s
     :return: pd.DataFrame: The pandas DataFrame containing the data from the base file.
     """
     assert indicator_id is not None, "Indicator id is required"
-    logger.info(f'Retrieving base file for indicator_id={indicator_id}')
+    logger.info(f'Retrieving base file for indicator_id {indicator_id}')
     # Retrieve indicator configurations from the storage manager
     indicator_cfgs = await storage_manager.get_indicators_cfg(indicator_ids=[indicator_id])
     cfg = indicator_cfgs[0]
@@ -56,7 +54,8 @@ async def publish_indicator(storage_manager: StorageManager, indicator_id: str =
     Publish the indicator to the Data Futures Platform.
 
     This function reads the base file for the given indicator ID, constructs an indicator DataFrame with
-    'year', 'indicator_id', and 'value' columns, and returns it. If drop_null is True, rows with missing values
+    'year,' 'indicator_id,' and 'value' columns, and returns it.
+    If drop_null is True, rows with missing values
     (NaN) will be dropped from the DataFrame.
 
     :param storage_manager: The StorageManager object responsible for handling file operations.
@@ -69,7 +68,7 @@ async def publish_indicator(storage_manager: StorageManager, indicator_id: str =
     indicator_df = pd.DataFrame(columns=['year', 'indicator_id', 'value'])
 
     try:
-        logger.info(f'Publishing indicator_id={indicator_id}')
+        logger.info(f'Publishing indicator_id {indicator_id}')
         # Retrieve the base DataFrame for the indicator
         base_df = await base_df_for_indicator(storage_manager=storage_manager, indicator_id=indicator_id)
 
@@ -79,7 +78,7 @@ async def publish_indicator(storage_manager: StorageManager, indicator_id: str =
 
         if len(years) == 0:
             # Log a warning if no years are found for the indicator
-            logger.warning(f'No data found for indicator_id={indicator_id}')
+            logger.warning(f'No data found for indicator_id {indicator_id}')
             return None
 
         for year in years:
@@ -104,7 +103,7 @@ async def publish_indicator(storage_manager: StorageManager, indicator_id: str =
 
 
 async def publish(indicator_ids: List[str] = None, indicator_id_contain_filter: str = None, project: str = None) -> \
-List[str]:
+        List[str]:
     """
     Publish the data to the Data Futures Platform.
 
@@ -116,7 +115,7 @@ List[str]:
     :param indicator_ids: A list of indicator IDs to publish (optional).
     :param indicator_id_contain_filter: A string that the indicator ID should contain (optional).
     :param project: The project to which the indicators will be published. Must be one of
-                    'access_all_data' or 'vaccine_equity'.
+                    'access_all_data' or 'vaccine_equity.'
     :return: List[str]: A list of indicator IDs that were successfully processed and published.
     """
     assert project in ['access_all_data', 'vaccine_equity'], "Project must be one of access_all_data or vaccine_equity"
@@ -130,16 +129,9 @@ List[str]:
                 indicator_ids=indicator_ids,
                 contain_filter=indicator_id_contain_filter
             )
-            try:
-                # Try to read the output DataFrame if it exists; otherwise, create a new one.
-                output_dataframe = pd.read_csv(io.BytesIO(await storage_manager.cached_download(
-                    source_path=os.path.join(storage_manager.OUTPUT_PATH, project, 'output', 'output_test.csv')
-                )))
-            except Exception as e:
-                logger.warning(f'No output file found for project={project}, creating a new one....')
-                output_dataframe = pd.DataFrame(columns=[STANDARD_KEY_COLUMN, 'year', 'indicator_id', 'value'])
-            # Retrieve indicator configurations based on indicator_ids or the indicator_id_contain_filter
 
+            output_dataframe = pd.DataFrame(columns=[STANDARD_KEY_COLUMN, 'year', 'indicator_id', 'value'])
+            # Retrieve indicator configurations based on indicator_ids or the indicator_id_contain_filter
             indicator_ids = [cfg['indicator']['indicator_id'] for cfg in indicator_cfgs]
 
             # Process indicators in chunks to avoid overwhelming resources
@@ -164,18 +156,17 @@ List[str]:
                     output_dataframe = pd.concat([output_dataframe, indicator_df])
 
             # Upload the output DataFrame to the specified project folder
-            logger.info(f'Uploading output file to project={project}')
-            # output_dataframe.to_csv('output_test.csv', index=False)
+            logger.info(f'Uploading output file to project {project}')
             await storage_manager.upload(
                 data=output_dataframe.to_csv(index=False).encode('utf-8'),
                 dst_path=os.path.join(storage_manager.OUTPUT_PATH, project, 'output_test.csv'),
                 content_type='text/csv',
                 overwrite=True
             )
-            logger.info(f'Finished uploading output file to project={project}')
-            logger.info(f'Published {len(processed_indicators)} indicators to project={project}')
-            logger.info(f'Skipped {len(skipped_indicators)} indicators to project={project}')
-            logger.info(f'Failed to publish {len(failed_indicators)} indicators to project={project}')
+            logger.info(f'Finished uploading output file to project {project}')
+            logger.info(f'Published {len(processed_indicators)} indicators to project {project}')
+            logger.info(f'Skipped {len(skipped_indicators)} indicators to project {project}')
+            logger.info(f'Failed to publish {len(failed_indicators)} indicators to project {project}')
             # Return the list of successfully processed and published indicator IDs
             return processed_indicators
     except Exception as e:
@@ -183,12 +174,4 @@ List[str]:
 
 
 if __name__ == "__main__":
-    # asyncio.run(
-    #     publish(indicator_ids=None, indicator_id_contain_filter=None,
-    #             project='access_all_data'))
-
-    df = pd.read_csv('output_test.csv', low_memory=False)
-    print("Number of rows in output:", len(df))
-    # df.groupby(['indicator_id']).count().to_csv('output_countries_count.csv')
-    # df_grouped = pd.read_csv('output_countries_count.csv', low_memory=False)
-    # print("Number of processed indicators:", len(df_grouped))
+    pass
