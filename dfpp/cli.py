@@ -140,7 +140,7 @@ async def main():
     """
     from dfpp.download import download_indicator_sources
     # from dfpp.publish import publish
-    from dfpp.publishpg import publish
+    from dfpp.publish_new import publish
     from dfpp.run_transform import transform_sources
     from dfpp.storage import TMP_SOURCES
     from dfpp.utils import list_command
