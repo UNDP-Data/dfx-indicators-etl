@@ -8,12 +8,12 @@ import asyncio
 from traceback import print_exc
 from typing import List
 import pandas as pd
-
-from dfpp.constants import STANDARD_KEY_COLUMN
+from dfpp import db
+from dfpp import constants
 from dfpp.dfpp_exceptions import PublishError
 from dfpp.storage import StorageManager
 from dfpp.utils import chunker
-
+import asyncpg
 logger = logging.getLogger(__name__)
 project = 'access_all_data'
 output_data_type = 'timeseries'
@@ -50,7 +50,14 @@ async def base_df_for_indicator(storage_manager: StorageManager, indicator_id: s
     return base_file_df
 
 
-async def publish_indicator(storage_manager: StorageManager, indicator_id: str = None, drop_null: bool = False):
+async def publish_indicator(
+        storage_manager: StorageManager,
+        indicator_id: str = None,
+        drop_null: bool = False,
+        pool=None,
+        table=None,
+        overwrite=None
+        ):
     """
     Publish the indicator to the Data Futures Platform.
 
@@ -84,29 +91,42 @@ async def publish_indicator(storage_manager: StorageManager, indicator_id: str =
 
         for year in years:
             # Extract data for the specific year and construct the year_df
-            year_df = base_df[[STANDARD_KEY_COLUMN] + [f'{indicator_id}_{year}']]
+            year_df = base_df[[constants.STANDARD_KEY_COLUMN] + [f'{indicator_id}_{year}']]
             year_df = year_df.rename(columns={f'{indicator_id}_{year}': 'value'})
             year_df['year'] = year
             year_df['indicator_id'] = indicator_id
             indicator_df = pd.concat([indicator_df, year_df])
-
+        indicator_df.rename(columns={constants.STANDARD_KEY_COLUMN:'country_iso3'}, inplace=True)
+        indicator_df = indicator_df[['indicator_id', 'country_iso3', 'year', 'value']]
         if drop_null:
             # Drop rows with missing values if drop_null is True
             indicator_df = indicator_df.dropna()
+        #push to PG
+        async with pool.acquire(timeout=constants.CONNECTION_TIMEOUT) as conn_obj:
+            await db.upsert(
+                conn_obj=conn_obj,
+                table=table,
+                df=indicator_df,
+                overwrite=overwrite
+            )
 
-        return indicator_df
+        return indicator_id
 
     except Exception as e:
-        # Print the exception traceback and log the error
-        print_exc()
-        logger.error(f'Failed to publish indicator_id={indicator_id} with error={e}')
-        return None
+        #logger.error(f'Failed to publish indicator_id={indicator_id} with error={e}')
+        raise
 
 
-async def publish(indicator_ids: List[str] = None, indicator_id_contain_filter: str = None, project: str = None) -> \
-        List[str]:
+async def publish(
+        indicator_ids: List[str] = None,
+        indicator_id_contain_filter: str = None,
+        project: str = None,
+        table='staging.dfpp',
+        recreate_table=True,
+        overwrite_records=False
+                  ) -> List[str]:
     """
-    Publish the data to the Data Futures Platform.
+    Publish the Data Futures Platform indicator/s to PostGRES.
 
     This function reads the base file for each indicator in the specified indicator_ids list or that
     contains the specified string in its ID, constructs an indicator DataFrame, and appends it to the
@@ -117,11 +137,13 @@ async def publish(indicator_ids: List[str] = None, indicator_id_contain_filter: 
     :param indicator_id_contain_filter: A string that the indicator ID should contain (optional).
     :param project: The project to which the indicators will be published. Must be one of
                     'access_all_data' or 'vaccine_equity.'
+    :param table: the fully qualified table where the indicators
     :return: List[str]: A list of indicator IDs that were successfully processed and published.
     """
     assert project in ['access_all_data', 'vaccine_equity'], "Project must be one of access_all_data or vaccine_equity"
+    dsn = os.environ.get('POSTGRES_DSN')
     try:
-        skipped_indicators = list()
+
         failed_indicators = list()
         processed_indicators = list()
 
@@ -131,43 +153,47 @@ async def publish(indicator_ids: List[str] = None, indicator_id_contain_filter: 
                 contain_filter=indicator_id_contain_filter
             )
 
-            output_dataframe = pd.DataFrame(columns=[STANDARD_KEY_COLUMN, 'year', 'indicator_id', 'value'])
+
             # Retrieve indicator configurations based on indicator_ids or the indicator_id_contain_filter
             indicator_ids = [cfg['indicator']['indicator_id'] for cfg in indicator_cfgs]
+            async with asyncpg.create_pool(dsn=dsn, min_size=constants.POOL_MINSIZE, max_size=constants.POOL_MAXSIZE,
+                                           command_timeout=constants.POOL_COMMAND_TIMEOUT, ) as pool:
+                logger.debug('Connecting to database...')
+                async with pool.acquire(timeout=constants.CONNECTION_TIMEOUT) as conn_obj:
+                    # Process indicators in chunks to avoid overwhelming resources
+                    if recreate_table and await db.table_exists(conn_obj=conn_obj, table=table):
+                        logger.info('deleting')
+                        await db.drop_table(conn_obj=conn_obj, table=table)
+                        await db.create_out_table(conn_obj=conn_obj, table=table)
 
-            # Process indicators in chunks to avoid overwhelming resources
-            for chunk in chunker(indicator_ids, 50):
-                tasks = list()
-                for indicator_id in chunk:
-                    tasks.append(publish_indicator(storage_manager=storage_manager, indicator_id=indicator_id))
-                for task in asyncio.as_completed(tasks, timeout=30 * len(tasks)):
-                    try:
-                        indicator_df = await task
-                        if indicator_df is None:
-                            skipped_indicators.append(indicator_id)
-                            continue
-                    except Exception as e:
-                        failed_indicators.append(indicator_id)
-                        with io.StringIO() as m:
-                            print_exc(file=m)
-                            em = m.getvalue()
-                            logger.error(f'Error {em} was encountered while publishing {indicator_id}')
-                        continue
-                    processed_indicators.append(indicator_id)
-                    output_dataframe = pd.concat([output_dataframe, indicator_df])
+                    for chunk in chunker(indicator_ids, 50):
+                        tasks = list()
+                        for indicator_id in chunk:
+                            tasks.append(
+                                publish_indicator(
+                                    storage_manager=storage_manager,
+                                    indicator_id=indicator_id,
+                                    drop_null=False,
+                                    pool=pool,
+                                    table=table,
+                                    overwrite=overwrite_records
+                                )
+                            )
+                        for task in asyncio.as_completed(tasks, timeout=30 * len(tasks)):
+                            try:
+                                processed_indicators.append(await task)
+                            except Exception as e:
+                                failed_indicators.append(indicator_id)
+                                with io.StringIO() as m:
+                                    print_exc(file=m)
+                                    em = m.getvalue()
+                                    logger.error(f'Error {em} was encountered while publishing {indicator_id}')
+                                continue
 
-            # Upload the output DataFrame to the specified project folder
-            logger.info(f'Uploading output file to project {project}')
-            await storage_manager.upload(
-                data=output_dataframe.to_csv(index=False).encode('utf-8'),
-                dst_path=os.path.join(storage_manager.OUTPUT_PATH, project, 'output_test.csv'),
-                content_type='text/csv',
-                overwrite=True
-            )
             logger.info(f'Finished uploading output file to project {project}')
             logger.info(f'Published {len(processed_indicators)} indicators to project {project}')
-            logger.info(f'Skipped {len(skipped_indicators)} indicators to project {project}')
-            logger.info(f'Failed to publish {len(failed_indicators)} indicators to project {project}')
+            if failed_indicators:
+                logger.info(f'Failed to publish {len(failed_indicators)} indicators to project {project}')
             # Return the list of successfully processed and published indicator IDs
             return processed_indicators
     except Exception as e:

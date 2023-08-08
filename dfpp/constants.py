@@ -6,5 +6,5 @@ INDICATOR_CONFIG_ROOT_FOLDER = "DataFuturePlatform/pipeline/config/indicators"
 OUTPUT_FOLDER = "DataFuturePlatform/pipeline/output"
 POOL_COMMAND_TIMEOUT = 15 * 60  # seconds
 POOL_MINSIZE = 3
-POOL_MAXSIZE = 5
+POOL_MAXSIZE = 50
 CONNECTION_TIMEOUT = 30

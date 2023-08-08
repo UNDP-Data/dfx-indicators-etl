@@ -33,8 +33,8 @@ async def run_query(conn_obj=None, sql_query=None, method='execute'):
     assert method not in ('', None), f'Invalid method={method}'
     assert method in ALLOWED_METHODS, f'Invalid method={method}. Valid option are {",".join(ALLOWED_METHODS)}'
     m = getattr(conn_obj, method)
-    async with conn_obj.transaction():
-        return await m(sql_query)
+    #async with conn_obj.transaction():
+    return await m(sql_query)
 
 
 async def table_exists(conn_obj=None, table=None):
@@ -92,16 +92,15 @@ async def create_out_table(conn_obj=None, table=None):
         f'''
         
             CREATE TABLE {table} (
-                
-                iso3code varchar(3) NOT NULL,
-                year smallint NOT NULL,
                 indicator_id text,
+                country_iso3 varchar(3) NOT NULL,
+                year smallint NOT NULL,
                 value numeric(100, 2),
-                PRIMARY KEY (indicator_id, iso3code, year)
+                PRIMARY KEY (indicator_id, country_iso3, year)
             );
             
             CREATE INDEX year_idx ON {table} USING brin(year);
-            CREATE INDEX country_idx ON {table} USING btree(iso3code);
+            CREATE INDEX country_idx ON {table} USING btree(country_iso3);
             
             
         '''
@@ -141,15 +140,11 @@ async def quiet_upsert(conn_obj=None, table=None, df: pandas.DataFrame = None, o
     await conn_obj.executemany(sql_query, df.values.tolist())
 
 
-async def upsert(conn_obj=None, table=None, df: pandas.DataFrame = None, recreate_table=False, overwrite=False):
+async def upsert(conn_obj=None, table=None, df: pandas.DataFrame = None, overwrite=False):
     assert table not in ('', None), f'Invalid table={table}'
     assert '.' in table, f'table={table} is not fully qualified'
     col_names_str = json.dumps(tuple(df.columns.to_list()))
 
-    if recreate_table and await table_exists(conn_obj=conn_obj, table=table):
-        logger.info('deleting')
-        await drop_table(conn_obj=conn_obj, table=table)
-        await create_out_table(conn_obj=conn_obj, table=table)
 
     overwrite_clause = f'WHERE {table}.value <> EXCLUDED.value' if overwrite is False else ''
 
@@ -177,7 +172,7 @@ async def upsert(conn_obj=None, table=None, df: pandas.DataFrame = None, recreat
         logger.info('No records were updated/inserted because no records were found to be different ')
 
 
-async def run(dsn=None, table='staging.dfpp', df=None, recreate_table=True, overwrite=False):
+async def run(dsn=None, table='staging.dfpp', df=None , overwrite=False):
 
     async with asyncpg.create_pool(dsn=dsn, min_size=constants.POOL_MINSIZE, max_size=constants.POOL_MAXSIZE,
                                    command_timeout=constants.POOL_COMMAND_TIMEOUT, ) as pool:
@@ -186,7 +181,7 @@ async def run(dsn=None, table='staging.dfpp', df=None, recreate_table=True, over
             if not await table_exists(conn_obj=conn_obj, table=table):
                 # await drop_table(conn_obj=conn_obj, table=table)
                 await create_out_table(conn_obj=conn_obj, table=table)
-            await upsert(conn_obj=conn_obj, table=table, df=df, recreate_table=recreate_table, overwrite=overwrite)
+            await upsert(conn_obj=conn_obj, table=table, df=df, overwrite=overwrite)
 
 
 if __name__ == '__main__':
@@ -208,16 +203,16 @@ if __name__ == '__main__':
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
     logger.name = 'dfpp'
-    col_names  = ['iso3code', 'year', 'indicator_id', 'value']
+    col_names  = ['indicator_id', 'country_iso3', 'year', 'value']
     df = pd.DataFrame(
         columns=col_names,
         data=[
-            ('AZE', 1995, 'atestindi', 22.5678),
-            ('AZE', 1996, 'atestindi', 27),
-            ('AZE', 1997, 'atestindi', 29.8),
-            ('AZE', 1998, 'atestindi', 24.9),
-            ('AZE', 1999, 'atestindi', 25.5),
-            ('AZE', 2000, 'atestindi', None),
+            ('atestindi', 'AZE', 1995,  22.5678),
+            ('atestindi', 'AZE', 1996, 27),
+            ('atestindi', 'AZE', 1997,  29.8),
+            ('atestindi', 'AZE', 1998,  24.9),
+            ('atestindi', 'AZE', 1999,  25.5),
+            ('atestindi', 'AZE', 2000, None),
         ]
     )
-    asyncio.run(run(dsn=dsn, df=df, recreate_table=True, overwrite=False))
+    asyncio.run(run(dsn=dsn, df=df,  overwrite=False))
