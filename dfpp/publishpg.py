@@ -123,7 +123,8 @@ async def publish(
         project: str = None,
         table='staging.dfpp',
         recreate_table=True,
-        overwrite_records=False
+        overwrite_records=False,
+        concurrent_chunk_size: int = 50
                   ) -> List[str]:
     """
     Publish the Data Futures Platform indicator/s to PostGRES.
@@ -156,7 +157,7 @@ async def publish(
 
             # Retrieve indicator configurations based on indicator_ids or the indicator_id_contain_filter
             indicator_ids = [cfg['indicator']['indicator_id'] for cfg in indicator_cfgs]
-            async with asyncpg.create_pool(dsn=dsn, min_size=constants.POOL_MINSIZE, max_size=constants.POOL_MAXSIZE,
+            async with asyncpg.create_pool(dsn=dsn, min_size=constants.POOL_MINSIZE, max_size=concurrent_chunk_size,
                                            command_timeout=constants.POOL_COMMAND_TIMEOUT, ) as pool:
                 logger.debug('Connecting to database...')
                 async with pool.acquire(timeout=constants.CONNECTION_TIMEOUT) as conn_obj:
@@ -166,7 +167,7 @@ async def publish(
                         await db.drop_table(conn_obj=conn_obj, table=table)
                         await db.create_out_table(conn_obj=conn_obj, table=table)
 
-                    for chunk in chunker(indicator_ids, 50):
+                    for chunk in chunker(indicator_ids, size=concurrent_chunk_size):
                         tasks = list()
                         for indicator_id in chunk:
                             tasks.append(
