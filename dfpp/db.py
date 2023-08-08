@@ -117,7 +117,7 @@ async def create_out_table(conn_obj=None, table=None):
         return False
 
 
-async def upsert(conn_obj=None, table=None, df: pandas.DataFrame = None, overwrite=False):
+async def quiet_upsert(conn_obj=None, table=None, df: pandas.DataFrame = None, overwrite=False):
     assert table not in ('', None), f'Invalid table={table}'
     assert '.' in table, f'table={table} is not fully qualified'
     col_names_str = json.dumps(tuple(df.columns.to_list()))
@@ -138,10 +138,22 @@ async def upsert(conn_obj=None, table=None, df: pandas.DataFrame = None, overwri
                 WHERE 
                     {table}.value <> EXCLUDED.value
                 ;
-                
+
 
             '''
-    # r = await conn_obj.executemany(sql_queryf, df.values.tolist())
+    await conn_obj.executemany(sql_query, df.values.tolist())
+
+
+async def upsert(conn_obj=None, table=None, df: pandas.DataFrame = None, overwrite=False):
+    assert table not in ('', None), f'Invalid table={table}'
+    assert '.' in table, f'table={table} is not fully qualified'
+    col_names_str = json.dumps(tuple(df.columns.to_list()))
+
+    if overwrite and await table_exists(conn_obj=conn_obj, table=table):
+        await drop_table(conn_obj=conn_obj, table=table)
+        await create_out_table(conn_obj=conn_obj, table=table)
+
+
     sql_queryf = \
         f'''
                 INSERT INTO {table} ({col_names_str[1:-1]}) (SELECT * FROM unnest($1::{table}[])
