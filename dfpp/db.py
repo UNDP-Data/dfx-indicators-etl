@@ -136,23 +136,22 @@ async def quiet_upsert(conn_obj=None, table=None, df: pandas.DataFrame = None, o
                 SET 
                     value = EXCLUDED.value
                 WHERE 
-                    {table}.value <> EXCLUDED.value
-                ;
-
-
+                    {table}.value <> EXCLUDED.value;
             '''
     await conn_obj.executemany(sql_query, df.values.tolist())
 
 
-async def upsert(conn_obj=None, table=None, df: pandas.DataFrame = None, overwrite=False):
+async def upsert(conn_obj=None, table=None, df: pandas.DataFrame = None, recreate_table=False, overwrite=False):
     assert table not in ('', None), f'Invalid table={table}'
     assert '.' in table, f'table={table} is not fully qualified'
     col_names_str = json.dumps(tuple(df.columns.to_list()))
 
-    if overwrite and await table_exists(conn_obj=conn_obj, table=table):
+    if recreate_table and await table_exists(conn_obj=conn_obj, table=table):
+        logger.info('deleting')
         await drop_table(conn_obj=conn_obj, table=table)
         await create_out_table(conn_obj=conn_obj, table=table)
 
+    overwrite_clause = f'WHERE {table}.value <> EXCLUDED.value' if overwrite is False else ''
 
     sql_queryf = \
         f'''
@@ -161,25 +160,25 @@ async def upsert(conn_obj=None, table=None, df: pandas.DataFrame = None, overwri
                 ON CONFLICT ON CONSTRAINT dfpp_pkey DO UPDATE
                 SET 
                     value = EXCLUDED.value
-                WHERE 
-                    {table}.value <> EXCLUDED.value
+                {overwrite_clause}
                 RETURNING indicator_id, xmax = 0 as inserted, xmax = xmin as updated;
 
 
             '''
-
     results = await conn_obj.fetch(sql_queryf, [tuple(e) for e in df.values])
     if results:
         riter = ({'indicator_id': e['indicator_id'], 'inserted': e['inserted'], 'updated': e['updated']} for e in results)
         res_df = pd.DataFrame.from_dict(riter)
         inserted = res_df.inserted.sum()
         updated = res_df.updated.sum()
-        logger.info(f'Total rows: {len(df)} of which inserted {inserted} and updated {updated}')
+        skipped = abs(len(df)-(updated+inserted))
+        logger.info(f'Total rows: {len(df)} of which inserted {inserted} and updated {updated} skipped {skipped}')
     else:
         logger.info('No records were updated/inserted because no records were found to be different ')
 
 
-async def run(dsn=None, table='staging.dfpp', df=None):
+async def run(dsn=None, table='staging.dfpp', df=None, recreate_table=True, overwrite=False):
+
     async with asyncpg.create_pool(dsn=dsn, min_size=constants.POOL_MINSIZE, max_size=constants.POOL_MAXSIZE,
                                    command_timeout=constants.POOL_COMMAND_TIMEOUT, ) as pool:
         logger.debug('Connecting to database...')
@@ -187,7 +186,7 @@ async def run(dsn=None, table='staging.dfpp', df=None):
             if not await table_exists(conn_obj=conn_obj, table=table):
                 # await drop_table(conn_obj=conn_obj, table=table)
                 await create_out_table(conn_obj=conn_obj, table=table)
-            await upsert(conn_obj=conn_obj, table=table, df=df)
+            await upsert(conn_obj=conn_obj, table=table, df=df, recreate_table=recreate_table, overwrite=overwrite)
 
 
 if __name__ == '__main__':
@@ -209,7 +208,7 @@ if __name__ == '__main__':
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
     logger.name = 'dfpp'
-    col_names = columns = ['iso3code', 'year', 'indicator_id', 'value']
+    col_names  = ['iso3code', 'year', 'indicator_id', 'value']
     df = pd.DataFrame(
         columns=col_names,
         data=[
@@ -221,4 +220,4 @@ if __name__ == '__main__':
             ('AZE', 2000, 'atestindi', None),
         ]
     )
-    asyncio.run(run(dsn=dsn, df=df))
+    asyncio.run(run(dsn=dsn, df=df, recreate_table=True, overwrite=False))
