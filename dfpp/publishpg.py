@@ -20,6 +20,7 @@ output_data_type = 'timeseries'
 
 
 async def base_df_for_indicator(storage_manager: StorageManager, indicator_id: str) -> pd.DataFrame:
+
     """
     Read the base file for the indicator.
 

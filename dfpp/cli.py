@@ -28,6 +28,9 @@ def validate_env():
         raise Exception('AZURE_STORAGE_CONTAINER_NAME variable is not set')
     if os.environ.get('ROOT_FOLDER') is None:
         raise Exception('ROOT_FOLDER is not set')
+    if os.environ.get('POSTGRES_DSN') is None:
+        raise Exception('POSTGRES_DSN is not set')
+
 
 async def main():
 

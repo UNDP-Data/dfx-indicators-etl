@@ -16,7 +16,8 @@ dependencies = [
     'python-dotenv',
     'build',
     'openpyxl==3.0.10',
-    'xlrd'
+    'xlrd',
+    'asyncpg'
 ]
 
 [tool.setuptools.packages.find]
