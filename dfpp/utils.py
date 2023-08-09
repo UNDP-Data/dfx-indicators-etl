@@ -10,6 +10,7 @@ import datetime
 import numpy as np
 import pandas as pd
 from scipy.interpolate import CubicSpline, interp1d
+from pathlib import Path
 from dfpp.dfpp_exceptions import TransformationError, TransformationWarning
 from dfpp.storage import StorageManager
 from dfpp.constants import COUNTRY_LOOKUP_CSV_PATH, STANDARD_KEY_COLUMN, CURRENT_YEAR
@@ -583,7 +584,6 @@ async def interpolate_data(data_frame: pd.DataFrame, target_column=None, min_yea
     linear_interpolated_values = linear_interpolator(interpolated_years)
 
     return interpolated_years, linear_interpolated_values, cleaned_df
-
 
 if __name__ == "__main__":
     test_df = pd.read_csv("./BTI_PROJECT.csv")
