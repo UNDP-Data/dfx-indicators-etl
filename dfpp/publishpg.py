@@ -1,18 +1,22 @@
 """
 Functions to publish indicators to PostgreSQL
 """
+import glob
 import io
 import logging
 import os
 import asyncio
+import re
 from traceback import print_exc
 from typing import List
+import math
+import numpy as np
 import pandas as pd
 
-from dfpp.constants import STANDARD_KEY_COLUMN
+from dfpp.constants import STANDARD_KEY_COLUMN, CURRENT_YEAR
 from dfpp.dfpp_exceptions import PublishError
 from dfpp.storage import StorageManager
-from dfpp.utils import chunker
+from dfpp.utils import chunker, interpolate_data
 
 logger = logging.getLogger(__name__)
 project = 'access_all_data'
@@ -171,7 +175,6 @@ async def publish(indicator_ids: List[str] = None, indicator_id_contain_filter: 
             return processed_indicators
     except Exception as e:
         raise PublishError(f'Failed to publish indicators with error={e}')
-
 
 if __name__ == "__main__":
     pass
