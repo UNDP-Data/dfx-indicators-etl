@@ -1,5 +1,7 @@
 import asyncio
+import io
 import math
+import os
 import re
 import logging
 import numpy as np
@@ -9,20 +11,38 @@ from dfpp.constants import STANDARD_KEY_COLUMN, CURRENT_YEAR
 from dfpp.storage import StorageManager
 from dfpp.utils import interpolate_data
 
-
 logger = logging.getLogger(__name__)
 
 
-async def generate_population_dataframe():
-    output_df = pd.read_csv('/home/thuha/Downloads/output (2).csv')
-    population_df = output_df.filter(regex=STANDARD_KEY_COLUMN + '|^totalpopulation_untp_2', axis=1)
+# The function generates a population dataframe and calculates regional population totals.
+async def region_population_mapping(population_df: pd.DataFrame, grouped_region):
+    """
+    Generates a population dataframe with interpolated values and calculates regional population totals.
+
+    Args:
+        grouped_region (DataFrameGroupBy): A grouped dataframe representing regions.
+
+    Returns:
+        tuple: A tuple containing the population dataframe and a dictionary of regional population totals.
+        :param population_df:
+        :param grouped_region:
+        :param storage_manager:
+    """
+
     population_df = population_df.reindex(sorted(population_df.columns), axis=1)
+
+    # Iterate through rows in the population dataframe
     for index, row in population_df.iterrows():
+        # Create a new dataframe with the current row
         co_df = pd.DataFrame([row])
         co_df = co_df.transpose()
+
+        # Reset the index and add a 'year' column
         co_df.reset_index(inplace=True)
         co_df['year'] = (co_df['index'].apply(lambda date_string: date_string.replace('totalpopulation_untp_', '')))
         co_df = co_df.iloc[1:]
+
+        # Interpolate data for population values
         pop_years, pod_values, cleaned_df = await interpolate_data(data_frame=co_df[['year', index]],
                                                                    target_column=index)
         for idx, year in enumerate(pop_years):
@@ -30,220 +50,269 @@ async def generate_population_dataframe():
             if col not in population_df.columns:
                 population_df[col] = np.nan
             population_df.loc[index][col] = pod_values[idx]
+
     region_population = {}
-    undp_region_df = pd.read_excel('/home/thuha/Downloads/country_lookup.xlsx', sheet_name='undp_region_taxonomy')
-    undp_region_df.dropna(subset=['region_old'], inplace=True)
-    grouped_region = undp_region_df.groupby('region')
+
+    # Set the index of the population dataframe
+    population_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
+
+    # Iterate through grouped regions and calculate regional population totals
     for group_name, df_group in grouped_region:
         country_list = df_group['iso3'].tolist()
-        for y in range(2000, CURRENT_YEAR):
-            if "totalpopulation_untp_" + str(y) in population_df.columns:
-                region_population[group_name + '_' + str(y)] = population_df[population_df.index.isin(country_list)][
-                    "totalpopulation_untp_" + str(y)].sum()
+        for year in range(2000, CURRENT_YEAR):
+            if f"totalpopulation_untp_{year}" in population_df.columns:
+                region_population[f"{group_name}_{str(year)}"] = population_df[population_df.index.isin(country_list)][
+                    f"totalpopulation_untp_{str(year)}"].sum()
             else:
-                print('Not found ', "totalpopulation_untp_" + str(y), group_name)
+                print('Not found ', "totalpopulation_untp_" + str(year), group_name)
+
+    # Reset the index of the population dataframe and return results
     population_df.reset_index(inplace=True)
     population_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
-    return population_df, region_population
+    return region_population
 
 
-async def generate_region_aggregates(storage_manager: StorageManager, indicator_id, grouped_region, population_df,
-                                     output_df,
-                                     region_population):
+async def generate_region_aggregates(storage_manager: StorageManager, indicator_id: str, grouped_region,
+                                     population_df: pd.DataFrame,
+                                     output_df: pd.DataFrame, region_population):
     """
-        Process indicator data for grouped regions.
+    Process indicator data for grouped regions.
 
-        Args:
-            storage_manager (StorageManager): An instance of StorageManager for data retrieval.
-            indicator_id (str): The ID of the indicator to be processed.
-            grouped_region (iterable): Grouped regions and their dataframes.
-            population_df (pd.DataFrame): DataFrame containing population data.
-            output_df (pd.DataFrame): DataFrame containing indicator data.
-            region_population (dict): Region-wise population data.
+    Args:
+        storage_manager (StorageManager): An instance of StorageManager for data retrieval.
+        indicator_id (str): The ID of the indicator to be processed.
+        grouped_region (iterable): Grouped regions and their dataframes.
+        population_df (pd.DataFrame): DataFrame containing population data.
+        output_df (pd.DataFrame): DataFrame containing indicator data.
+        region_population (dict): Region-wise population data.
 
-        Returns:
-            pd.DataFrame, pd.DataFrame: Aggregated data and individual country data DataFrames.
-        """
+    Returns:
+        pd.DataFrame, pd.DataFrame: Aggregated data and individual country data DataFrames.
+    """
 
-    indicator_cfgs = await storage_manager.get_indicators_cfg(indicator_ids=[indicator_id])
-    cfg = indicator_cfgs[0]
-    indicator_cfg = cfg['indicator']
+    print(output_df.columns.to_list())
+    # Retrieve indicator configurations
+    indicator_configurations = await storage_manager.get_indicators_cfg(indicator_ids=[indicator_id])
+    indicator_config = indicator_configurations[0]['indicator']
 
-    all_agg_data = []
-    # List to store data for individual countries
-    all_country_data = []
+    aggregated_data_list = []
+    individual_country_data_list = []
 
-    # Skip rows with missing AggregateType
-    if indicator_cfg["aggregate_type"] is None or str(indicator_cfg["aggregate_type"]) == '':
+    # Skip indicators with missing AggregateType
+    if not indicator_config["aggregate_type"]:
         logger.warning(f'Skipping indicator {indicator_id} with missing aggregate_type')
         return None
 
-    denominator_name = str(indicator_cfg["denominator_indicator_id"])
-    minyear = None
+    denominator_indicator_name = str(indicator_config["denominator_indicator_id"])
 
-    # Initialize perCapita factor
-    perCapita = 1
-    if pd.notnull(indicator_cfg['per_capita']) and not math.isnan(indicator_cfg['per_capita']):
-        perCapita = 1 / float(indicator_cfg['per_capita'])
+    minimum_year = None
+
+    # Initialize per capita factor
+    per_capita_factor = 1
+    if indicator_config['per_capita'] != "None":
+        per_capita_factor = 1 / float(indicator_config['per_capita'])
 
     # Regular expression pattern for column matching
-    prefix = '^' + re.escape(indicator_id) + '_2'
+    indicator_column_prefix = '^' + re.escape(indicator_id) + '_2'
 
-    df_d = None
-    df_trans_d = None
+    denominator_df = None
+    denominator_transformed_df = None
+    region_denominator_df = None
 
-    if denominator_name != '':
-        prefix_d = '^' + re.escape(denominator_name) + '_2'
-        df_d = output_df.filter(regex=prefix_d, axis=1)
+    if denominator_indicator_name != '':
+        denominator_column_prefix = '^' + re.escape(denominator_indicator_name) + '_2'
+        denominator_df = output_df.filter(regex=denominator_column_prefix, axis=1)
 
-    if pd.notnull(indicator_cfg['min_year']):
-        minyear = indicator_cfg['min_year']
-
-    df_i = output_df.filter(regex=prefix, axis=1)
-
-    all_cols = df_i.columns.to_list()
-    all_cols.append(STANDARD_KEY_COLUMN)
+    if indicator_config['min_year'] != "None" and indicator_config['min_year'] != '':
+        minimum_year = str(indicator_config['min_year'])
+    print("XXXX")
+    print(denominator_df.head())
+    print(indicator_column_prefix)
+    indicator_df = output_df.filter(regex=indicator_column_prefix, axis=1)
+    print("XXXX")
+    print(indicator_df.head())
+    print("XXXX")
+    all_columns = indicator_df.columns.to_list()
+    all_columns.append(STANDARD_KEY_COLUMN)
 
     total_original_data_count = {}
 
     # Iterate through grouped regions
-    for group_name, df_group in grouped_region:
-        country_list = df_group['iso3'].tolist()
+    for group_name, region_df in grouped_region:
+        country_iso3_list = region_df['iso3'].tolist()
+        region_indicator_df = indicator_df[output_df.index.isin(country_iso3_list)]
+        region_indicator_df = region_indicator_df.reindex(sorted(region_indicator_df.columns), axis=1)
 
-        df_r_i = df_i[output_df.index.isin(country_list)]
-        df_r_i = df_r_i.reindex(sorted(df_r_i.columns), axis=1)
+        if denominator_df is not None:
+            region_denominator_df = denominator_df[output_df.index.isin(country_iso3_list)]
+            region_denominator_df = region_denominator_df.reindex(sorted(region_denominator_df.columns), axis=1)
 
-        if df_d is not None:
-            df_r_d = df_d[output_df.index.isin(country_list)]
-            df_r_d = df_r_d.reindex(sorted(df_r_d.columns), axis=1)
+        for year in range(2000, CURRENT_YEAR):
+            indicator_column = (indicator_id + '_' + str(year))
+            if indicator_column not in region_indicator_df.columns:
+                region_indicator_df[indicator_column] = np.NaN
 
-        for y in range(2000, CURRENT_YEAR):
-            col = (indicator_id + '_' + str(y))
-
-            if col not in df_r_i.columns:
-                df_r_i[col] = np.NaN
-
-            if df_d is not None and (denominator_name + '_' + str(y)) not in df_r_d.columns:
-                df_r_d[denominator_name + '_' + str(y)] = np.NaN
+            if denominator_df is not None and (
+                    denominator_indicator_name + '_' + str(year)) not in region_denominator_df.columns:
+                region_denominator_df[denominator_indicator_name + '_' + str(year)] = np.NaN
 
         # Transform data for further processing
-        df_trans = df_r_i.transpose()
-        df_trans.reset_index(inplace=True)
-        df_trans['year'] = (
-            df_trans['index'].apply(lambda date_string: date_string.replace(indicator_id + '_', '')))
+        transformed_df = region_indicator_df.transpose()
+        transformed_df.reset_index(inplace=True)
+        transformed_df['year'] = (
+            transformed_df['index'].apply(lambda date_string: date_string.replace(indicator_id + '_', '')))
 
-        if df_d is not None:
-            df_trans_d = df_r_d.transpose()
-            df_trans_d.reset_index(inplace=True)
-            df_trans_d['year'] = (
-                df_trans_d['index'].apply(lambda date_string: date_string.replace(denominator_name + '_', '')))
+        denominator_transformed_df = None
+        if region_denominator_df is not None:
+            denominator_transformed_df = region_denominator_df.transpose()
+            denominator_transformed_df.reset_index(inplace=True)
+            denominator_transformed_df['year'] = (
+                denominator_transformed_df['index'].apply(
+                    lambda date_string: date_string.replace(denominator_indicator_name + '_', '')))
 
-        obj_d = None
-        if df_trans_d is not None:
-            obj_d = {}
+        denominator_data = None
+        if denominator_transformed_df is not None:
+            denominator_data = {}
 
-        obj = {}
+        indicator_data = {}
 
         # Iterate through columns in transformed data
-        for col in df_trans.columns:
+        for col in transformed_df.columns:
             if col != 'year' and col != 'index':
-                dfn = df_trans[['year', col]]
-
-                d_values = {}
-                if df_trans_d is not None:
-                    dfn_d = df_trans_d[['year', col]]
-                    # Interpolate denominator data
-                    interpolated_years_d, interpolated_values_d, df_cleaned = interpolate_data(dfn_d, col, minyear)
+                year_col_df = transformed_df[['year', col]]
+                denominator_values = {}
+                if denominator_transformed_df is not None:
+                    denominator_year_col_df = denominator_transformed_df[['year', col]]
+                    interpolated_years_d, interpolated_values_d, cleaned_df_d = await interpolate_data(
+                        denominator_year_col_df, col, minimum_year)
                     if interpolated_years_d is None:
                         continue
 
-                    dfn_d.set_index('year', inplace=True)
+                    denominator_year_col_df.set_index('year', inplace=True)
 
-                    for i, y in enumerate(interpolated_years_d):
-                        d_values[y] = pd.to_numeric(interpolated_values_d[i])
-                        dfn_d.loc[y] = pd.to_numeric(interpolated_values_d[i])
+                    for i, interpolated_value_d in enumerate(interpolated_values_d):
+                        denominator_values[interpolated_years_d[i]] = pd.to_numeric(interpolated_value_d)
+                        denominator_year_col_df.loc[interpolated_years_d[i]] = pd.to_numeric(interpolated_value_d)
 
-                    dfn.set_index('year', inplace=True)
-                    df_trans1 = dfn.select_dtypes(exclude=['object', 'datetime']) * float(perCapita)
-                    df_trans1.index = pd.to_numeric(df_trans1.index)
-                    dfn = df_trans1.mul(dfn_d, axis=0)
-                    dfn.reset_index(inplace=True)
+                    year_col_df.set_index('year', inplace=True)
+                    transformed_indicator_df = year_col_df.select_dtypes(exclude=['object', 'datetime']) * float(
+                        per_capita_factor)
+                    transformed_indicator_df.index = pd.to_numeric(transformed_indicator_df.index)
+                    year_col_df = transformed_indicator_df.mul(denominator_year_col_df, axis=0)
+                    year_col_df.reset_index(inplace=True)
 
-                # Interpolate main data
-                interpolated_years, interpolated_values, df_cleaned = interpolate_data(dfn, col, minyear)
-
-                for i2, r2 in df_cleaned.iterrows():
-                    if total_original_data_count.get(group_name + '_' + str(r2['year'])) is None:
-                        total_original_data_count[group_name + '_' + str(r2['year'])] = 0
-
-                    c_pop = population_df.loc[col]
-                    if c_pop is not None:
-                        total_original_data_count[group_name + '_' + str(r2['year'])] += c_pop.get(
-                            "totalpopulation_untp_" + str(r2['year']), 0)
-
-                for i, y in enumerate(interpolated_years):
-                    y = int(y)
-                    if obj.get(indicator_id + '_' + str(y)) is None:
-                        obj[indicator_id + '_' + str(y)] = 0
-                    if obj_d is not None and obj_d.get(indicator_id + '_' + str(y)) is None:
-                        obj_d[indicator_id + '_' + str(y)] = 0
-                    if indicator_cfg["AggregateType"] == 'PositiveSum' and interpolated_values[i] <= 0:
+                interpolated_years, interpolated_values, cleaned_df = await interpolate_data(year_col_df, col,
+                                                                                             minimum_year)
+                for i2, row2 in cleaned_df.iterrows():
+                    if total_original_data_count.get(group_name + '_' + str(row2['year'])) is None:
+                        total_original_data_count[group_name + '_' + str(row2['year'])] = 0
+                    country_population = population_df.loc[col]
+                    if country_population is not None:
+                        total_original_data_count[group_name + '_' + str(row2['year'])] += country_population.get(
+                            "totalpopulation_untp_" + str(row2['year']), 0)
+                for i, interpolated_year in enumerate(interpolated_years):
+                    interpolated_year = int(interpolated_year)
+                    if indicator_data.get(indicator_id + '_' + str(interpolated_year)) is None:
+                        indicator_data[indicator_id + '_' + str(interpolated_year)] = 0
+                    if denominator_data is not None and denominator_data.get(
+                            indicator_id + '_' + str(interpolated_year)) is None:
+                        denominator_data[indicator_id + '_' + str(interpolated_year)] = 0
+                    if indicator_config["aggregate_type"] == 'PositiveSum' and interpolated_values[i] <= 0:
                         interpolated_values[i] = 0
-                        if obj_d is not None:
-                            obj_d[indicator_id + '_' + str(y)] += d_values.get(y)
-                    elif df_trans_d is not None:
-                        if d_values.get(y) is not None:
-                            obj_d[indicator_id + '_' + str(y)] += d_values.get(y)
-                            obj[indicator_id + '_' + str(y)] += round(interpolated_values[i], 5)
+                        if denominator_data is not None:
+                            denominator_data[indicator_id + '_' + str(interpolated_year)] += denominator_values.get(
+                                interpolated_year)
+                    elif denominator_transformed_df is not None:
+                        if denominator_values.get(interpolated_year) is not None:
+                            denominator_data[indicator_id + '_' + str(interpolated_year)] += denominator_values.get(
+                                interpolated_year)
+                            indicator_data[indicator_id + '_' + str(interpolated_year)] += round(interpolated_values[i],
+                                                                                                 5)
                     else:
-                        obj[indicator_id + '_' + str(y)] += round(interpolated_values[i], 5)
+                        indicator_data[indicator_id + '_' + str(interpolated_year)] += round(interpolated_values[i], 5)
 
-                    all_country_data.append({
-                        'year': y,
+                    individual_country_data_list.append({
+                        'year': interpolated_year,
                         'iso3': col,
                         'region': group_name,
                         'indicatorid': indicator_id,
                         'value': round(interpolated_values[i], 5),
-                        'denominator': d_values.get(y)
+                        'denominator': denominator_values.get(interpolated_year)
                     })
-
-        if obj_d is not None:
-            for k in obj_d:
-                if k != STANDARD_KEY_COLUMN:
-                    if obj_d[k] == 0:
-                        obj[k] = 0
+        if denominator_data is not None:
+            for denominator_key in denominator_data:
+                if denominator_key != STANDARD_KEY_COLUMN:
+                    if denominator_data[denominator_key] == 0:
+                        indicator_data[denominator_key] = 0
                     else:
-                        obj[k] = round((obj[k] / (obj_d[k] * perCapita)), 5)
+                        indicator_data[denominator_key] = round(
+                            (indicator_data[denominator_key] / (denominator_data[denominator_key] * per_capita_factor)),
+                            5)
 
-        for k in obj:
-            x = k.replace(indicator_id + '_', '')
+        for indicator_key in indicator_data:
+            year_str = indicator_key.replace(indicator_id + '_', '')
 
-            tot = region_population.get(group_name + '_' + x, 0)
-            original = total_original_data_count.get(group_name + '_' + x, 0)
+            total_population = region_population.get(group_name + '_' + year_str, 0)
+            original_data_count = total_original_data_count.get(group_name + '_' + year_str, 0)
 
-            if tot == 0:
-                print('Pop zero', indicator_id, x, group_name)
+            if total_population == 0:
+                print('Population is zero for', indicator_id, year_str, group_name)
                 continue
 
-            p = original * 100 / tot
-            if p >= 50:
-                all_agg_data.append({
+            percentage = original_data_count * 100 / total_population
+            if percentage >= 50:
+                aggregated_data_list.append({
                     'region': group_name,
                     'indicatorid': indicator_id,
-                    'year': x,
-                    'value': obj[k]
+                    'year': year_str,
+                    'value': indicator_data[indicator_key]
                 })
+
     # Create DataFrames for aggregated and individual country data
-    df_final = pd.DataFrame(all_agg_data)
-    df_final_country = pd.DataFrame(all_country_data)
-    return df_final, df_final_country
+    aggregated_data_df = pd.DataFrame(aggregated_data_list)
+    individual_country_data_df = pd.DataFrame(individual_country_data_list)
+    return aggregated_data_df, individual_country_data_df
 
 
-# async def delete_dirs():
-#     for file in glob.glob('*.csv'):
-#         os.remove(file)
+async def aggregate_indicator(project: str = None, indicator_id: str = None):
+    # output_df = pd.read_csv('/home/thuha/Downloads/output (2).csv')
+    # output_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
+    # undp_region_df = pd.read_excel('/home/thuha/Downloads/country_lookup.xlsx', sheet_name='undp_region_taxonomy')
+
+    async with StorageManager() as storage_manager:
+        output_bytes = await storage_manager.cached_download(
+            source_path=os.path.join(storage_manager.OUTPUT_PATH, project, "output_test.csv")
+        )
+        output_df = pd.read_csv(io.BytesIO(output_bytes), index_col=STANDARD_KEY_COLUMN)
+        print(output_df.head())
+        output_df = output_df.pivot(columns=["indicator_id", 'year'], values='value')
+        # Flatten the column MultiIndex
+        output_df.columns = [f'{col[0]}_{col[1]}' for col in output_df.columns]
+
+        undp_region_df = pd.read_excel(io.BytesIO(await storage_manager.cached_download(
+            source_path=os.path.join(storage_manager.UTILITIES_PATH, "country_lookup.xlsx")
+        )), sheet_name='undp_region_taxonomy')
+        undp_region_df.dropna(subset=['region_old'], inplace=True)
+        grouped_region = undp_region_df.groupby('region')
+        population_df = pd.read_csv(io.BytesIO(await storage_manager.cached_download(
+            source_path=os.path.join(storage_manager.UTILITIES_PATH, "population.csv")
+        )))
+        region_population = await region_population_mapping(population_df=population_df, grouped_region=grouped_region)
+        aggregated_data_df, individual_country_data_df = await generate_region_aggregates(
+            storage_manager=storage_manager,
+            indicator_id=indicator_id,
+            grouped_region=grouped_region,
+            population_df=population_df,
+            output_df=output_df,
+            region_population=region_population
+        )
+        print("EEEEEEEEEEEEEEENNNNNNNNNNNNNNNNDDDDDDDDDDD")
+        print(aggregated_data_df.head())
+
+        #
+        # print(aggregated_data_df.head())
+
 
 if __name__ == "__main__":
     print("Running publish.py")
-    asyncio.run(generate_population_dataframe())
-    # asyncio.run(delete_dirs())
+    asyncio.run(aggregate_indicator(project="access_all_data", indicator_id="populationlivinginslums_cpiaplis"))

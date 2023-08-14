@@ -14,11 +14,9 @@ from pathlib import Path
 from dfpp.dfpp_exceptions import TransformationError, TransformationWarning
 from dfpp.storage import StorageManager
 from dfpp.constants import COUNTRY_LOOKUP_CSV_PATH, STANDARD_KEY_COLUMN, CURRENT_YEAR
-from typing import List, Union
+from typing import List, Union, Any
 
 logger = logging.getLogger(__name__)
-
-
 
 
 async def add_country_code(source_df, country_name_column=None):
@@ -531,7 +529,7 @@ async def list_command(
             logger.info(f'Pipeline configuration: {json.dumps([pipeline_cfg], indent=4)}')
 
 
-async def interpolate_data(data_frame: pd.DataFrame, target_column=None, min_year=None):
+async def interpolate_data(data_frame: pd.DataFrame, target_column: Any = None, min_year: int = None):
     """
     Interpolates missing data in a DataFrame's column using cubic spline interpolation.
 
@@ -584,6 +582,7 @@ async def interpolate_data(data_frame: pd.DataFrame, target_column=None, min_yea
     linear_interpolated_values = linear_interpolator(interpolated_years)
 
     return interpolated_years, linear_interpolated_values, cleaned_df
+
 
 if __name__ == "__main__":
     test_df = pd.read_csv("./BTI_PROJECT.csv")

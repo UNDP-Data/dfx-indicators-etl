@@ -1,34 +1,28 @@
 """
 Functions to publish indicators to PostgreSQL
 """
-import glob
 import io
 import logging
 import os
 import asyncio
-import re
 from traceback import print_exc
 from typing import List
-import math
-import numpy as np
+
 import pandas as pd
 from dfpp import db
 from dfpp import constants
 
-from dfpp.constants import STANDARD_KEY_COLUMN, CURRENT_YEAR
 from dfpp.dfpp_exceptions import PublishError
 from dfpp.storage import StorageManager
-from dfpp.utils import chunker, interpolate_data
-
 from dfpp.utils import chunker
 import asyncpg
+
 logger = logging.getLogger(__name__)
 project = 'access_all_data'
 output_data_type = 'timeseries'
 
 
 async def base_df_for_indicator(storage_manager: StorageManager, indicator_id: str) -> pd.DataFrame:
-
     """
     Read the base file for the indicator.
 
@@ -65,7 +59,7 @@ async def publish_indicator(
         pool=None,
         table=None,
         overwrite=None
-        ):
+):
     """
     Publish the indicator to the Data Futures Platform.
 
@@ -74,6 +68,9 @@ async def publish_indicator(
     If drop_null is True, rows with missing values
     (NaN) will be dropped from the DataFrame.
 
+    :param overwrite:
+    :param table:
+    :param pool:
     :param storage_manager: The StorageManager object responsible for handling file operations.
     :param indicator_id: The ID of the indicator to be published.
     :param drop_null: A boolean flag to specify whether to drop rows with missing values (default: False).
@@ -104,12 +101,12 @@ async def publish_indicator(
             year_df['year'] = year
             year_df['indicator_id'] = indicator_id
             indicator_df = pd.concat([indicator_df, year_df])
-        indicator_df.rename(columns={constants.STANDARD_KEY_COLUMN:'country_iso3'}, inplace=True)
+        indicator_df.rename(columns={constants.STANDARD_KEY_COLUMN: 'country_iso3'}, inplace=True)
         indicator_df = indicator_df[['indicator_id', 'country_iso3', 'year', 'value']]
         if drop_null:
             # Drop rows with missing values if drop_null is True
             indicator_df = indicator_df.dropna()
-        #push to PG
+        # push to PG
         async with pool.acquire(timeout=constants.CONNECTION_TIMEOUT) as conn_obj:
             await db.upsert(
                 conn_obj=conn_obj,
@@ -121,7 +118,7 @@ async def publish_indicator(
         return indicator_id
 
     except Exception as e:
-        #logger.error(f'Failed to publish indicator_id={indicator_id} with error={e}')
+        # logger.error(f'Failed to publish indicator_id={indicator_id} with error={e}')
         raise
 
 
@@ -133,7 +130,7 @@ async def publish(
         recreate_table=True,
         overwrite_records=False,
         concurrent_chunk_size: int = 50
-                  ) -> List[str]:
+) -> List[str]:
     """
     Publish the Data Futures Platform indicator/s to PostGRES.
 
@@ -161,7 +158,6 @@ async def publish(
                 indicator_ids=indicator_ids,
                 contain_filter=indicator_id_contain_filter
             )
-
 
             # Retrieve indicator configurations based on indicator_ids or the indicator_id_contain_filter
             indicator_ids = [cfg['indicator']['indicator_id'] for cfg in indicator_cfgs]
@@ -207,6 +203,7 @@ async def publish(
             return processed_indicators
     except Exception as e:
         raise PublishError(f'Failed to publish indicators with error={e}')
+
 
 if __name__ == "__main__":
     pass
