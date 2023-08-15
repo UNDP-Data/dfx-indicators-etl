@@ -28,8 +28,8 @@ def validate_env():
         raise Exception('AZURE_STORAGE_CONTAINER_NAME variable is not set')
     if os.environ.get('ROOT_FOLDER') is None:
         raise Exception('ROOT_FOLDER is not set')
-    if os.environ.get('POSTGRES_DSN') is None:
-        raise Exception('POSTGRES_DSN is not set')
+    # if os.environ.get('POSTGRES_DSN') is None:
+    #     raise Exception('POSTGRES_DSN is not set')
 
 
 async def main():
@@ -140,7 +140,7 @@ async def main():
     """
     from dfpp.download import download_indicator_sources
     from dfpp.publishpg import publish
-    #from dfpp.publish_new import publish
+    # from dfpp.publish_new import publish
     from dfpp.run_transform import transform_sources
     from dfpp.storage import TMP_SOURCES
     from dfpp.utils import list_command

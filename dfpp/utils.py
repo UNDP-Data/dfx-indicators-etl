@@ -5,13 +5,17 @@ import json
 import logging
 import warnings
 import os
+import datetime
+
 import numpy as np
 import pandas as pd
+from scipy.interpolate import CubicSpline, interp1d
 from pathlib import Path
 from dfpp.dfpp_exceptions import TransformationError, TransformationWarning
 from dfpp.storage import StorageManager
-from dfpp.constants import COUNTRY_LOOKUP_CSV_PATH, STANDARD_KEY_COLUMN
-from typing import List, Union
+from dfpp.constants import COUNTRY_LOOKUP_CSV_PATH, STANDARD_KEY_COLUMN, CURRENT_YEAR
+from typing import List, Union, Any
+
 logger = logging.getLogger(__name__)
 
 
@@ -341,7 +345,8 @@ def chunker(iterable, size):
         yield chunk
 
 
-async def validate_indicator_transformed(storage_manager: StorageManager, indicator_id: str = None, pre_update_checksum: str = None,
+async def validate_indicator_transformed(storage_manager: StorageManager, indicator_id: str = None,
+                                         pre_update_checksum: str = None,
                                          df: pd.DataFrame = None):
     """
     Validates that a transformed indicator DataFrame contains the required columns.
@@ -393,7 +398,8 @@ async def validate_indicator_transformed(storage_manager: StorageManager, indica
         raise
 
 
-async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, blob_name: str = None, project: str = None):
+async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, blob_name: str = None,
+                           project: str = None):
     """
     Uploads a DataFrame as a CSV file to Azure Blob Storage.
 
@@ -476,7 +482,8 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
                 overwrite=True,
                 content_type="text/csv"
             )
-            await validate_indicator_transformed(storage_manager=storage_manager, indicator_id=indicator_id, df=base_file_df, pre_update_checksum=pre_update_md5_checksum)
+            await validate_indicator_transformed(storage_manager=storage_manager, indicator_id=indicator_id,
+                                                 df=base_file_df, pre_update_checksum=pre_update_md5_checksum)
         except Exception as e:
             logger.error(f"Error uploading to blob: {e}")
             raise
@@ -487,9 +494,7 @@ async def list_command(
         sources=False,
         config=True,
 
-    ) -> List[str]:
-
-
+) -> List[str]:
     async with StorageManager() as storage_manager:
         logger.debug(f'Connected to Azure blob')
         if sources:
@@ -497,7 +502,7 @@ async def list_command(
             source_ids = [os.path.split(sf)[-1].split('.cfg')[0].upper() for sf in source_files]
 
         if indicators:
-            indicator_files =  [indicator_blob.name async for indicator_blob in storage_manager.list_indicators()]
+            indicator_files = [indicator_blob.name async for indicator_blob in storage_manager.list_indicators()]
             indicator_ids = [os.path.split(sf)[-1].split('.cfg')[0] for sf in indicator_files]
         '''
             the code below could be sued if we decide to validate the configs and list only those that are valid
@@ -510,12 +515,11 @@ async def list_command(
         #     indicator_configs = await storage_manager.get_indicators_cfg()
         #     indicator_ids = [icfg['indicator']['indicator_id'] for icfg in indicator_configs]
         if config:
-            keys = ['ROOT_FOLDER', 'INDICATORS_CFG_PATH', 'SOURCES_CFG_PATH','UTILITIES_PATH', 'SOURCES_PATH', 'OUTPUT_PATH', 'container_name', 'conn_str']
-            pipeline_cfg = dict( )
+            keys = ['ROOT_FOLDER', 'INDICATORS_CFG_PATH', 'SOURCES_CFG_PATH', 'UTILITIES_PATH', 'SOURCES_PATH',
+                    'OUTPUT_PATH', 'container_name', 'conn_str']
+            pipeline_cfg = dict()
             for k in keys:
                 pipeline_cfg[k] = getattr(storage_manager, k, None)
-
-
 
         if indicators:
             logger.info(f'{len(indicator_ids)} indicators were detected: {json.dumps(indicator_ids, indent=4)}')
@@ -525,6 +529,90 @@ async def list_command(
             logger.info(f'Pipeline configuration: {json.dumps([pipeline_cfg], indent=4)}')
 
 
+async def interpolate_data(data_frame: pd.DataFrame, target_column: Any = None, min_year: int = None):
+    """
+    Interpolates missing data in a DataFrame's column using cubic spline interpolation.
+
+    Args:
+        data_frame (pd.DataFrame): The input DataFrame containing the data to interpolate.
+        target_column (str): The column name for which interpolation should be performed.
+        min_year (int, optional): The minimum year to consider for interpolation. If not provided,
+                                  it defaults to 5 years before the earliest year in the data or 2000.
+
+    Returns:
+        tuple: A tuple containing three elements -
+               1. A NumPy array of interpolated years.
+               2. A NumPy array of interpolated values corresponding to the target column.
+               3. The cleaned DataFrame after interpolation.
+    """
+    # Drop rows with missing values
+    cleaned_df = data_frame.dropna()
+
+    # If there are too few data points, return the cleaned data as is
+    if cleaned_df.shape[0] < 2:
+        return cleaned_df['year'].tolist(), cleaned_df[target_column].tolist(), cleaned_df
+
+    # Determine the range of years for interpolation
+    max_y = cleaned_df['year'].max()
+    min_y = cleaned_df['year'].min()
+    years_max = min(int(max_y) + 6, CURRENT_YEAR)  # Adding a buffer of 6 years
+
+    # Set the minimum year for interpolation
+    if min_year:
+        year_min = float(min_year)
+    else:
+        year_min = max(int(min_y) - 5, 2000)
+
+    # Handle the case where max_year is provided
+    if int(max_y) == CURRENT_YEAR:
+        max_y = CURRENT_YEAR - 1
+        cleaned_df = cleaned_df[cleaned_df['year'] != CURRENT_YEAR]
+        if cleaned_df.shape[0] < 2:
+            return cleaned_df['year'].tolist(), cleaned_df[target_column].tolist(), cleaned_df
+
+    # Generate arrays for interpolation
+    interpolated_years = np.arange(year_min, years_max)
+    within_range_interpolated_years = np.arange(int(min_y), int(max_y) + 1)
+    # Perform cubic spline interpolation
+    cubic_spline = CubicSpline(cleaned_df['year'], cleaned_df[target_column], bc_type='natural')
+    cubic_interpolated_values = cubic_spline(within_range_interpolated_years)
+
+    # Perform linear interpolation for the entire range
+    linear_interpolator = interp1d(within_range_interpolated_years, cubic_interpolated_values, fill_value='extrapolate')
+    linear_interpolated_values = linear_interpolator(interpolated_years)
+
+    return interpolated_years, linear_interpolated_values, cleaned_df
+
+
+async def base_df_for_indicator(storage_manager: StorageManager, indicator_id: str, project:str) -> pd.DataFrame:
+    """
+    Read the base file for the indicator.
+
+    This function retrieves the base file for a given indicator ID, reads it as a pandas DataFrame,
+    and returns the DataFrame for further processing.
+
+    :param storage_manager: The StorageManager object responsible for handling file operations.
+    :param indicator_id: The ID of the indicator for which to retrieve the base file.
+    :return: pd.DataFrame: The pandas DataFrame containing the data from the base file.
+    """
+    assert indicator_id is not None, "Indicator id is required"
+    logger.info(f'Retrieving base file for indicator_id {indicator_id}')
+    # Retrieve indicator configurations from the storage manager
+    indicator_cfgs = await storage_manager.get_indicators_cfg(indicator_ids=[indicator_id])
+
+    cfg = indicator_cfgs[0]
+
+    # Create the base file name based on the source_id from indicator configurations
+    base_file_name = f"{cfg['indicator']['source_id']}.csv"
+
+    # Create the base file path
+    base_file_path = os.path.join(storage_manager.OUTPUT_PATH, project, 'base', base_file_name)
+
+    logger.info(f"downloading base file {base_file_name}")
+    # Read the base file as a pandas DataFrame
+    base_file_df = pd.read_csv(io.BytesIO(await storage_manager.cached_download(source_path=base_file_path)))
+
+    return base_file_df
 
 if __name__ == "__main__":
     test_df = pd.read_csv("./BTI_PROJECT.csv")
