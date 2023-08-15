@@ -4,13 +4,13 @@ import logging
 import sys
 
 
-from io import  StringIO
-from traceback import  print_exc
+from io import StringIO
+from traceback import print_exc
 import os
 from dotenv import load_dotenv
 
-
 from functools import partial, partialmethod
+
 logging.TRACE = 5
 logging.addLevelName(logging.TRACE, 'TRACE')
 logging.Logger.trace = partialmethod(logging.Logger.log, logging.TRACE)
@@ -20,8 +20,8 @@ logging.trace = partial(logging.log, logging.TRACE)
 def run_pipeline():
     asyncio.run(main())
 
-def validate_env():
 
+def validate_env():
     if os.environ.get('AZURE_STORAGE_CONNECTION_STRING') is None:
         raise Exception('AZURE_STORAGE_CONNECTION_STRING is not set')
     if os.environ.get('AZURE_STORAGE_CONTAINER_NAME') is None:
@@ -32,8 +32,8 @@ def validate_env():
     #     raise Exception('POSTGRES_DSN is not set')
 
 
-async def main():
 
+async def main():
     logging.basicConfig()
     azlogger = logging.getLogger('azure.core.pipeline.policies.http_logging_policy')
     azlogger.setLevel(logging.WARNING)
@@ -50,11 +50,11 @@ async def main():
     logger.addHandler(logging_stream_handler)
     logger.name = 'dfpp'
 
-
     parser = argparse.ArgumentParser(description='Data Futures Platform pipeline command line script.',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      )
-    parser.add_argument('-l', '--log-level', help='Set log level to ', type=str, choices=['INFO', 'DEBUG', 'TRACE'], default='INFO')
+    parser.add_argument('-l', '--log-level', help='Set log level to ', type=str, choices=['INFO', 'DEBUG', 'TRACE'],
+                        default='INFO')
     # parser.add_argument('-p', '--process_indicators',
     #                     help='The indicator/s to process. If not supplied all detected indicators '
     #                          'will be processed. Applies to all subcommands except list',
@@ -63,10 +63,11 @@ async def main():
                         help='search for a .env file containing environment variables ',
                         action='store_true')
     subparsers = parser.add_subparsers(help='main commands', dest='command', required=True)
-    list_parser = subparsers.add_parser(name='list', help='List pipeline info and/or configuration', description='List pipeline info and/or configuration ')
-    list_parser.add_argument('-i', '--indicators', help='List available indicators',   action='store_true')
-    list_parser.add_argument('-s', '--sources', help='List available sources',  action='store_true')
-    list_parser.add_argument( '-c', '--config', help='List available configuration', action='store_true')
+    list_parser = subparsers.add_parser(name='list', help='List pipeline info and/or configuration',
+                                        description='List pipeline info and/or configuration ')
+    list_parser.add_argument('-i', '--indicators', help='List available indicators', action='store_true')
+    list_parser.add_argument('-s', '--sources', help='List available sources', action='store_true')
+    list_parser.add_argument('-c', '--config', help='List available configuration', action='store_true')
 
     run_parser = subparsers.add_parser(
         name='run',
@@ -74,12 +75,12 @@ async def main():
         description='Run specific states or the whole pipeline'
     )
     run_parser.add_argument('-i', '--indicator_ids',
-                                 help='The id of indicator/s to process. If not supplied all detected indicators '
-                                      'will be processed',
-                                 nargs='+')
+                            help='The id of indicator/s to process. If not supplied all detected indicators '
+                                 'will be processed',
+                            nargs='+')
 
     run_parser.add_argument('-f', '--filter-indicators-string',
-                                 help='Process only indicators whose id contains this string', type=str)
+                            help='Process only indicators whose id contains this string', type=str)
 
     stage_subparsers = run_parser.add_subparsers(help='pipeline stages', dest='stage')
 
@@ -91,12 +92,12 @@ async def main():
                     'The downloaded raw source files are uploaded to Azure'
     )
     download_parser.add_argument('-i', '--indicator_ids',
-                            help='The id of indicator/s to process. If not supplied all detected indicators '
-                                 'will be processed',
-                            nargs='+')
+                                 help='The id of indicator/s to process. If not supplied all detected indicators '
+                                      'will be processed',
+                                 nargs='+')
 
     download_parser.add_argument('-f', '--filter-indicators-string',
-                            help='Process only indicators whose id contains this string', type=str)
+                                 help='Process only indicators whose id contains this string', type=str)
 
     transform_parser = stage_subparsers.add_parser(
         name='transform',
@@ -105,12 +106,12 @@ async def main():
     )
 
     transform_parser.add_argument('-i', '--indicator_ids',
-                                 help='The id of indicator/s to process. If not supplied all detected indicators '
-                                      'will be processed',
-                                 nargs='+')
+                                  help='The id of indicator/s to process. If not supplied all detected indicators '
+                                       'will be processed',
+                                  nargs='+')
 
     transform_parser.add_argument('-f', '--filter-indicators-string',
-                                 help='Process only indicators whose id contains this string', type=str)
+                                  help='Process only indicators whose id contains this string', type=str)
 
     publish_parser = stage_subparsers.add_parser(
         name='publish',
@@ -119,19 +120,18 @@ async def main():
     )
 
     publish_parser.add_argument('-i', '--indicator_ids',
-                                  help='The id of indicator/s to process. If not supplied all detected indicators '
-                                       'will be processed',
-                                  nargs='+')
+                                help='The id of indicator/s to process. If not supplied all detected indicators '
+                                     'will be processed',
+                                nargs='+')
 
     publish_parser.add_argument('-f', '--filter-indicators-string',
-                                  help='Process only indicators whose id contains this string', type=str)
-
+                                help='Process only indicators whose id contains this string', type=str)
 
     # display help by default
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     if args.log_level:
         logger.setLevel(args.log_level)
-    if args.load_env_file  is True:
+    if args.load_env_file is True:
         load_dotenv()
     ## required
     validate_env()
@@ -185,7 +185,7 @@ async def main():
                     project='access_all_data'
                 )
 
-                published_indicators = await  publish(
+                published_indicators = await publish(
                     indicator_ids=transformed_indicators,
                     project='access_all_data'
                 )
@@ -201,6 +201,7 @@ async def main():
             if exists:
                 logger.debug(f'Removing cache {v} for {k} ')
                 os.remove(v)
+
 
 if __name__ == '__main__':
     asyncio.run(main())
