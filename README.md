@@ -1,182 +1,166 @@
-# dv-data-pipeline
-A repo  for the DFP backend pipeline
+## The Data Futures Platform Backend Pipeline - an ETL pipeline for the Data Futures Platform
 
+### Table of Contents
+1. [Introduction](#introduction)
+2. [Installation](#installation)
+3. [Usage](#usage)
+4. [Contributing](#contributing)
+5. [License](#license)
 
-## Azure Folder Structure
-<img width="5151" alt="DFP Folder Structure" src="https://user-images.githubusercontent.com/35971997/234326548-3f38a2d8-6c4f-4a01-8600-d8360d3b967d.png">
+### Introduction
+The Data Futures Platform Backend Pipeline is an ETL pipeline that transforms data from various sources and translates it into a format that can be used by the [Data Futures Platform](data.undp.org). The pipeline is written in Python.
+The list of sources that the pipeline currently supports can be found [here](#sources).
 
-## Old Transform Steps
-
-1. Import necessary modules and utility functions.
-3. Define the functions `move_files`, `to_millis`, `aggregate_operation` and `internal_aggregations` for later use in file handling, datetime conversions and data aggregations.
-4. Read `region_countries_df` from an Excel sheet, rename columns and group by region.
-5. Start PySpark job, importing necessary modules and initializing time, error counter, and data dictionaries.
-6. Set `today` to the current date and list all base files from the specified location.
-7. Read `source_df`, `source_meta_df`, `indicator_df` and `indicator_meta_df` from CSV files located in specified paths. Make `Source ID` and `Indicator ID` the index of these dataframes, respectively.
-8. Back up the `indicator_meta_df`.
-9. Initialize the `transform_time` to the current timestamp.
-10. Iterate over each row in `indicator_df`:
-    - If the `Source ID` from the row does not exist in `source_df`, skip the current iteration.
-    - Retrieve `indicator_meta` and `source_meta` information based on `Indicator ID` and `Source ID`, respectively.
-    - Update `last_indicator_time` and `last_source_time` according to the `Retrieved On` timestamps in the respective metadata.
-    - If the data's `Frequency` is `Daily` or if `last_indicator_time` is 0 or less than `last_source_time`, carry out a transformation:
-      - Set filename and determine which transformation notebook to use.
-      - Populate `notebook_indicators` dictionary with the data's indicator information.
-      - Update `indicator_meta_info` with the respective meta information.
-11. For each notebook in `notebook_indicators`, attempt to run the notebook:
-    - If the notebook runs successfully, run `internal_aggregations` for the indicators and update `indicator_meta_df`.
-    - If an error occurs, log the error.
-12. Write `indicator_meta_df` back to its original file path.
-13. If there are any errors, read `error_log_df`, concatenate it with the new error count dataframe, and write it back to its original file path.
-
-## Potential workflow change
-
-```python-repl
-def load_data(filename):
-    # Load the data, handle file type (e.g. csv, excel)
-    pass  
-def handle_missing_values(df, columns):
-    # Remove rows with missing values in specified columns
-    pass  
-def save_data(df, filename):
-    # Save the transformed data
-    pass  
-def general_transform(df, transformation_type, indicator_mapping, base_filename, **kwargs):
-    """
-    A general data transformation function that supports different types of transformations.  
-    Parameters:
-    df: DataFrame, the source data to be transformed
-    transformation_type: int, the type of transformation to apply (1, 2, or 3)
-    indicator_mapping: dict, mapping from source indicator names to target indicator names
-    base_filename: str, base filename for saving transformed data
-    kwargs: various, additional arguments specific to different transformation types
-    """  
-	# Apply the appropriate transformation based on the type
-    if transformation_type == 1:
-            # Apply type 1 transformation
-            transformed_df = type1_transform(df, indicator_mapping, base_filename, **kwargs)
-    elif transformation_type == 2:
-        # Apply type 2 transformation
-        transformed_df = type2_transform(df, indicator_mapping, base_filename, **kwargs)
-    elif transformation_type == 3:
-        # Apply type 3 transformation
-        transformed_df = type3_transform(df, indicator_mapping, base_filename, **kwargs)
-    else:
-        raise ValueError(f"Invalid transformation type: {transformation_type}")  
-# Perform additional common transformations here, if any  
-    return transformed_df  
-
-def type1_transform(df, **kwargs):
-    # Specific logic for type1 transformation
-    pass  
-def type2_transform(df, **kwargs):
-    # Specific logic for type2 transformation
-    pass  
-def type3_transform(df, **kwargs):
-    # Specific logic for type3 transformation
-    pass
+### Installation
+The pipeline requires Python 3.10 or higher. To install the pipeline as a Python package, run the following command:
+```bash
+pip install git+https://github.com/UNDP-Data/dv-data-pipeline.git
 ```
 
-## Transform Breakdown
-1. There are two projects: AccessAllData and VaccineEquity. Each project has a folder in the `Projects` directory, named after the project
-
-
-### The main transform notebook functions.
-1. Loads the source files, and sets the index to the source_id column of the source data.
-2. Triggers all the other transform notebooks, by supplying the necessary parameters. as indicators, that have the following format:
-```json
-[
-  {
-    "filename": source_filename,
-    "indicator": indicator_id,
-    "aggregate": aggregate_operation,
-  },
-  {
-    "filename": source_filename_2,
-    "indicator": indicator_id_2,
-    "aggregate": aggregate_operation_2,
-  }
-]
+### Usage
+There are several components to the pipeline, each of which can be run independently. The pipeline can be run in its entirety by running the following command:
+```bash
+python -m dfpp.cli -e
 ```
-3. 
+where `-e` is a flag that will load the environment variables from the `.env` file in the root directory of the repository. If the `.env` file does not exist, the pipeline will not run. The `.env` file should contain the following environment variables:
+```bash
+AZURE_STORAGE_CONNECTION_STRING=<connection string for Azure storage account>
+AZURE_STORAGE_CONTAINER_NAME=<name of Azure storage container>
+ROOT_FOLDER=<Root folder of the storage>
+``` 
+```Usage: python dfpp.cli [OPTIONS]
+-h, --help                           Show this message and exit.
+-e, --env                            Load environment variables from .env file.
+-l log-level, --log-level log-level  Set the log levell. {INDO, DEBUG, TRACE}
+-i --indicators                      Run the indicator pipeline.
+-f --filter                          Filter the indicators to run using specific phrases/substrings etc.
 
-### Common functionality for (most) transform notebooks, and suggested implementation.
-1. In the source, if the country code and region code don't exist, there is need to add this information and name the files as needed. 
-In the source configuration files add these necessary columns and before the saving of the files, carry out the addition of the country column if they don't exist.
-If they do, carry out the renaming of the columns.
-2. Indicator mapping variable: Maps the indicator id's to the column names in the source data. - In the indicator config - there needs to a config property that shows the column name for the indicator id.
+Commands:
+  list
+  run
 
+Stage 1: Downloading data
+Usage: python dfpp.cli -e run download [OPTIONS]
 
+Options:
+  -s, --indicators [<indicator>]  Run the download pipeline for a specific indicator. It is going to download the sources for this indicator.
+  -h, --help                   Show this message and exit.
+  
+Stage 2: Transforming data
+Usage: python dfpp.cli -e run transform [OPTIONS]
 
-### Summary of the proposed implementation
-1. Add 1. `country_code_column` and `region_code_column` to the source configuration file to be able to add the country code and region code to the source data if they don't exist or rename the columns if they do exist.
-2. Add `date_column` to the source configuration file to be able to rename and use it in a simple format in date column in the source data if it exists.
-3. Save all the source data in one single format whenever possible. Instead of uploading as is, save the data in a single format. This will make it easier to read the data and carry out the necessary transformations.
-4. In the old pipeline, they have implemented backups, and metadata recording for sources such as retrieval date, transform date etc, which needs to be updated in the new download.
-5. The indicator config file should look as follows:
+Options:
+  -i, --indicators [<indicator>]  Run the transform pipeline for a specific indicator. It is going to transform the sources for this indicator.
+  -h, --help                      Show this message and exit.
+  
+Stage 3: Publishing data
+Usage: python dfpp.cli -e run publish [OPTIONS]
+
+Options:
+  -i, --indicators [<indicator>]  Run the upload pipeline for a specific indicator. It is going to upload the sources for this indicator.
+  -h, --help                      Show this message and exit.
+  
+
+All stages:
+Usage: python dfpp.cli -e run [OPTIONS]
+
+Options:
+  -i, --indicators [<indicator>]  Run the pipeline for a specific indicator(s). It is going to download, transform and upload the sources for the specified indicator(s). If
+                                  no indicator is specified, it is going to run the pipeline for all indicators.
+  -h, --help                      Show this message and exit.
+```
+
+#### Indicators
+The pipeline is designed to be run for indicators. This means that the starting point of the pipeline is indicator based.
+The list of indicators that the pipeline currently supports can be found [here](#indicators).
+
+##### Adding a new indicator
+To add a new indicator to the pipeline, you need to create a new file in the `config/indicators` directory. The name of the file should be the name of the intended `indicator id`. Make sure that the filename is unique and that there is no indicator id similar to it
+in the `config/indicators` directory. The file should be a `cfg or ini` file and should contain the following fields:
 ```ini
-[Indicator]
-indicator_id = testindicatorid
-indicator_source_id = TEST_ID
-indicator_display_name = Indicator display name
-indicator_source_column_name = Indicator Column
-indicator_source_column_data_type = float
-transform_function = type1_transform
+[indicator]
+indicator_id = <indicator id>
+indicator_name = <indicator name>
+display_name = <display name>
+source_id = <source id>
+data_type = float
+frequency = <frequency of updates>
+aggregatetype = <aggregation type>
+preprocessing = <preprocessing function>
+transform_function = <transform function>
+group_name = <group name>
+value_column = <value column>
+year = <year column>
+column_substring = <column substring>
+sheet_name = <sheet name>
 [metadata]
-last_transform_date = 2021-01-01
+initial_download_date = <initial download date>
+last_download_date = <last download date>
+last_transform_date = <last transform date>
+last_upload_date = <last upload date>
 ```
-5. The source config file should look as follows:
 
+The `indicator` section contains the following fields:
+- `indicator_id`: The id of the indicator. This is the id that will be used to identify the indicator in the pipeline.
+- `indicator_name`: The name of the indicator. This is the name that will be used to identify the indicator in the pipeline.
+- `display_name`: The display name of the indicator. This is the name that will be used to display the indicator in the Data Futures Platform.
+- `source_id`: The id of the source. This is the id that will be used to identify the source in the pipeline. The source id should be unique. 
+- `data_type`: The data type of the indicator. This can be either `float`,`int`,`boolean` or `string` depending on the data type of the column(s) indicator in the source file.
+- `frequency`: The frequency of updates for the indicator.
+- `aggregatetype`: The aggregation type of the indicator. This can be either `sum`,`mean`,`median`,`mode`,`min`,`max`,`first`,`last` or `count` depending on the aggregation type of the indicator in the source file.
+- `preprocessing`: The preprocessing function of the indicator. As the name suggests, this function is used to preprocess the data before it is transformed. This function should be defined in the `dfpp.preprocessing` module.
+- `transform_function`: The transform function of the indicator. This function is used to transform the data into a format that can be used by the Data Futures Platform. This function should be defined in the `dfpp.transform_functions` module.
+- `group_name`: The group name of the indicator.
+- `value_column`: The name of the column that contains the values of the indicator.
+- `year`: The year for which the indicator is calculated. Note that if the indicator is calculated for multiple years, the year column value should be `None`.
+- `column_substring`: The substring that is used to identify the column(s) that contain the values of the years for the indicator.
+- `sheet_name`: The name of the sheet that contains the data for the indicator.
+- `metadata`: The metadata section contains the following fields:
+    - `initial_download_date`: The date on which the indicator was first downloaded.
+    - `last_download_date`: The date on which the indicator was last downloaded.
+    - `last_transform_date`: The date on which the indicator was last transformed.
+    - `last_upload_date`: The date on which the indicator was last uploaded.
+
+##### Adding a new source
+Once the indicator has been added, you need to add the source for the indicator. The source should be added to the `config/sources/<source_id>/<source_id>.cfg` directory. The name of the file should be the name of the intended `source id`. Make sure that the filename is unique and that there is no source id similar to it.
+The file should be a `cfg or ini` file and should contain the following fields:
 ```ini
 [source]
-id = TEST_ID
-name = World bank data
-url = https://api.worldbank.org/v2/en/indicator/IQ.CPA.PUBS.XQ?downloadformat=csv
-frequency = daily	
-source_type = Auto
-save_as = CPIA_PSMI.csv
-retrieval_notebook = CPIA_retriever
-download_format = excel
-downloader_function = cpia_downloader
-country_code_column = Country Code
-region_code_column = Region Code
-date_column = Date
+id = <source id>
+name = <source name>
+url = <source url>
+frequency = <frequency of updates>
+source_type = <source type>
+save_as = <save as>
+file_format = <file format>
+downloader_function = <downloader function>
+country_iso3_column = <country iso3 column>
+country_name_column = <country name column>
+datetime_column = <datetime column>
+year = <year column>
+group_column = <group column>
+country_code_aggregate = <country code aggregate>
+aggregate = <aggregate>
+
 [downloader_params]
-file = API_IQ.CPA.PUBS.XQ_DS2_en_csv_v2_4538378.csv
-[metadata]
-last_download_date = 2021-01-01
 ```
-6. The actual transformation could be as follows:
-  - Load the indicator configuration file with storage module.
-  - Since at this point, the source files are expected to be similar, in terms of the column names and common fields, no other operations need to be taken related by the transformation other than the actual transformation.
-  - From the indicator configuration, decide the transformation function to use. based on the transformation function, load the necessary parameters.
-  - Carry out the transformation and the generation of the transformed base csvs, and the output files aggregated as needed with regions, indicators and countries.
-  - Write the metadata related to the transformation to the metadata section of the indicator config
-  - In case of transformation errors, write the errors to the error log file.
-  - create tasks for each indicator with the above implementation, and run the tasks in parallel with asyncio.
 
-
-### Type transformation
-The aim of the transform is to convert the source data into a format ready for publishing. The transform is expected to be a function that takes the source data as input and returns the transformed data as output.
-1. Type 1 transformation: The year data is in columns, and can be based on multiple years. example `1992_employment`, `GDP_1990` or not based on any year eg `employment`, `GDP`
-2. Type 2 transformation: This transformation is used when the source data is based on a single year
-3. Type 3 transformation: This transformation is used when the source data is based on multiple years, and the years are in rows. example `1990`, `1991`, `1992` etc.
-
-### Handling the errors
-1. The errors could be stored in the `errors` folder in the project directory.
-2. The errors could be stored in the following format:
-
-[//]: # (download errors)
-| SourceID | Error Date | Error Message |
-| -------- |------------|---------------|
-| TEST_ID  | 2023-05-22 | Error message |
-
-[//]: # (transformation errors)
-| SourceID | Error Date | Error Message |
-| -------- |------------|---------------|
-| TEST_ID  | 2023-05-22 | Error message |
-
-Note: The error should be the full traceback text of the error. and logging should be done in the error log file.
-
+The `source` section contains the following fields:
+- `id`: The id of the source. This is the id that will be used to identify the source in the pipeline. The source id should be unique.
+- `name`: The name of the source. This is the name that will be used to identify the source in the pipeline.
+- `url`: The url of the source.
+- `frequency`: The frequency of updates for the source.
+- `source_type`: The type of the source. This can be either `csv`,`excel`,`json` or `xml` depending on the type of the source.
+- `save_as`: The name of the file in which the source will be saved.
+- `file_format`: The format of the file in which the source will be saved. This can be either `csv`,`excel`,`json` or `xml` depending on the format of the file in which the source will be saved.
+- `downloader_function`: The downloader function of the source. This function is used to download the source. This function should be defined in the `dfpp.downloader_functions` module.
+- `country_iso3_column`: The name of the column that contains the iso3 codes of the countries.
+- `country_name_column`: The name of the column that contains the names of the countries.
+- `datetime_column`: The name of the column that contains the datetime values.
+- `year`: The name of the column that contains the year values.
+- `group_column`: The name of the column that contains the group values.
+- `country_code_aggregate`: The country code aggregate of the source. This can be either `sum`,`mean`,`median`,`mode`,`min`,`max`,`first`,`last` or `count` depending on the country code aggregate of the source.
+- `aggregate`: The aggregate of the source. This can be either `sum`,`mean`,`median`,`mode`,`min`,`max`,`first`,`last` or `count` depending on the aggregate of the source.
+- `downloader_params`: This section contains the parameters that are required by the downloader function of the source.
 
 
