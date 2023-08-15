@@ -584,6 +584,36 @@ async def interpolate_data(data_frame: pd.DataFrame, target_column: Any = None, 
     return interpolated_years, linear_interpolated_values, cleaned_df
 
 
+async def base_df_for_indicator(storage_manager: StorageManager, indicator_id: str, project:str) -> pd.DataFrame:
+    """
+    Read the base file for the indicator.
+
+    This function retrieves the base file for a given indicator ID, reads it as a pandas DataFrame,
+    and returns the DataFrame for further processing.
+
+    :param storage_manager: The StorageManager object responsible for handling file operations.
+    :param indicator_id: The ID of the indicator for which to retrieve the base file.
+    :return: pd.DataFrame: The pandas DataFrame containing the data from the base file.
+    """
+    assert indicator_id is not None, "Indicator id is required"
+    logger.info(f'Retrieving base file for indicator_id {indicator_id}')
+    # Retrieve indicator configurations from the storage manager
+    indicator_cfgs = await storage_manager.get_indicators_cfg(indicator_ids=[indicator_id])
+
+    cfg = indicator_cfgs[0]
+
+    # Create the base file name based on the source_id from indicator configurations
+    base_file_name = f"{cfg['indicator']['source_id']}.csv"
+
+    # Create the base file path
+    base_file_path = os.path.join(storage_manager.OUTPUT_PATH, project, 'base', base_file_name)
+
+    logger.info(f"downloading base file {base_file_name}")
+    # Read the base file as a pandas DataFrame
+    base_file_df = pd.read_csv(io.BytesIO(await storage_manager.cached_download(source_path=base_file_path)))
+
+    return base_file_df
+
 if __name__ == "__main__":
     test_df = pd.read_csv("./BTI_PROJECT.csv")
     asyncio.run(update_base_file(df=test_df, blob_name="BTI_PROJECT.csv"))
