@@ -350,7 +350,7 @@ async def aggregate_indicator(project: str = None, indicator_id: str = None):
             # Pivot the data to a new format using 'region' and 'ind_y' as indices
             agg_df_new_format = aggregated_data_df.pivot(index='region', columns='ind_y', values='final_value')
             logger.info(f'Completed aggregation process for indicator_id {indicator_id}')
-            agg_df_new_format.to_csv(f'/home/thuha/Desktop/indicators_aggregates/{indicator_id}.csv')
+            # agg_df_new_format.to_csv(f'/home/thuha/Desktop/indicators_aggregates/{indicator_id}.csv')
             return agg_df_new_format.to_json(orient="records")
     except Exception as e:
         raise e
