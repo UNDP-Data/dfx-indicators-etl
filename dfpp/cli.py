@@ -144,7 +144,6 @@ async def main():
     from dfpp.run_transform import transform_sources
     from dfpp.storage import TMP_SOURCES
     from dfpp.utils import list_command
-    logger.info(args)
 
     try:
         if args.command == 'list':
@@ -184,7 +183,6 @@ async def main():
                     indicator_ids=downloaded_indicators,
                     project='access_all_data'
                 )
-
                 published_indicators = await publish(
                     indicator_ids=transformed_indicators,
                     project='access_all_data'

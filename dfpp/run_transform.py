@@ -200,13 +200,10 @@ async def transform_sources(concurrent=True,
     failed_indicators_ids = list()
     skipped_indicators_id = list()
     transformed_indicators = list()
-
     # Initialize the StorageManager
     async with StorageManager() as storage_manager:
-
         indicators_cfgs = await storage_manager.get_indicators_cfg(indicator_ids=indicator_ids,
-                                                                   contain_filter=indicator_id_contain_filter
-                                                                   )
+                                                                   contain_filter=indicator_id_contain_filter)
         if not indicators_cfgs:
             logger.info(f'No indicators were retrieved  using indicator_ids={indicator_ids} and indicator_id_contain_filter={indicator_id_contain_filter}')
             return
@@ -277,7 +274,6 @@ async def transform_sources(concurrent=True,
 
             logger.info(f'SKIPPED: {len(skipped_indicators_id)} indicators')
         logger.info('#' * 100)
-
 
         return transformed_indicators
 

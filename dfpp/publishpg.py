@@ -110,7 +110,6 @@ async def publish(
 
         failed_indicators = list()
         processed_indicators = list()
-
         async with StorageManager() as storage_manager:
             indicator_cfgs = await storage_manager.get_indicators_cfg(
                 indicator_ids=indicator_ids,
