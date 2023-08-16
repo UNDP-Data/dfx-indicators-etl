@@ -11,7 +11,7 @@ from typing import List
 import pandas as pd
 from dfpp import constants
 from dfpp.aggregation import aggregate_indicator
-from dfpp.dfpp_exceptions import PublishError
+from dfpp.dfpp_exceptions import PublishError, AggregationError
 from dfpp.storage import StorageManager
 from dfpp.utils import chunker, base_df_for_indicator
 
@@ -75,12 +75,12 @@ async def publish_indicator(
             indicator_id=indicator_id,
         )
         indicator_json = indicator_df.to_json(orient='records')
-
         # TODO: Upload the indicator_json and indicator_aggregate_json to the URL
         return indicator_id
-
+    except AggregationError as ae:
+        logger.error(f'Failed to aggregate indicators with error={ae}')
     except Exception as e:
-        raise
+        raise e
 
 
 async def publish(

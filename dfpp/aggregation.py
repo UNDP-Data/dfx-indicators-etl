@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from dfpp.constants import STANDARD_KEY_COLUMN, CURRENT_YEAR
+from dfpp.dfpp_exceptions import AggregationError
 from dfpp.utils import base_df_for_indicator
 from dfpp.storage import StorageManager
 from dfpp.utils import interpolate_data
@@ -260,7 +261,6 @@ async def generate_region_aggregates(storage_manager: StorageManager,
                                 (indicator_data[denominator_key] / (
                                         denominator_data[denominator_key] * per_capita_factor)),
                                 5)
-
             for indicator_key in indicator_data:
                 year_str = indicator_key.replace(indicator_id + '_', '')
 
@@ -279,7 +279,8 @@ async def generate_region_aggregates(storage_manager: StorageManager,
                         'year': year_str,
                         'value': indicator_data[indicator_key]
                     })
-
+        if len(aggregated_data_list) == 0:
+            raise AggregationError(f'No aggregated data found for indicator_id {indicator_id}')
         # Create DataFrames for aggregated and individual country data
         aggregated_data_df = pd.DataFrame(aggregated_data_list)
         individual_country_data_df = pd.DataFrame(individual_country_data_list)
@@ -333,7 +334,6 @@ async def aggregate_indicator(project: str = None, indicator_id: str = None):
                 region_population=region_population,
                 project=project
             )
-
             # Round the 'value' column and create a new column 'final_value'
             aggregated_data_df['final_value'] = aggregated_data_df['value'].round(2)
 
@@ -344,7 +344,7 @@ async def aggregate_indicator(project: str = None, indicator_id: str = None):
             # Pivot the data to a new format using 'region' and 'ind_y' as indices
             aggregate_df = aggregated_data_df.pivot(index='region', columns='ind_y', values='final_value')
             aggregate_df.reset_index(inplace=True)
-            logger.info(f'Completed aggregation process for indicator_id {indicator_id}')
+
             # agg_df_new_format.to_csv(f'/home/thuha/Desktop/indicators_aggregates/{indicator_id}.csv')
             indicator_columns = [column for column in aggregate_df.columns if indicator_id in column]
             region_indicator_df = pd.DataFrame(columns=['indicator_id', 'region', 'year', 'value'])
@@ -356,6 +356,7 @@ async def aggregate_indicator(project: str = None, indicator_id: str = None):
                 year_df['year'] = year
                 year_df['indicator_id'] = indicator_id
                 region_indicator_df = pd.concat([region_indicator_df, year_df])
+                logger.info(f'Completed aggregation process for indicator_id {indicator_id}')
             return region_indicator_df.to_json(orient="records")
     except Exception as e:
         raise e

@@ -20,3 +20,7 @@ class PublishError(Exception):
 
 class SourceDoesNotExist(Exception):
     pass
+
+
+class AggregationError(Exception):
+    pass
