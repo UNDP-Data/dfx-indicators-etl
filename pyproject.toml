@@ -17,7 +17,7 @@ dependencies = [
     'build',
     'openpyxl==3.0.10',
     'xlrd',
-    'asyncpg'
+    'scipy',
 ]
 
 [tool.setuptools.packages.find]

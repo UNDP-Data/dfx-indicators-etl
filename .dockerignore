@@ -1,0 +1,7 @@
+.github
+.gitignore
+*.md
+*.pyc
+*.pyo
+*.cfg
+*.ini
