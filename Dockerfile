@@ -12,6 +12,7 @@ RUN pip install --upgrade pip
 ## Install any needed packages specified in requirements.txt
 # RUN pip install -r requirements.txt
 
+# Install the package in editable mode (including dependencies)
 RUN pip install -e .
 
 ENTRYPOINT ["python", "dfpp/cli.py"]
