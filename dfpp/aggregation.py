@@ -27,6 +27,7 @@ async def region_population_mapping(population_df: pd.DataFrame, grouped_region:
     Returns:
         tuple: A tuple containing the population dataframe and a dictionary of regional population totals.
     """
+    logger.info(f'Generation population totals for regions')
     try:
         population_df = population_df.reindex(sorted(population_df.columns), axis=1)
 
@@ -93,6 +94,7 @@ async def generate_region_aggregates(storage_manager: StorageManager,
     Returns:
         pd.DataFrame, pd.DataFrame: Aggregated data and individual country data DataFrames.
     """
+    logger.info(f'Generating region aggregates for indicator_id {indicator_id}')
     try:
         # Retrieve indicator configurations
         indicator_configurations = await storage_manager.get_indicators_cfg(indicator_ids=[indicator_id])
@@ -295,30 +297,22 @@ async def aggregate_indicator(project: str = None, indicator_id: str = None):
         indicator_id (str, optional): The indicator identifier. Defaults to None.
 
     Returns:
-        json: A JSON string containing the aggregated data.
+        json: A JSON containing the aggregated data.
     """
     logger.info(f'Starting aggregation process for indicator_id {indicator_id}')
     try:
         # Establish a connection to the storage manager
         async with StorageManager() as storage_manager:
-            # Download the output data file for the specified project
-            output_bytes = await storage_manager.cached_download(
-                source_path=os.path.join(storage_manager.OUTPUT_PATH, project, "output_test.csv")
-            )
-            # # Load the output data into a DataFrame
-            # output_df = pd.read_csv(io.BytesIO(output_bytes), index_col=STANDARD_KEY_COLUMN)
-            #
-            # # Pivot the DataFrame to transform data into a suitable format for aggregation
-            # output_df = output_df.pivot(columns=["indicator_id", 'year'], values='value')
-            # output_df.columns = [f'{col[0]}_{col[1]}' for col in output_df.columns]
 
             # Read the UNDP region lookup data
+            logger.info(f'Reading UNDP region lookup data for indicator_id {indicator_id}')
             undp_region_df = pd.read_excel(io.BytesIO(await storage_manager.cached_download(
                 source_path=os.path.join(storage_manager.UTILITIES_PATH, "country_lookup.xlsx")
             )), sheet_name='undp_region_taxonomy')
             undp_region_df.dropna(subset=['region_old'], inplace=True)
             grouped_region = undp_region_df.groupby('region')
 
+            logger.info(f'Reading population data for indicator_id {indicator_id}')
             # Read population data
             population_df = pd.read_csv(io.BytesIO(await storage_manager.cached_download(
                 source_path=os.path.join(storage_manager.UTILITIES_PATH, "population.csv")
@@ -348,10 +342,21 @@ async def aggregate_indicator(project: str = None, indicator_id: str = None):
             aggregated_data_df[new_col] = aggregated_data_df['indicatorid'] + '_' + aggregated_data_df['year']
 
             # Pivot the data to a new format using 'region' and 'ind_y' as indices
-            agg_df_new_format = aggregated_data_df.pivot(index='region', columns='ind_y', values='final_value')
+            aggregate_df = aggregated_data_df.pivot(index='region', columns='ind_y', values='final_value')
+            aggregate_df.reset_index(inplace=True)
             logger.info(f'Completed aggregation process for indicator_id {indicator_id}')
             # agg_df_new_format.to_csv(f'/home/thuha/Desktop/indicators_aggregates/{indicator_id}.csv')
-            return agg_df_new_format.to_json(orient="records")
+            indicator_columns = [column for column in aggregate_df.columns if indicator_id in column]
+            region_indicator_df = pd.DataFrame(columns=['indicator_id', 'region', 'year', 'value'])
+            years = [int(column.split('_')[-1]) for column in indicator_columns]
+            for year in years:
+                # Extract data for the specific year and construct the year_df
+                year_df = aggregate_df[["region"] + [f'{indicator_id}_{year}']]
+                year_df = year_df.rename(columns={f'{indicator_id}_{year}': 'value'})
+                year_df['year'] = year
+                year_df['indicator_id'] = indicator_id
+                region_indicator_df = pd.concat([region_indicator_df, year_df])
+            return region_indicator_df.to_json(orient="records")
     except Exception as e:
         raise e
 

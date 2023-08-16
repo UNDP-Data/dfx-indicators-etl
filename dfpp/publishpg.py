@@ -53,8 +53,8 @@ async def publish_indicator(
 
         if len(years) == 0:
             # Log a warning if no years are found for the indicator
-            logger.warning(f'No data found for indicator_id {indicator_id}')
-            return None
+            logger.error(f'No data found for indicator_id {indicator_id}')
+            raise PublishError(f'No publish-able data found for indicator_id {indicator_id}')
 
         for year in years:
             # Extract data for the specific year and construct the year_df
