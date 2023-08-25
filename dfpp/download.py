@@ -26,7 +26,7 @@ DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=120, connect=5, sock_connect=5, so
 logger = logging.getLogger(__name__)
 
 
-async def simple_url_download(
+async def simple_url_get(
         url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
 ) -> tuple[bytes, str] | tuple[None, None] | None:
     """
@@ -108,16 +108,15 @@ async def simple_url_post(
     :return: a tuple containing the downloaded content and the content type, or None if the request fails.
     """
 
-    parameters = json.loads(kwargs.get('params'))
-    assert parameters.get('type') is not None and parameters.get('value') is not None
-    if parameters.get('type') == 'json':
-        request_args = {'json': parameters['value']}
-    elif parameters.get('type') == 'params':
-        request_args = {'params': parameters['value']}
-    elif parameters.get('type') == 'data':
-        request_args = {'data': parameters['value']}
+    assert kwargs.get('type') is not None and kwargs.get('value') is not None
+    if kwargs.get('type') == 'json':
+        request_args = {'json': kwargs['value']}
+    elif kwargs.get('type') == 'params':
+        request_args = {'params': kwargs['value']}
+    elif kwargs.get('type') == 'data':
+        request_args = {'data': kwargs['value']}
     else:
-        request_args = {'headers': parameters['value']}
+        request_args = {'headers': kwargs['value']}
     try:
         async with aiohttp.ClientSession() as session:
             for retry_count in range(max_retries):
@@ -169,7 +168,7 @@ async def default_http_downloader(**kwargs):
     """
     source_url = kwargs.get("source_url")
     try:
-        return await simple_url_download(source_url)
+        return await simple_url_get(source_url)
     except Exception as e:
         logger.error(f"Error occurred while downloading {source_url}: {e}")
         raise e
@@ -244,7 +243,7 @@ async def country_downloader(**kwargs):
                 f"Downloading {row['Alpha-3 code']} from {source_url + row['Alpha-3 code'].lower()}"
             )
             text_response_task = asyncio.create_task(
-                simple_url_download(
+                simple_url_get(
                     os.path.join(source_url, row['Alpha-3 code'].lower()),
                     timeout=DEFAULT_TIMEOUT,
                 )
@@ -282,7 +281,7 @@ async def country_downloader(**kwargs):
         # if the params_type is BATCH_ADD, then download the data from the params_url and add the data to the country_codes_df dataframe
         if params_type == "BATCH_ADD":
             logger.info(f"Downloading {source_id} from {params_url}")
-            text_response = await simple_url_download(
+            text_response = await simple_url_get(
                 params_url, timeout=DEFAULT_TIMEOUT
             )
             region_dataframe = pd.read_csv(
@@ -321,7 +320,7 @@ async def cpia_downloader(**kwargs):
     assert source_url, "source_url not provided"
     try:
 
-        data, _ = await simple_url_download(source_url, timeout=DEFAULT_TIMEOUT)
+        data, _ = await simple_url_get(source_url, timeout=DEFAULT_TIMEOUT)
         with io.BytesIO(data) as zip_file:
             with zipfile.ZipFile(zip_file) as zip_f:
                 if kwargs.get("source_save_as") not in exception_list:
@@ -357,7 +356,7 @@ async def get_downloader(**kwargs) -> Tuple[bytes, str]:
     try:
         request_params = ast.literal_eval(kwargs.get("request_params"))
         request_params["value"] = ast.literal_eval(request_params["value"])
-        response_content, _ = await simple_url_download(
+        response_content, _ = await simple_url_get(
             source_url,
             timeout=DEFAULT_TIMEOUT,
             max_retries=5,
@@ -387,11 +386,13 @@ async def post_downloader(**kwargs) -> Tuple[bytes, str]:
     assert source_id, "source_id not provided"
     logging.info(f"Downloading {source_id} from {source_url}")
     try:
+        request_params = ast.literal_eval(kwargs.get("request_params"))
+        request_params["value"] = ast.literal_eval(request_params["value"])
         response_content, _ = await simple_url_post(
             source_url,
             timeout=DEFAULT_TIMEOUT,
             max_retries=5,
-            params=kwargs.get("request_params"),
+            **request_params,
         )
 
         logging.info(f"Successfully downloaded {source_id} from {source_url}")
@@ -419,7 +420,7 @@ async def zip_content_downloader(**kwargs) -> Tuple[bytes, str]:
     assert source_id, "source_id not provided"
     assert params_file, "params_file not provided"
 
-    response_content, _ = await simple_url_download(
+    response_content, _ = await simple_url_get(
         source_url, timeout=DEFAULT_TIMEOUT, max_retries=5
     )
 
@@ -487,7 +488,7 @@ async def rcc_downloader(**kwargs) -> Tuple[bytes, str]:
                 'include_header': 1
             }
             url = f'{source_url}?{urlencode(parameters)}'
-            response_content, _ = await simple_url_download(
+            response_content, _ = await simple_url_get(
                 url, timeout=DEFAULT_TIMEOUT, max_retries=5
             )
             response_content = response_content.decode('utf-8')
@@ -569,7 +570,7 @@ async def vdem_downloader(**kwargs):
     assert url, "source_url not provided"
     assert file_name, "params_file not provided"
     try:
-        zipped_bytes_data, content_type = await simple_url_download(url=url)
+        zipped_bytes_data, content_type = await simple_url_get(url=url)
         with io.BytesIO(zipped_bytes_data) as zip_file:
             with zipfile.ZipFile(zip_file) as zip_f:
                 with zip_f.open(file_name) as csv_file:

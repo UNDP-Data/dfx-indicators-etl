@@ -69,16 +69,17 @@ async def publish_indicator(
             # Drop rows with missing values if drop_null is True
             indicator_df = indicator_df.dropna()
         # At last, aggregate the indicator
-
         indicator_aggregate_json = await aggregate_indicator(
             project=project,
             indicator_id=indicator_id,
         )
         indicator_json = indicator_df.to_json(orient='records')
+
         # TODO: Upload the indicator_json and indicator_aggregate_json to the URL
         return indicator_id
     except AggregationError as ae:
         logger.error(f'Failed to aggregate indicators with error={ae}')
+        return indicator_id
     except Exception as e:
         raise e
 
@@ -141,6 +142,7 @@ async def publish(
                         continue
 
             # logger.info(f'Finished uploading output file to project {project}')
+            print(processed_indicators)
             logger.info(f'Published {len(processed_indicators)} indicators to project {project}')
             if failed_indicators:
                 logger.info(f'Failed to publish {len(failed_indicators)} indicators to project {project}')

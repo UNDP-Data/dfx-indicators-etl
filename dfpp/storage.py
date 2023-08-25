@@ -503,6 +503,14 @@ class StorageManager:
         return [blob.name async for blob in self.container_client.list_blobs(
             name_starts_with=os.path.join(self.OUTPUT_PATH, 'access_all_data', 'base/'))]
 
+    async def list_blobs(self, prefix=None):
+        """
+        List
+        :param prefix:
+        :return:
+        """
+        return [blob.name async for blob in self.container_client.list_blobs(name_starts_with=prefix)]
+
     async def cached_download(self, source_path=None, chunked=False):
         if source_path in TMP_SOURCES:
             cached_src_path = TMP_SOURCES[source_path]
