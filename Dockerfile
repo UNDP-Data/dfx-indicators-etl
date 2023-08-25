@@ -17,5 +17,4 @@ RUN pip install -e .
 
 ENTRYPOINT ["python", "dfpp/cli.py"]
 
-CMD ["--help", "-h", "run", "-l", "--log-level", "-e", "--loa
-d-env-file", "-i", "--indicators", "-s", "--sources", "-c", "--config", "-f", "--filter-indicators-string"]
+CMD ["--help", "-h", "run", "-l", "--log-level", "-e", "--load-env-file", "-i", "--indicators", "-s", "--sources", "-c", "--config", "-f", "--filter-indicators-string"]
