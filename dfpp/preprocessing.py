@@ -1,9 +1,12 @@
+import ast
 import io
+import json
 import os
 from datetime import datetime
 import re
 import pandas as pd
 import numpy as np
+from pandas import json_normalize
 
 from dfpp.constants import STANDARD_COUNTRY_COLUMN, STANDARD_KEY_COLUMN
 from dfpp.storage import StorageManager
@@ -2292,7 +2295,6 @@ async def wbdb_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd
         raise e
 
 
-
 async def ilo_sdg_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the given Excel data in bytes format and returns it as a Pandas DataFrame.
@@ -2328,7 +2330,6 @@ async def ilo_sdg_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         # Log the error and raise the exception again
         logger.error(f"Error in ilo_sdg_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         raise e
-
 
 
 async def ilo_spf_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
@@ -2438,7 +2439,6 @@ async def who_global_rl_transform_preprocessing(bytes_data: bytes = None, **kwar
         raise e
 
 
-
 async def sme_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
     Preprocesses the given Excel data in bytes format and returns it as a Pandas DataFrame.
@@ -2487,6 +2487,227 @@ async def sme_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         # Log the error and raise the exception again
         logger.error(f"Error in sme_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         raise e
+
+
+async def hefpi_wdi_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
+    source_df = source_df.loc[:, ~source_df.columns.str.contains('^Unnamed')]
+    return source_df
+
+
+async def std_exp_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Data")
+    source_df["year"] = pd.to_datetime(source_df["year"], format='%Y')
+    return source_df
+
+
+async def wbank_aids_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
+    return source_df
+
+
+async def il_fishing_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    async with StorageManager() as storage_manager:
+        meta_bytes_data = await storage_manager.download(
+            blob_name=os.path.join(storage_manager.ROOT_FOLDER, 'sources', 'raw', 'IL_FISH_META.json'))
+        meta_data = meta_bytes_data.decode("utf-8")
+        meta_data_dict = json.loads(meta_data)
+        meta_data_dict = meta_data_dict['dimensions']['entities']['values']
+        source_meta_df = pd.DataFrame(meta_data_dict)
+        source_data_df = pd.read_json(io.BytesIO(bytes_data))
+        source_df = source_data_df.merge(source_meta_df, left_on='entities', right_on='id')
+        source_df["years"] = pd.to_datetime(source_df["years"], format='%Y')
+        return source_df
+
+
+async def ihr_spar_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    indicator_id = kwargs.get('indicator_id')
+    async with StorageManager() as storage_manager:
+        indicator_cfg = await storage_manager.get_indicator_cfg(indicator_id=indicator_id)
+        source_id = indicator_cfg['indicator']['source_id']
+        source_cfg = await storage_manager.get_source_cfg(source_id=source_id)
+        file_format = source_cfg['source']['file_format']
+        if file_format == "csv":
+            source_df = pd.read_csv(io.BytesIO(bytes_data))
+        elif file_format == "json":
+            source_data = bytes_data.decode("utf-8")
+            source_data_dict = json.loads(source_data)
+            source_df = pd.DataFrame(source_data_dict['value'])
+        else:
+            raise Exception(f"File format {file_format} not supported")
+        source_df["TimeDim"] = source_df["TimeDim"].apply(lambda x: datetime.strptime(str(x), '%Y'))
+        return source_df
+
+
+async def unaids_aids_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data), encoding="latin-1")
+    source_df = source_df[
+        source_df['Indicator'] == "Denied health services because of their HIV status in the last 12 months"]
+    source_df["Time Period"] = source_df["Time Period"].apply(lambda x: datetime.strptime(str(x), '%Y'))
+    return source_df
+
+
+async def fao_forest_area_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
+    source_df["Time_Detail"] = source_df["Time_Detail"].apply(lambda x: datetime.strptime(str(x), '%Y'))
+    return source_df
+
+
+async def med_waste_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    async with StorageManager() as storage_manager:
+        meta_bytes_data = await storage_manager.download(
+            blob_name=os.path.join(storage_manager.ROOT_FOLDER, 'sources', 'raw', 'MED_WASTE_META.csv'))
+        source_meta_df = pd.read_csv(io.BytesIO(meta_bytes_data), encoding="ISO-8859-1",
+                                     usecols=["iso3c", "measurement", "year"])
+        source_data_df = pd.read_csv(io.BytesIO(bytes_data), encoding="ISO-8859-1",
+                                     usecols=["iso3c", "country_name", "special_waste_medical_waste_tons_year"])
+        source_df = source_data_df.merge(source_meta_df, left_on='iso3c', right_on='iso3c')
+        source_df["year"] = pd.to_datetime(source_df["year"], format='%Y')
+        return source_df
+
+
+async def who_domestic_hiv_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_excel(io.BytesIO(bytes_data))
+    source_df["year"] = source_df["year"].apply(lambda x: datetime.strptime(str(x), "%Y"))
+    return source_df
+
+
+async def frst_area_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data), skiprows=4)
+    source_df = source_df.loc[:, ~source_df.columns.str.contains('^Unnamed')]  # remove unnamed columns
+    return source_df
+
+
+async def global_health_security_index_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
+    source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(x), "%Y"))
+    return source_df
+
+
+async def unaids_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
+    source_df = source_df[source_df["Time Period"] != "UNAIDS_TGF_Data_"]
+    source_df["Time Period"] = pd.to_datetime(source_df["Time Period"], format='%Y')
+    source_df.replace('Türkiye', 'Turkey', inplace=True)
+    return source_df
+
+
+async def mhs_totwf_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
+    source_df["YEAR"] = pd.to_datetime(source_df["YEAR"], format='%Y')
+    return source_df
+
+
+async def sdmx_unicef_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data), encoding="ISO-8859-1")
+    source_df["TIME_PERIOD"] = pd.to_datetime(source_df["TIME_PERIOD"], format='%Y')
+    return source_df
+
+
+async def pas_dis_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
+    source_df["Year"] = pd.to_datetime(source_df["Year"], format='%Y')
+    return source_df
+
+
+async def ihme_static_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data), encoding="ISO-8859-1")
+    source_df["year"] = pd.to_datetime(source_df["year"], format='%Y')
+    return source_df
+
+
+async def unicef_waste_management_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    def parse_year(x):
+        if len(str(x)) > 2:
+            return datetime.strptime(str(x), '%Y')
+        else:
+            return datetime.strptime(str(x), '%y')
+
+    source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Waste Management", header=1)
+    source_df["Year"] = source_df["Year"].apply(parse_year)
+    source_df.replace('-', np.nan, inplace=True)
+    source_df.replace('>99', 100, inplace=True)
+    source_df.replace('<1', 0, inplace=True)
+    source_df.replace('NA', np.nan, inplace=True)
+    return source_df
+
+
+async def ihme_pollution_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data), encoding="ISO-8859-1")
+    source_df["year_id"] = pd.to_datetime(source_df["year_id"], format='%Y')
+    source_df.replace("Côte d'Ivoire", 'Ivory Coast', inplace=True)
+    return source_df
+
+
+async def un_stats_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
+    source_df["Time_Detail"] = source_df["Time_Detail"].astype(str).str.replace('.0', '')
+    source_df["Time_Detail"] = source_df["Time_Detail"].replace('', np.nan)
+    source_df = source_df.dropna(subset=["Time_Detail"])
+    source_df["Time_Detail"] = source_df["Time_Detail"].apply(
+        lambda x: datetime.strptime(x, '%y') if x != 'nan' else None)
+    return source_df
+
+
+async def unsd_sdg_api_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data), encoding="ISO-8859-1")
+    source_df["TimePeriod"] = pd.to_datetime(source_df["TimePeriod"], format='%Y')
+    return source_df
+
+
+async def owid_mental_health_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
+    source_df["Year"] = pd.to_datetime(source_df["Year"], format='%Y')
+    return source_df
+
+
+async def wbank_hiv_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data), skiprows=4)
+    return source_df
+
+
+async def lgbtq_equality_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Sheet1")
+    source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(x), "%Y"))
+    return source_df
+
+
+async def gho_api_who_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    data = json.loads(bytes_data.decode("utf-8"))
+    source_df = pd.DataFrame(pd.json_normalize(data['value']))
+    source_df["TimeDim"] = pd.to_datetime(source_df["TimeDim"], format='%Y')
+    return source_df
+
+
+async def undp_climate_change_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
+    rename_columns_mapping = {
+        "years_2020_2039": "2030",
+        "years_2040_2059": "2040",
+        "years_2080_2099": "2090",
+    }
+    source_df.rename(columns=rename_columns_mapping, inplace=True)
+    return source_df
+
+
+async def er_mrn_mpa_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_csv(io.BytesIO(bytes_data), encoding="ISO-8859-1")
+    source_df = source_df[source_df["Value"] != "N"]
+    source_df.dropna(subset=['Value'], inplace=True)
+    source_df["TimePeriod"] = pd.to_datetime(source_df["TimePeriod"], format='%Y')
+    source_df.replace('Türkiye', 'Turkey', inplace=True)
+    return source_df
+
+
+async def inform_cc_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_excel(io.BytesIO(bytes_data),
+                              usecols=['Unnamed: 0', 'Unnamed: 15', 'Unnamed: 18', 'Unnamed: 21', 'Unnamed: 24',
+                                       'Unnamed: 26'])
+    new_cols = ['Country', 'Column P', 'Column S', 'Column V', 'Column Y', 'Column AA']
+    source_df.columns = new_cols
+    source_df = source_df.iloc[4:]
+    source_df.reset_index(drop=True, inplace=True)
+    return source_df
 
 
 if __name__ == "__main__":

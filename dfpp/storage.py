@@ -492,7 +492,7 @@ class StorageManager:
         :param blob_path:
         :return:
         """
-        return self.container_client.delete_blob(blob_path)
+        return await self.container_client.delete_blob(blob_path)
 
     async def list_base_files(self, indicator_ids=None):
         """
