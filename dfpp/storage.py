@@ -65,6 +65,18 @@ def cfg2dict(config_object=None):
     return output_dict
 
 
+async def dict2cfg(cfg_dict=None):
+    """
+    Converts a dict to a config object
+    :param cfg_dict:
+    :return:
+    """
+    parser = configparser.ConfigParser(interpolation=None)
+    for section, options in cfg_dict.items():
+        parser[section] = options
+    return parser
+
+
 def validate_src_cfg(cfg_dict=None, cfg_file_path=None):
     """
     Validate a source config file
@@ -380,6 +392,7 @@ class StorageManager:
             _, blob_name = os.path.split(dst_path)
 
             async def _progress_(current, total) -> None:
+                print(total)
                 progress = current / total * 100
                 rounded_progress = int(math.floor(progress))
                 logger.info(f'{blob_name} was uploaded - {rounded_progress}%')
@@ -453,7 +466,9 @@ class StorageManager:
             raise e
 
     async def download(
-            self, blob_name: str = None, dst_path: str = None
+            self,
+            blob_name: str = None,
+            dst_path: str = None,
     ) -> Optional[bytes]:
         """
         Downloads a file from Azure Blob Storage and returns its data or saves it to a local file.

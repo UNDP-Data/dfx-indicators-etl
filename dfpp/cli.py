@@ -3,12 +3,12 @@ import asyncio
 import logging
 import sys
 
-
 from io import StringIO
 from traceback import print_exc
 import os
 from dotenv import load_dotenv
 
+load_dotenv()
 from functools import partial, partialmethod
 
 logging.TRACE = 5
@@ -30,7 +30,6 @@ def validate_env():
         raise Exception('ROOT_FOLDER is not set')
     # if os.environ.get('POSTGRES_DSN') is None:
     #     raise Exception('POSTGRES_DSN is not set')
-
 
 
 async def main():
@@ -55,6 +54,7 @@ async def main():
                                      )
     parser.add_argument('-l', '--log-level', help='Set log level to ', type=str, choices=['INFO', 'DEBUG', 'TRACE'],
                         default='INFO')
+    parser.add_argument('--no-cache', help='Do not use cache', action='store_true')
     # parser.add_argument('-p', '--process_indicators',
     #                     help='The indicator/s to process. If not supplied all detected indicators '
     #                          'will be processed. Applies to all subcommands except list',
@@ -62,6 +62,7 @@ async def main():
     parser.add_argument('-e', '--load-env-file',
                         help='search for a .env file containing environment variables ',
                         action='store_true')
+
     subparsers = parser.add_subparsers(help='main commands', dest='command', required=True)
     list_parser = subparsers.add_parser(name='list', help='List pipeline info and/or configuration',
                                         description='List pipeline info and/or configuration ')
@@ -145,6 +146,8 @@ async def main():
     from dfpp.storage import TMP_SOURCES
     from dfpp.utils import list_command
 
+    if args.no_cache:
+        TMP_SOURCES.clear()
     try:
         if args.command == 'list':
             if not (args.indicators or args.sources or args.config):
@@ -167,12 +170,14 @@ async def main():
                     indicator_ids=args.indicator_ids,
                     indicator_id_contain_filter=args.filter_indicators_string,
                     project='access_all_data'
+
                 )
             if args.stage == 'publish':
                 published_indicators = await publish(
                     indicator_ids=args.indicator_ids,
                     indicator_id_contain_filter=args.filter_indicators_string,
                     project='access_all_data'
+
                 )
             if args.stage is None:
                 downloaded_indicators = await download_indicator_sources(

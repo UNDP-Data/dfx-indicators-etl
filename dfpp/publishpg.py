@@ -2,6 +2,7 @@
 Functions to publish indicators to PostgreSQL
 """
 import io
+import json
 import logging
 import os
 import asyncio
@@ -69,12 +70,20 @@ async def publish_indicator(
             # Drop rows with missing values if drop_null is True
             indicator_df = indicator_df.dropna()
         # At last, aggregate the indicator
-        indicator_aggregate_json = await aggregate_indicator(
-            project=project,
-            indicator_id=indicator_id,
-        )
+        # TODO: Disabled aggregation as it is going to be done in the API side
+        # indicator_aggregate_json = await aggregate_indicator(
+        #     project=project,
+        #     indicator_id=indicator_id,
+        # )
         indicator_json = indicator_df.to_json(orient='records')
 
+        with open(f'/home/thuha/Desktop/UNDP/dfp/dv-data-pipeline/{indicator_id}.json', 'w') as f:
+            f.write(indicator_json)
+
+        # json.dump(indicator_json, open(f'{indicator_id}.json', 'w'), indent=4)
+
+        # with open(f'/home/thuha/Desktop/UNDP/dfp/dv-data-pipeline/dfpp/output/per_indicator/{indicator_id}_aggregates.json', 'w') as fa:
+        #     fa.write(indicator_aggregate_json)
         # TODO: Upload the indicator_json and indicator_aggregate_json to the URL
         return indicator_id
     except AggregationError as ae:
@@ -88,7 +97,7 @@ async def publish(
         indicator_ids: List[str] = None,
         indicator_id_contain_filter: str = None,
         project: str = None,
-        concurrent_chunk_size: int = 50
+        concurrent_chunk_size: int = 50,
 ) -> List[str]:
     """
     Publish the Data Futures Platform indicator/s to PostGRES.
@@ -101,7 +110,7 @@ async def publish(
     :param concurrent_chunk_size: Size of chunks to process concurrently.
     :param indicator_ids: A list of indicator IDs to publish (optional).
     :param indicator_id_contain_filter: A string that the indicator ID should contain (optional).
-    :param project: The project to which the indicators will be published. Must be one of
+    :param project: The project to which the indicators will be published. It Must be one of
                     'access_all_data' or 'vaccine_equity.'
     :return: List[str]: A list of indicator IDs that were successfully processed and published.
     """
