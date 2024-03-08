@@ -694,7 +694,8 @@ async def download_indicator_sources(
     source_indicator_map = {}
     source_indicator_map_tod = {}
 
-    async with StorageManager() as storage_manager:
+    async with StorageManager(
+    ) as storage_manager:
         logger.debug(f'Connected to Azure blob')
 
         indicator_configs = await storage_manager.get_indicators_cfg(indicator_ids=indicator_ids,

@@ -20,9 +20,10 @@ pip install git+https://github.com/UNDP-Data/dv-data-pipeline.git
 ### Usage
 There are several components to the pipeline, each of which can be run independently. The pipeline can be run in its entirety by running the following command:
 ```bash
-python -m dfpp.cli -e
+python3 -m dfpp.cli run
 ```
-where `-e` is a flag that will load the environment variables from the `.env` file in the root directory of the repository. If the `.env` file does not exist, the pipeline will not run. The `.env` file should contain the following environment variables:
+
+Before running the pipeline, you need to set the following environment variables:
 ```bash
 AZURE_STORAGE_CONNECTION_STRING=<connection string for Azure storage account>
 AZURE_STORAGE_CONTAINER_NAME=<name of Azure storage container>
@@ -30,39 +31,40 @@ ROOT_FOLDER=<Root folder of the storage>
 ``` 
 ```Usage: python dfpp.cli [OPTIONS]
 -h, --help                           Show this message and exit.
--e, --env                            Load environment variables from .env file.
 -l log-level, --log-level log-level  Set the log levell. {INDO, DEBUG, TRACE}
 -i --indicators                      Run the indicator pipeline.
 -f --filter                          Filter the indicators to run using specific phrases/substrings etc.
+-e, --load-env-file                  Load the environment variables from the .env file.
+
 
 Commands:
   list
   run
 
 Stage 1: Downloading data
-Usage: python dfpp.cli -e run download [OPTIONS]
+Usage: python3 -m dfpp.cli -e run download [OPTIONS]
 
 Options:
   -s, --indicators [<indicator>]  Run the download pipeline for a specific indicator. It is going to download the sources for this indicator.
   -h, --help                   Show this message and exit.
   
 Stage 2: Transforming data
-Usage: python dfpp.cli -e run transform [OPTIONS]
+Usage: python3 -m dfpp.cli -e run transform [OPTIONS]
 
 Options:
   -i, --indicators [<indicator>]  Run the transform pipeline for a specific indicator. It is going to transform the sources for this indicator.
   -h, --help                      Show this message and exit.
   
 Stage 3: Publishing data
-Usage: python dfpp.cli -e run publish [OPTIONS]
+Usage: python3 -m dfpp.cli -e run publish [OPTIONS]
 
 Options:
-  -i, --indicators [<indicator>]  Run the upload pipeline for a specific indicator. It is going to upload the sources for this indicator.
+  -i, --indicators [<indicator>]  Run the publish section of the pipeline for a specific indicator. It is going to upload data sources for this indicator.
   -h, --help                      Show this message and exit.
   
 
 All stages:
-Usage: python dfpp.cli -e run [OPTIONS]
+Usage: python3 -m dfpp.cli -e run [OPTIONS]
 
 Options:
   -i, --indicators [<indicator>]  Run the pipeline for a specific indicator(s). It is going to download, transform and upload the sources for the specified indicator(s). If
@@ -72,7 +74,7 @@ Options:
 
 #### Indicators
 The pipeline is designed to be run for indicators. This means that the starting point of the pipeline is indicator based.
-The list of indicators that the pipeline currently supports can be found [here](#indicators).
+The list of indicators that the pipeline currently supports can be found [here](indicators.md).
 
 ##### Adding a new indicator
 To add a new indicator to the pipeline, you need to create a new file in the `config/indicators` directory. The name of the file should be the name of the intended `indicator id`. Make sure that the filename is unique and that there is no indicator id similar to it

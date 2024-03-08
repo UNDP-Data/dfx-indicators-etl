@@ -271,29 +271,29 @@ async def country_group_dataframe():
             df['Latitude (average)'] = df["Latitude (average)"].astype(np.float64)
             df['Longitude (average)'] = df["Longitude (average)"].astype(np.float64)
 
-            # TODO: The following code is commented out because the aggregate territory group DataFrame is no longer needed.
+            # TODO: Add the regions to the country group DataFrame
             # Read the aggregate territory group DataFrame from JSON in Azure Blob Storage
-            # df_aggregates = pd.read_json(io.BytesIO(await storage_manager.cached_download(
-            #     source_path=os.path.join(
-            #         storage_manager.ROOT_FOLDER,
-            #         'config',
-            #         'utilities',
-            #         'aggregate_territory_groups.json'
-            #     )
-            # )))
+            df_aggregates = pd.read_json(io.BytesIO(await storage_manager.cached_download(
+                source_path=os.path.join(
+                    storage_manager.ROOT_FOLDER,
+                    'config',
+                    'utilities',
+                    'aggregate_territory_groups.json'
+                )
+            )))
             #
-            # # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
-            # df_aggregates.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
+            # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
+            df_aggregates.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
             #
-            # # Replace empty strings with NaN values
-            # df_aggregates['Longitude (average)'] = df_aggregates['Longitude (average)'].replace(r'', np.NaN)
+            # Replace empty strings with NaN values
+            df_aggregates['Longitude (average)'] = df_aggregates['Longitude (average)'].replace(r'', np.NaN)
             #
-            # # Convert 'Latitude (average)' and 'Longitude (average)' columns to float64
-            # df_aggregates['Latitude (average)'] = df_aggregates["Latitude (average)"].astype(np.float64)
-            # df_aggregates['Longitude (average)'] = df_aggregates["Longitude (average)"].astype(np.float64)
-            #
-            # # Concatenate the country group and aggregate territory group DataFrames
-            # df = pd.concat([df, df_aggregates], ignore_index=True)
+            # Convert 'Latitude (average)' and 'Longitude (average)' columns to float64
+            df_aggregates['Latitude (average)'] = df_aggregates["Latitude (average)"].astype(np.float64)
+            df_aggregates['Longitude (average)'] = df_aggregates["Longitude (average)"].astype(np.float64)
+
+            # Concatenate the country group and aggregate territory group DataFrames
+            df = pd.concat([df, df_aggregates], ignore_index=True)
 
             return df
         except Exception as e:
@@ -460,11 +460,18 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
 
             # Set STANDARD_KEY_COLUMN as the index for base_file_df and df
             base_file_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
+            base_file_df.to_csv("base_file_df.csv")
             df.set_index(STANDARD_KEY_COLUMN, inplace=True)
             # Update columns that exist in both base_file_df and df
             update_cols = list(set(base_file_df.columns.to_list()).intersection(set(df.columns.to_list())))
-            base_file_df.update(df[update_cols])
 
+            base_file_df = base_file_df[~base_file_df.index.duplicated(keep='first')]
+            duplicates = df.index[df.index.duplicated(keep=False)]
+            if len(duplicates) > 0:
+                logger.warning(f"Duplicate index found in df: {duplicates}....will keep the first row found")
+                # Drop rows with duplicate index
+                df = df[~df.index.duplicated(keep='first')]
+            base_file_df.update(df[update_cols])
             # Join columns from df that are not present in base_file_df
             add_columns = list(set(df.columns.to_list()) - set(base_file_df.columns.to_list()))
             base_file_df = base_file_df.join(df[add_columns])
@@ -482,6 +489,7 @@ async def update_base_file(indicator_id: str = None, df: pd.DataFrame = None, bl
                 overwrite=True,
                 content_type="text/csv"
             )
+
             await validate_indicator_transformed(storage_manager=storage_manager, indicator_id=indicator_id,
                                                  df=base_file_df, pre_update_checksum=pre_update_md5_checksum)
         except Exception as e:

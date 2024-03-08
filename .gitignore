@@ -16,9 +16,13 @@ dfpp.egg-info
 dist
 indicator_cfg_files/
 source_cfg_files/
+corrected_indicators/
+output/
 build/
 *.csv
 .pytest_cache
 *test.txt
 Pipfile.lock
 Pipfile
+*.xlsx
+*.json

@@ -87,7 +87,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project: 
             indicator_source=indicator_cfg['source_id'])
 
         # Get the preprocessing function for the indicator from the 'preprocessing' field in the configuration
-        preprocessing_function_name = indicator_cfg['preprocessing']
+        preprocessing_function_name = indicator_cfg.get('preprocessing')
         assert hasattr(preprocessing,
                        preprocessing_function_name), f'The preprocessing function {preprocessing_function_name} specified in ' \
                                                      f'indicator config "{indicator_id}" was not implemented'
@@ -115,7 +115,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project: 
         source_df.replace('..', np.NaN, inplace=True)
         source_df.dropna(inplace=True, axis=1, how="all")
         # Get the transform function for the indicator from the 'transform_function' field in the configuration
-        transform_function_name = indicator_cfg.get('transform_function', None)
+        transform_function_name = indicator_cfg.get('transform_function')
 
         if transform_function_name is not None:
             # If a transform function is specified, run it
@@ -201,9 +201,11 @@ async def transform_sources(concurrent=True,
     skipped_indicators_id = list()
     transformed_indicators = list()
     # Initialize the StorageManager
-    async with StorageManager() as storage_manager:
+    async with StorageManager(
+    ) as storage_manager:
         indicators_cfgs = await storage_manager.get_indicators_cfg(indicator_ids=indicator_ids,
                                                                    contain_filter=indicator_id_contain_filter)
+
         if not indicators_cfgs:
             logger.info(f'No indicators were retrieved  using indicator_ids={indicator_ids} and indicator_id_contain_filter={indicator_id_contain_filter}')
             return
