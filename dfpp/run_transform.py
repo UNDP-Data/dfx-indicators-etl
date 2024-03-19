@@ -126,6 +126,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project: 
             # Modify column names if needed based on the source information
             source_info = source_cfg['source']
             country_column = source_info.get('country_name_column', None)
+
             key_column = source_info.get('country_iso3_column', None)
 
             if country_column == "None":

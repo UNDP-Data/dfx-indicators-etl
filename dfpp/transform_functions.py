@@ -360,6 +360,7 @@ async def type3_transform(**kwargs) -> pd.DataFrame or None:
     if not key_column:
         # Rearrange columns and add country code and region code
         unique_index_df = unique_index_df[[country_column] + indicator_cols]
+
         unique_index_df = await add_country_code(unique_index_df, country_name_column=country_column)
         unique_index_df = await add_region_code(unique_index_df, country_column, region_column)
     elif not country_column:

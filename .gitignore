@@ -18,6 +18,7 @@ indicator_cfg_files/
 source_cfg_files/
 corrected_indicators/
 output/
+local_utils/
 build/
 *.csv
 .pytest_cache

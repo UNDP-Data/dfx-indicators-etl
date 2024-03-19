@@ -33,7 +33,7 @@ async def add_country_code(source_df, country_name_column=None):
         :param country_name_column:
 
     """
-    pd.set_option('display.max_rows', None)
+
     async with StorageManager() as storage_manager:
         country_lookup_bytes = await storage_manager.cached_download(source_path=COUNTRY_LOOKUP_CSV_PATH)
         country_df = pd.read_excel(io.BytesIO(country_lookup_bytes), sheet_name="country_lookup")

@@ -2710,5 +2710,29 @@ async def inform_cc_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.D
     return source_df
 
 
+async def mpi_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.DataFrame:
+    source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name=kwargs.get('sheet_name'), header=4, skiprows=1)
+    country_column = source_df.columns[0]
+    year_column = source_df.columns[2]
+    value_column = source_df.columns[4]
+    headcount_ratio = source_df.columns[6]
+    intensity_of_deprivation = source_df.columns[10]
+    source_df = source_df[[country_column, year_column, value_column, headcount_ratio, intensity_of_deprivation]]
+    source_df = source_df.rename(columns={country_column: 'country', year_column: 'year', value_column: 'value',
+                                          headcount_ratio: 'headcount_ratio',
+                                          intensity_of_deprivation: 'intensity_of_deprivation'})
+
+    source_df['value'] = source_df['value'].apply(lambda x: round(x, 3))
+    source_df['headcount_ratio'] = source_df['headcount_ratio'].apply(lambda x: round(x, 1))
+    source_df['intensity_of_deprivation'] = source_df['intensity_of_deprivation'].apply(lambda x: round(x, 1))
+    source_df['year'] = source_df['year'].apply(lambda x: str(x).split('/')[1] if '/' in str(x) else str(x))
+    source_df['year'] = source_df['year'].apply(lambda x: str(x).split(' ')[0])
+    source_df.dropna(subset=['year'], inplace=True)
+
+    pd.set_option('display.max_rows', None)
+    source_df = source_df[source_df['year'] != 'nan']
+    source_df["year"] = source_df["year"].apply(lambda x: datetime.strptime(str(x), '%Y'))
+    return source_df
+
 if __name__ == "__main__":
     pass
