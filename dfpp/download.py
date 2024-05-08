@@ -16,12 +16,15 @@ import aiohttp
 import numpy as np
 import pandas as pd
 from aiohttp import ClientTimeout
+
+from dfpp.common import ERROR_REPORTS
 from dfpp.storage import StorageManager
 from dfpp.constants import STANDARD_KEY_COLUMN
 from dfpp.utils import chunker
 import asyncio
+import tqdm
 
-DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=120, connect=5, sock_connect=5, sock_read=5)
+DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=120, connect=20, sock_connect=20, sock_read=20)
 
 logger = logging.getLogger(__name__)
 
@@ -53,20 +56,22 @@ async def simple_url_get(
             for retry_count in range(max_retries):
                 try:
                     async with session.get(url, timeout=timeout, **request_args) as resp:
-                        if resp.status == 200:
-                            downloaded_bytes = 0
-                            chunk_size = 1024 * 200
+                        with tqdm.tqdm(total=resp.content.total_bytes) as pbar:
+                            if resp.status == 200:
+                                downloaded_bytes = 0
+                                chunk_size = 1024 * 200
 
-                            data = b""
-                            logger.info(f"Downloading {url}")
-                            async for chunk in resp.content.iter_chunked(chunk_size):
-                                downloaded_bytes += len(chunk)
-                                data += chunk
-                            logger.debug(f"Downloaded {downloaded_bytes} bytes from {url}")
-                            return data, resp.content_type
-                        else:
-                            raise Exception(
-                                f'Failed to download data from {url}. Encountered status error {resp.status}')
+                                data = b""
+                                logger.info(f"Downloading {url}")
+                                async for chunk in resp.content.iter_chunked(chunk_size):
+                                    downloaded_bytes += len(chunk)
+                                    data += chunk
+                                    pbar.update(len(chunk))
+                                logger.debug(f"Downloaded {downloaded_bytes} bytes from {url}")
+                                return data, resp.content_type
+                            else:
+                                raise Exception(
+                                    f'Failed to download data from {url}. Encountered status error {resp.status}')
 
                 except asyncio.TimeoutError as e:
                     logger.error(f"Timeout error occurred while downloading {url}.")
@@ -123,8 +128,17 @@ async def simple_url_post(
                 try:
                     async with session.post(url, timeout=timeout, **request_args, verify_ssl=False) as resp:
                         if resp.status == 200:
-                            data = await resp.read()
-                            return data, resp.content_type
+                            with tqdm.tqdm(total=resp.content.total_bytes) as pbar:
+                                downloaded_bytes = 0
+                                chunk_size = 1024 * 200
+                                data = b""
+                                logger.info(f"Downloading {url}")
+                                async for chunk in resp.content.iter_chunked(chunk_size):
+                                    downloaded_bytes += len(chunk)
+                                    data += chunk
+                                    pbar.update(len(chunk))
+                                # data = await resp.read()
+                                return data, resp.content_type
                         else:
                             logger.error(f"Failed to download source: {resp.status}")
                             raise Exception(
@@ -424,9 +438,11 @@ async def zip_content_downloader(**kwargs) -> Tuple[bytes, str]:
         source_url, timeout=DEFAULT_TIMEOUT, max_retries=5
     )
 
+    # print response type
+    # logging.info(f"Response type: {type(response_content)}")
+    # exit()
     try:
         with zipfile.ZipFile(io.BytesIO(response_content), "r") as zip_file:
-
             if ".zip" in params_file:
                 parts = params_file.split("/")
                 outer_zip_name, inner_path = parts[0], "/".join(parts[1:])
@@ -443,7 +459,6 @@ async def zip_content_downloader(**kwargs) -> Tuple[bytes, str]:
                 csv_content = target_file.read()
 
                 logging.info(f"Successfully downloaded {source_id} from {source_url}")
-
                 return csv_content, "text/csv"
     except zipfile.BadZipFile as e:
         logging.error(f"BadZipFile error: {e}")
@@ -671,7 +686,7 @@ async def download_for_indicator(indicator_cfg: Dict[str, Any], source_cfg: Dict
                 )
             )
         else:
-            storage_manager.sync_upload(
+            await storage_manager.upload(
                 data=data,
                 content_type=content_type,
                 dst_path=dst_path,
@@ -741,6 +756,11 @@ async def download_indicator_sources(
                 except Exception as e:
                     logger.error(f'Failed to download/upload source {source_id} ')
                     logger.error(e)
+                    ERROR_REPORTS.append({
+                        'indicator_id': indicator_cfg['indicator']['indicator_id'],
+                        'source_id': source_id,
+                        'error': e
+                    })
                     failed_source_ids.append(source_id)
                     continue
             if download_tasks:
@@ -780,11 +800,20 @@ async def download_indicator_sources(
                             pending_task.cancel()
                             await pending_task
                             failed_source_ids.append(source_id)
+                            ERROR_REPORTS.append({
+                                'indicator_id': indicator_id,
+                                'source_id': source_id,
+                                'error': 'Timeout'
+                            })
                         except asyncio.CancelledError:
                             logger.debug(
                                 f'Pending future for source {source_id} has been cancelled')
                         except Exception as e:
-
+                            ERROR_REPORTS.append({
+                                'indicator_id': indicator_id,
+                                'source_id': source_id,
+                                'error': e
+                            })
                             raise e
             else:
                 logger.info(f'No sources were downloaded')
@@ -807,6 +836,9 @@ async def download_indicator_sources(
         logger.info(f'SKIPPED {len(skipped_source_ids)} defining {len(skipped_indicators)} indicators')
     logger.info('#' * 200)
 
+    error_df = pd.DataFrame(ERROR_REPORTS)
+    if not error_df.empty:
+        error_df.to_csv('error_report.csv', index=False)
     return downloaded_indicators
 
 

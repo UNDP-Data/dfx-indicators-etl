@@ -97,8 +97,22 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project: 
         country_column = r"{}".format(source_cfg['source'].get('country_name_column', None))
         group_name = indicator_cfg.get('group_name')
         key_column = source_cfg['source'].get('country_iso3_column', None)
+        datetime_column = source_cfg['source'].get('datetime_column', None)
         sheet_name = indicator_cfg.get('sheet_name', None)
         year = source_cfg['source'].get('year', None)
+
+        # TODO: Temporary fix for missing columns in the configuration
+        try:
+            filter_value_column = indicator_cfg.get('filter_value_column', None)
+            filter_sex_column = indicator_cfg.get('filter_sex_column', None)
+            filter_frequency_column = indicator_cfg.get('filter_frequency_column', None)
+            filter_age_column = indicator_cfg.get('filter_age_column', None)
+        except Exception as e:
+            filter_value_column = None
+            filter_sex_column = None
+            filter_frequency_column = None
+            filter_age_column = None
+        # TODO: End of temporary fix
 
         # Preprocess the source data using the preprocessing function
         source_df = await preprocessing_function(
@@ -107,8 +121,13 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project: 
             year=year,
             group_name=group_name,
             country_column=country_column,
+            datetime_column=datetime_column,
             key_column=key_column,
-            indicator_id=indicator_id
+            indicator_id=indicator_id,
+            filter_frequency_column=filter_frequency_column,
+            filter_value_column=filter_value_column,
+            filter_sex_column=filter_sex_column,
+            filter_age_column=filter_age_column
         )
 
         # Replace '..' with NaN and drop columns with all NaN values
@@ -116,6 +135,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project: 
         source_df.dropna(inplace=True, axis=1, how="all")
         # Get the transform function for the indicator from the 'transform_function' field in the configuration
         transform_function_name = indicator_cfg.get('transform_function')
+
 
         if transform_function_name is not None:
             # If a transform function is specified, run it
@@ -133,6 +153,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project: 
                 country_column = None
             else:
                 country_column = source_info.get('country_name_column', None)
+
                 source_df.rename(columns={country_column: 'Country'}, inplace=True)
                 country_column = 'Country'
 
@@ -146,6 +167,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project: 
             # Log the transform function being executed
             logger.info(f"Running transform function {transform_function_name} for indicator {indicator_id}")
             # Execute the transform function with specified parameters
+
             await run_transform(
                 source_df=source_df,
                 indicator_id=indicator_id,
@@ -191,7 +213,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project: 
 async def transform_sources(concurrent=True,
                             indicator_ids: List = None,
                             indicator_id_contain_filter: str = None,
-                            project: str = None,
+                            project: str = "access_all_data",
                             concurrent_chunk_size: int = 50) -> List[str] or None:
     """
     Perform transformations for a list of indicators.
@@ -282,6 +304,9 @@ async def transform_sources(concurrent=True,
 
 
 if __name__ == "__main__":
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
     logging.basicConfig()
     logger = logging.getLogger("azure.storage.blob")
     logging_stream_handler = logging.StreamHandler()
@@ -295,4 +320,5 @@ if __name__ == "__main__":
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
     logger.name = __name__
-    asyncio.run(transform_sources())
+    transformed_sources = asyncio.run(transform_sources())
+    print(transformed_sources)

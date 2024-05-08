@@ -211,7 +211,7 @@ async def get_year_columns(columns, col_prefix=None, col_suffix=None, column_sub
     return year_columns
 
 
-async def rename_indicator(indicator, year):
+async def rename_indicator(indicator: str, year: str|float):
     """
     Renames an indicator by appending the year to its name.
 

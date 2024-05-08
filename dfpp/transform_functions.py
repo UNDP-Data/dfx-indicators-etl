@@ -46,7 +46,7 @@ async def type1_transform(**kwargs) -> None:
     # if value_column is None:
     #     raise ValueError("The 'value_column' argument is required for type1_transform.")
 
-    indicator_id = kwargs.get('indicator_id', None)
+    indicator_id = kwargs.get('indicator_id')
     base_filename = kwargs.get('base_filename', None)
     country_column = kwargs.get('country_column', None)
     key_column = kwargs.get('key_column', None)
@@ -75,6 +75,7 @@ async def type1_transform(**kwargs) -> None:
     # Get year columns based on column_prefix, column_suffix, or column_substring
     year_columns = await get_year_columns(df.columns, col_prefix=column_prefix, col_suffix=column_suffix,
                                           column_substring=column_substring)
+
     # Rename columns using the indicator_id and year
     indicator_rename = {}
     for year in year_columns:
@@ -120,6 +121,7 @@ async def type1_transform(**kwargs) -> None:
         df = df[[key_column, country_column] + indicator_cols]
 
     save_as = base_filename + ".csv"
+
     await update_base_file(indicator_id=indicator_id, df=df, blob_name=save_as, project=project)
 
 
@@ -155,7 +157,7 @@ async def type2_transform(**kwargs):
     if source_df is None:
         raise ValueError("The 'source_df' argument is required.")
 
-    indicator_id = kwargs.get('indicator_id', None)
+    indicator_id = kwargs.get('indicator_id')
     value_column = kwargs.get('value_column', None)
     base_filename = kwargs.get('base_filename', None)
     country_column = kwargs.get('country_column', None)
@@ -284,7 +286,7 @@ async def type3_transform(**kwargs) -> pd.DataFrame or None:
     if source_df is None:
         raise ValueError("The 'source_df' argument is required.")
 
-    indicator_id = kwargs.get('indicator_id', None)
+    indicator_id = kwargs.get('indicator_id')
     value_column = kwargs.get('value_column', None)
     base_filename = kwargs.get('base_filename', None)
     country_column = kwargs.get('country_column', None)
@@ -313,7 +315,6 @@ async def type3_transform(**kwargs) -> pd.DataFrame or None:
         df.dropna(inplace=True, axis=1, how="all")
     else:
         df = source_df.copy()
-
     if country_column and index_col != country_column:
         # Create a unique index DataFrame with the country column if provided
         unique_index_df = df.drop_duplicates(subset=[index_col], keep="last")[[
@@ -351,7 +352,11 @@ async def type3_transform(**kwargs) -> pd.DataFrame or None:
                 pass
 
             # Update the value for the corresponding indicator column in 'unique_index_df'
-            unique_index_df.at[country, await rename_indicator(indicator_id, row["Year Column"])] = row[value_column]
+            unique_index_df.at[country, await rename_indicator(indicator_id, row["Year Column"])] = row[
+                fr"{value_column}"]
+
+            # print(indicator_id)
+            # exit()
             indicator_cols.append(await rename_indicator(indicator_id, row["Year Column"]))
 
     indicator_cols = list(set(indicator_cols))
@@ -363,6 +368,7 @@ async def type3_transform(**kwargs) -> pd.DataFrame or None:
 
         unique_index_df = await add_country_code(unique_index_df, country_name_column=country_column)
         unique_index_df = await add_region_code(unique_index_df, country_column, region_column)
+
     elif not country_column:
         # Rearrange columns
         unique_index_df = unique_index_df[[key_column] + indicator_cols]
@@ -387,6 +393,7 @@ async def type3_transform(**kwargs) -> pd.DataFrame or None:
                 unique_index_df.at[group] = df
 
         unique_index_df.reset_index(inplace=True)
+
     # Save the transformed DataFrame to a CSV file and upload it as a blob
     await update_base_file(indicator_id=indicator_id, df=unique_index_df, blob_name=base_filename + ".csv",
                            project=project)
@@ -418,12 +425,14 @@ async def sme_transform(**kwargs) -> None:
     # Extract all the arguments with their default values from kwargs
     source_df = kwargs.get("source_df", None)
 
+    # print(source_df.columns.tolist())
+    # exit()
     if source_df is None:
         raise ValueError("The 'source_df' argument is required.")
     if not isinstance(source_df, pd.DataFrame):
         raise ValueError("The 'source_df' argument must be a DataFrame.")
 
-    indicator_id = kwargs.get('indicator_id', None)
+    indicator_id = kwargs.get('indicator_id')
     base_filename = kwargs.get('base_filename', None)
     dividend = kwargs.get('dividend', None)
     divisor = kwargs.get('divisor', None)

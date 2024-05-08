@@ -1,11 +1,12 @@
 """
-A pyhon module to hold common (between stages) functions  for the DFP pipeline
+A pyhon module to hold common (between stages) functions for the DFP pipeline
 """
 import logging
 from configparser import ConfigParser, RawConfigParser
 
 import os
 import tempfile
+
 logger = logging.getLogger(__name__)
 CONNECTION_STRING = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
 CONTAINER_NAME = os.environ.get('AZURE_STORAGE_CONTAINER_NAME')
@@ -13,12 +14,12 @@ ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
 
 MANDATORY_SOURCE_COLUMNS = 'id', 'url', 'save_as'
 TMP_SOURCES = {}
-
+ERROR_REPORTS = []
 
 
 def cfg2dict(config_object=None):
     """
-    Copnverts a config object to dict
+    Converts a config object to dict
     :param config_object:
     :return: dict
     """
@@ -28,6 +29,20 @@ def cfg2dict(config_object=None):
         items = config_object.items(section)
         output_dict[section] = dict(items)
     return output_dict
+
+
+def dict2cfg(dict_obj=None):
+    """
+    Converts a dict to a config object
+    :param dict_obj:
+    :return: ConfigParser object
+    """
+    config = RawConfigParser()
+    for section, items in dict_obj.items():
+        config.add_section(section)
+        for key, value in items.items():
+            config.set(section, key, value)
+    return config
 
 
 async def read_indicator(storage_manager=None, indicator_blob_rel_path=None):
@@ -54,7 +69,3 @@ async def read_indicator(storage_manager=None, indicator_blob_rel_path=None):
     assert cfg_dict, f'Indicator config file  {indicator_blob_rel_path} is invalid'
 
     return cfg_dict
-
-
-
-

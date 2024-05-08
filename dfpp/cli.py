@@ -170,8 +170,8 @@ async def main():
                     indicator_ids=args.indicator_ids,
                     indicator_id_contain_filter=args.filter_indicators_string,
                     project='access_all_data'
-
                 )
+                print(transformed_indicators)
             if args.stage == 'publish':
                 published_indicators = await publish(
                     indicator_ids=args.indicator_ids,

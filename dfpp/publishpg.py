@@ -77,7 +77,7 @@ async def publish_indicator(
         # )
         indicator_json = indicator_df.to_json(orient='records')
 
-        with open(f'/home/thuha/Desktop/UNDP/dfp/dv-data-pipeline/{indicator_id}.json', 'w') as f:
+        with open(f'/home/thuha/Desktop/UNDP/dfp/dv-data-pipeline/outputs/{indicator_id}.json', 'w') as f:
             f.write(indicator_json)
 
         # json.dump(indicator_json, open(f'{indicator_id}.json', 'w'), indent=4)

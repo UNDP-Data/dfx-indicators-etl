@@ -20,6 +20,8 @@ corrected_indicators/
 output/
 local_utils/
 build/
+downloadb.py
+*.zip
 *.csv
 .pytest_cache
 *test.txt

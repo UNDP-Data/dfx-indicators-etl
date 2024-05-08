@@ -414,7 +414,6 @@ class StorageManager:
                     overwrite=overwrite,
                     content_settings=ContentSettings(content_type=content_type),
                     progress_hook=_progress_,
-
                 )
             else:
                 raise ValueError("Either 'src_path' or 'data' must be provided.")
@@ -458,7 +457,6 @@ class StorageManager:
                     content_settings=ContentSettings(content_type=content_type),
                     progress_hook=_progress_,
                     max_concurrency=max_concurrency
-
                 )
             else:
                 raise ValueError("Either 'src_path' or 'data' must be provided.")
@@ -486,21 +484,24 @@ class StorageManager:
         #     progress = current / total * 100
         #     rounded_progress = int(math.floor(progress))
         #     logger.info(f'{b_name} was downloaded - {rounded_progress}%')
-        logger.debug(f'Downloading {blob_name}')
-        blob_client = self.container_client.get_blob_client(blob=blob_name)
-        chunk_list = []
-        stream = await blob_client.download_blob()
-        async for chunk in stream.chunks():
-            chunk_list.append(chunk)
+        try:
+            logger.debug(f'Downloading {blob_name}')
+            blob_client = self.container_client.get_blob_client(blob=blob_name)
+            chunk_list = []
+            stream = await blob_client.download_blob()
+            async for chunk in stream.chunks():
+                chunk_list.append(chunk)
 
-        data = b"".join(chunk_list)
-        logger.debug(f'Finished downloading {blob_name}')
-        if dst_path:
-            async with open(dst_path, "wb") as f:
-                f.write(data)
-            return None
-        else:
-            return data
+            data = b"".join(chunk_list)
+            logger.debug(f'Finished downloading {blob_name}')
+            if dst_path:
+                with open(dst_path, "wb") as f:
+                    f.write(data)
+                return None
+            else:
+                return data
+        except Exception as e:
+            print(e)
 
     async def delete_blob(self, blob_path):
         """
