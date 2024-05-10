@@ -8,6 +8,8 @@ from traceback import print_exc
 import os
 from dotenv import load_dotenv
 
+from dfpp.backup_pipeline import backup_pipeline, backup_raw_sources, backup_base_files
+
 load_dotenv()
 from functools import partial, partialmethod
 
@@ -159,12 +161,13 @@ async def main():
                 config=args.config
             )
         if args.command == 'run':
+            await backup_raw_sources()
             if args.stage == 'download':
                 downloaded_indicators = await download_indicator_sources(
                     indicator_ids=args.indicator_ids,
                     indicator_id_contain_filter=args.filter_indicators_string
                 )
-
+            await backup_base_files()
             if args.stage == 'transform':
                 transformed_indicators = await transform_sources(
                     indicator_ids=args.indicator_ids,
@@ -180,6 +183,7 @@ async def main():
 
                 )
             if args.stage is None:
+                await backup_pipeline()
                 downloaded_indicators = await download_indicator_sources(
                     indicator_ids=args.indicator_ids,
                     indicator_id_contain_filter=args.filter_indicators_string

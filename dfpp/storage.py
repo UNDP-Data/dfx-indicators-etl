@@ -127,6 +127,7 @@ class StorageManager:
         self.UTILITIES_PATH = os.path.join(self.ROOT_FOLDER, self.REL_UTILITIES_PATH)
         self.SOURCES_PATH = os.path.join(self.ROOT_FOLDER, self.REL_SOURCES_PATH)
         self.OUTPUT_PATH = os.path.join(self.ROOT_FOLDER, self.REL_OUTPUT_PATH)
+        self.BACKUP_PATH = os.path.join(self.ROOT_FOLDER, 'backup')
 
     async def __aenter__(self):
         return self
@@ -510,6 +511,17 @@ class StorageManager:
         """
         return await self.container_client.delete_blob(blob_path)
 
+    async def copy_blob(self, source_blob_name: str, destination_blob_name: str):
+        """
+        Copy a blob from a source to a destination
+        :param source_blob_name:
+        :param destination_blob_name:
+        :return:
+        """
+        source_blob = self.container_client.get_blob_client(blob=source_blob_name)
+        destination_blob = self.container_client.get_blob_client(blob=destination_blob_name)
+        return await destination_blob.start_copy_from_url(source_blob.url)
+
     async def list_base_files(self, indicator_ids=None):
         """
         List
@@ -518,6 +530,18 @@ class StorageManager:
         """
         return [blob.name async for blob in self.container_client.list_blobs(
             name_starts_with=os.path.join(self.OUTPUT_PATH, 'access_all_data', 'base/'))]
+
+    async def upload_cfg(self, cfg_dict=None, cfg_path=None):
+        """
+        Upload a config file to azure storage
+        :param cfg_dict:
+        :param cfg_path:
+        :return:
+        """
+        parser = dict2cfg(cfg_dict=cfg_dict)
+        content = parser.write_string()
+        content_bytes = content.encode('utf-8')
+        await self.upload(dst_path=cfg_path, data=content_bytes, content_type='text/plain')
 
     async def list_blobs(self, prefix=None):
         """
