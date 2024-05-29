@@ -2,6 +2,7 @@ import ast
 import io
 import json
 import os
+import time
 from datetime import datetime
 import re
 import pandas as pd
@@ -1897,22 +1898,16 @@ async def untp_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
         # Read the Excel file into a DataFrame
-        source_df = pd.read_excel(io.BytesIO(bytes_data), sheet_name="Estimates", header=16)
+        source_df = pd.read_csv(io.BytesIO(bytes_data))
 
         # Drop rows with missing values in the 'Year' column
-        source_df.dropna(subset=["Year"], inplace=True)
-
-        # Convert the values in the 'Year' column to datetime format
-        source_df["Year"] = source_df["Year"].apply(lambda x: datetime.strptime(str(round(float(x))), '%Y'))
-
-        # Convert population values from thousands to actual values
-        source_df["Total Population, as of 1 January (thousands)"] = source_df[
-            "Total Population, as of 1 January (thousands)"].apply(lambda x: x * 1000)
-
-        # Perform additional preprocessing if required, e.g., adding region codes
-        source_df = await add_region_code(source_df, "Region, subregion, country or area *", "ISO3 Alpha-code")
-        source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
-                         inplace=True)
+        source_df.dropna(subset=["Time"], inplace=True)
+        start_year = 1980
+        current_year = int(time.strftime("%Y"))
+        source_df.loc[source_df['LocTypeName'] == 'World', 'ISO3_code'] = 'WLD'
+        source_df = source_df[(source_df["Time"] >= start_year) & (source_df["Time"] <= current_year)]
+        source_df["Time"] = source_df["Time"].apply(lambda x: datetime.strptime(str(round(float(x))), '%Y'))
+        source_df["TPopulation1July"] = source_df["TPopulation1July"].apply(lambda x: x * 1000)
         # Return the preprocessed DataFrame
         return source_df
     except Exception as e:
@@ -2753,6 +2748,12 @@ async def unsd_sdg_api_transform_preprocessing(bytes_data: bytes, **kwargs) -> p
     source_df = source_df[source_df["[Sex]"] == kwargs.get('filter_sex_column')]
     # print(source_df[["GeoAreaName", "Time_Detail", "Value"]])
     # exit()
+    return source_df
+
+
+async def high_tech_transform_preprocessing(bytes_data: bytes, **kwargs):
+    source_df = pd.read_csv(io.BytesIO(bytes_data))
+    source_df["Time_Detail"] = pd.to_datetime(source_df["Time_Detail"], format='%Y')
     return source_df
 
 
