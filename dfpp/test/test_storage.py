@@ -15,11 +15,11 @@ class TestSyncAzureBlobStorageManager(unittest.TestCase):
             CONNECTION_STRING, CONTAINER_NAME
         )
 
-        # Create a test file
+        # Create a dict2cfg file
         with open("sync_test.txt", "w") as f:
-            f.write("This is a test file")
+            f.write("This is a dict2cfg file")
 
-        # Upload the test file
+        # Upload the dict2cfg file
         dst_test_path = os.path.join("DataFuturePlatform", "pipeline", "sync_test.txt")
         manager.upload(dst_path=dst_test_path, src_path="sync_test.txt")
 
@@ -76,7 +76,7 @@ class TestSyncAzureBlobStorageManager(unittest.TestCase):
         ):
             print(file_name, file_content)
 
-        # Download the test file
+        # Download the dict2cfg file
         manager.download(blob_name=dst_test_path, dst_path="downloaded_sync_test.txt")
 
         # Clean up
@@ -91,11 +91,11 @@ class TestAsyncAzureBlobStorageManager(unittest.IsolatedAsyncioTestCase):
             connection_string=CONNECTION_STRING, container_name=CONTAINER_NAME
         )
 
-        # Create a test file
+        # Create a dict2cfg file
         with open("async_test.txt", "w") as f:
-            f.write("This is a test file")
+            f.write("This is a dict2cfg file")
 
-        # Upload the test file
+        # Upload the dict2cfg file
         dst_test_path = os.path.join("DataFuturePlatform", "pipeline", "async_test.txt")
         await async_manager.upload(dst_path=dst_test_path, src_path="async_test.txt")
 
@@ -156,7 +156,7 @@ class TestAsyncAzureBlobStorageManager(unittest.IsolatedAsyncioTestCase):
         ):
             print(file_name, file_content)
 
-        # Download the test file
+        # Download the dict2cfg file
         await async_manager.download(
             blob_name=dst_test_path, dst_path="downloaded_async_test.txt"
         )

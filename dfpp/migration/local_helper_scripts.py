@@ -7,8 +7,8 @@ from dfpp.storage import AsyncAzureBlobStorageManager
 def add_preprocessing_field_to_sources_list_local():
     df = pd.read_csv('./indicator_list.csv')
     df['preprocessing'] = df['Transform Notebook'].apply(lambda x: x.lower() + '_preprocessing')
-    os.makedirs('./test', exist_ok=True)
-    df.to_csv('./test/indicator_list.csv', index=False)
+    os.makedirs('dict2cfg', exist_ok=True)
+    df.to_csv('./dict2cfg/indicator_list.csv', index=False)
 
 
 async def upload_missing_manual_files_from_old_pipeline():

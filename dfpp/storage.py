@@ -127,6 +127,7 @@ class StorageManager:
         self.UTILITIES_PATH = os.path.join(self.ROOT_FOLDER, self.REL_UTILITIES_PATH)
         self.SOURCES_PATH = os.path.join(self.ROOT_FOLDER, self.REL_SOURCES_PATH)
         self.OUTPUT_PATH = os.path.join(self.ROOT_FOLDER, self.REL_OUTPUT_PATH)
+        self.BACKUP_PATH = os.path.join(self.ROOT_FOLDER, 'backup')
 
     async def __aenter__(self):
         return self
@@ -414,7 +415,6 @@ class StorageManager:
                     overwrite=overwrite,
                     content_settings=ContentSettings(content_type=content_type),
                     progress_hook=_progress_,
-
                 )
             else:
                 raise ValueError("Either 'src_path' or 'data' must be provided.")
@@ -458,7 +458,6 @@ class StorageManager:
                     content_settings=ContentSettings(content_type=content_type),
                     progress_hook=_progress_,
                     max_concurrency=max_concurrency
-
                 )
             else:
                 raise ValueError("Either 'src_path' or 'data' must be provided.")
@@ -486,21 +485,24 @@ class StorageManager:
         #     progress = current / total * 100
         #     rounded_progress = int(math.floor(progress))
         #     logger.info(f'{b_name} was downloaded - {rounded_progress}%')
-        logger.debug(f'Downloading {blob_name}')
-        blob_client = self.container_client.get_blob_client(blob=blob_name)
-        chunk_list = []
-        stream = await blob_client.download_blob()
-        async for chunk in stream.chunks():
-            chunk_list.append(chunk)
+        try:
+            logger.debug(f'Downloading {blob_name}')
+            blob_client = self.container_client.get_blob_client(blob=blob_name)
+            chunk_list = []
+            stream = await blob_client.download_blob()
+            async for chunk in stream.chunks():
+                chunk_list.append(chunk)
 
-        data = b"".join(chunk_list)
-        logger.debug(f'Finished downloading {blob_name}')
-        if dst_path:
-            async with open(dst_path, "wb") as f:
-                f.write(data)
-            return None
-        else:
-            return data
+            data = b"".join(chunk_list)
+            logger.debug(f'Finished downloading {blob_name}')
+            if dst_path:
+                with open(dst_path, "wb") as f:
+                    f.write(data)
+                return None
+            else:
+                return data
+        except Exception as e:
+            print(e)
 
     async def delete_blob(self, blob_path):
         """
@@ -508,6 +510,17 @@ class StorageManager:
         :return:
         """
         return await self.container_client.delete_blob(blob_path)
+
+    async def copy_blob(self, source_blob_name: str, destination_blob_name: str):
+        """
+        Copy a blob from a source to a destination
+        :param source_blob_name:
+        :param destination_blob_name:
+        :return:
+        """
+        source_blob = self.container_client.get_blob_client(blob=source_blob_name)
+        destination_blob = self.container_client.get_blob_client(blob=destination_blob_name)
+        return await destination_blob.start_copy_from_url(source_blob.url)
 
     async def list_base_files(self, indicator_ids=None):
         """
@@ -517,6 +530,18 @@ class StorageManager:
         """
         return [blob.name async for blob in self.container_client.list_blobs(
             name_starts_with=os.path.join(self.OUTPUT_PATH, 'access_all_data', 'base/'))]
+
+    async def upload_cfg(self, cfg_dict=None, cfg_path=None):
+        """
+        Upload a config file to azure storage
+        :param cfg_dict:
+        :param cfg_path:
+        :return:
+        """
+        parser = dict2cfg(cfg_dict=cfg_dict)
+        content = parser.write_string()
+        content_bytes = content.encode('utf-8')
+        await self.upload(dst_path=cfg_path, data=content_bytes, content_type='text/plain')
 
     async def list_blobs(self, prefix=None):
         """
