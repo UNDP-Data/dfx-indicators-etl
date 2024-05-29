@@ -264,6 +264,7 @@ class StorageManager:
                 source_id, ext = os.path.splitext(source_name)
 
             # if 'wbentp1_wb' in indicator_path:raise Exception('forced')
+            logger.debug(f'Checking if {source_path} exists')
             assert await self.check_blob_exists(
                 source_path), f'Source {source_id} located at {source_path} does not exist'
 
@@ -273,10 +274,12 @@ class StorageManager:
             # )
             # content = await stream.readall()
             content = await self.cached_download(source_path=source_path)
+            logger.debug(f'Downloaded {source_path}')
             content_str = content.decode("utf-8")
 
             parser = UnescapedConfigParser()
             parser.read_string(content_str)
+            logger.debug("Source config read by parser")
             cfg_dict = cfg2dict(parser)
             validate_src_cfg(cfg_dict=cfg_dict['source'])
             return cfg_dict
@@ -299,7 +302,15 @@ class StorageManager:
                     self.get_source_cfg(source_id=source_id)
                 )
                 tasks.append(t)
+        else:
+            if source_ids:
+                for source_id in source_ids:
+                    t = asyncio.create_task(
+                        self.get_source_cfg(source_id=source_id)
+                    )
+                    tasks.append(t)
         results = await asyncio.gather(*tasks)
+
         return [e for e in results if e]
 
     async def close(self):
@@ -552,6 +563,7 @@ class StorageManager:
         return [blob.name async for blob in self.container_client.list_blobs(name_starts_with=prefix)]
 
     async def cached_download(self, source_path=None, chunked=False):
+        logger.debug(f"Downloading {source_path}")
         if source_path in TMP_SOURCES:
             cached_src_path = TMP_SOURCES[source_path]
             logger.info(f'Rereading cached {source_path} from {cached_src_path} ')
@@ -560,14 +572,17 @@ class StorageManager:
 
             # check the blob exists in azure storage
             source_path_exists = await self.check_blob_exists(blob_name=source_path)
+            logger.debug(f"Checking if {source_path} exists {source_path_exists}")
             if not source_path_exists:
                 raise Exception(f'Source {source_path} does not exist')
             stream = await self.container_client.download_blob(
-                source_path, max_concurrency=8
+                source_path, max_concurrency=1
             )
+            logger.debug(f"Downloaded {source_path}")
             if chunked:
                 chunk_list = []
                 async for chunk in stream.chunks():
+                    logger.debug(f"Downloaded {len(chunk)}")
                     chunk_list.append(chunk)
                 data = b"".join(chunk_list)
             else:

@@ -232,11 +232,13 @@ async def replace_sources_with_string(search_string="https://www.ilo.org/sdmx/re
                 return_parser.write(f)
 
 
+
+
 if __name__ == "__main__":
     # asyncio.run(replace_sources_with_string())
-    asyncio.run(upload_source_cfgs(source_cfgs_path=pathlib.Path("/home/thuha/Desktop/Group5/sources")))
-    asyncio.run(upload_indicator_cfgs(
-        indicator_cfgs_path=pathlib.Path("/home/thuha/Desktop/Group5/indicators")))
+    # asyncio.run(upload_source_cfgs(source_cfgs_path=pathlib.Path("/home/thuha/Desktop/Group5/sources")))
+    # asyncio.run(upload_indicator_cfgs(
+    #     indicator_cfgs_path=pathlib.Path("/home/thuha/Desktop/Group5/indicators")))
     # test_download()
     # asyncio.run(copy_raw_sources())
     # untransformed = asyncio.run(get_untransformed_indicators())
@@ -246,4 +248,5 @@ if __name__ == "__main__":
     # print(sources)
     # from dotenv import load_dotenv
     # load_dotenv()
+    asyncio.run(create_indicator_source_mapping())
 
