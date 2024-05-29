@@ -24,6 +24,8 @@ from dfpp.utils import chunker
 import asyncio
 import tqdm
 
+load_dotenv()
+
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=120, connect=20, sock_connect=20, sock_read=20)
 
 logger = logging.getLogger(__name__)
@@ -715,7 +717,6 @@ async def download_indicator_sources(
 
         indicator_configs = await storage_manager.get_indicators_cfg(indicator_ids=indicator_ids,
                                                                      contain_filter=indicator_id_contain_filter)
-
         sources = [indicator_cfg['indicator']['source_id'] for indicator_cfg in indicator_configs]
         unique_source_ids = set(sources)
         for c in indicator_configs:

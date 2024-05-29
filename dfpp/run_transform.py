@@ -55,8 +55,9 @@ async def read_source_file_for_indicator(indicator_source: str = None):
                                             f"{indicator_source.upper()}.{source_cfg['source']['file_format']}")
 
             # Download the source file from Azure Storage
-            data = await storage_manager.cached_download(source_path=source_file_name)
+            data = await storage_manager.cached_download(source_path=source_file_name, chunked=True)
 
+            logger.debug(f'Downloaded {source_file_name}')
             # Return the data along with the source configuration
             return data, source_cfg
 
@@ -225,10 +226,14 @@ async def transform_sources(concurrent=True,
     transformed_indicators = list()
     # Initialize the StorageManager
     async with StorageManager(
+        connection_string=os.getenv("AZURE_STORAGE_CONNECTION_STRING"),
+        container_name=os.getenv("AZURE_STORAGE_CONTAINER_NAME"),
+        root_folder=os.getenv("ROOT_FOLDER")
     ) as storage_manager:
         indicators_cfgs = await storage_manager.get_indicators_cfg(indicator_ids=indicator_ids,
                                                                    contain_filter=indicator_id_contain_filter)
 
+        logger.debug(f'got {len(indicators_cfgs)}')
         if not indicators_cfgs:
             logger.info(f'No indicators were retrieved  using indicator_ids={indicator_ids} and indicator_id_contain_filter={indicator_id_contain_filter}')
             return

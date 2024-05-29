@@ -46,7 +46,7 @@ async def main():
             "%Y-%m-%d %H:%M:%S",
         )
     )
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
     logger.name = 'dfpp'
@@ -55,7 +55,7 @@ async def main():
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      )
     parser.add_argument('-l', '--log-level', help='Set log level to ', type=str, choices=['INFO', 'DEBUG', 'TRACE'],
-                        default='INFO')
+                        default='DEBUG')
     parser.add_argument('--no-cache', help='Do not use cache', action='store_true')
     # parser.add_argument('-p', '--process_indicators',
     #                     help='The indicator/s to process. If not supplied all detected indicators '
@@ -161,13 +161,14 @@ async def main():
                 config=args.config
             )
         if args.command == 'run':
-            await backup_raw_sources()
+            validate_env()
+            # await backup_raw_sources()
             if args.stage == 'download':
                 downloaded_indicators = await download_indicator_sources(
                     indicator_ids=args.indicator_ids,
                     indicator_id_contain_filter=args.filter_indicators_string
                 )
-            await backup_base_files()
+            # await backup_base_files()
             if args.stage == 'transform':
                 transformed_indicators = await transform_sources(
                     indicator_ids=args.indicator_ids,
@@ -183,7 +184,7 @@ async def main():
 
                 )
             if args.stage is None:
-                await backup_pipeline()
+                # await backup_pipeline()
                 downloaded_indicators = await download_indicator_sources(
                     indicator_ids=args.indicator_ids,
                     indicator_id_contain_filter=args.filter_indicators_string
