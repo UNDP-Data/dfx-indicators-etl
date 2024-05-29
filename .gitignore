@@ -21,7 +21,7 @@ output/
 local_utils/
 build/
 downloadb.py
-dfpp/migration/check_fails_outputs.py
+dfpp/migration/check_missing_outputs.py
 *.zip
 *.csv
 .pytest_cache
