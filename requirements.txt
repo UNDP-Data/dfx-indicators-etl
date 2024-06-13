@@ -6,3 +6,4 @@ openpyxl==3.0.10
 build
 xlrd
 scipy
+tqdm

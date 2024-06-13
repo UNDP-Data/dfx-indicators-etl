@@ -2681,6 +2681,13 @@ async def unaids_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.Data
     source_df = pd.read_csv(io.BytesIO(bytes_data), encoding='latin1')
     source_df = source_df[source_df["Time Period"] != "UNAIDS_TGF_Data_"]
     source_df["Time Period"] = pd.to_datetime(source_df["Time Period"], format='%Y')
+    # drop columns in "Data Value" that are not numeric
+    source_df["Data value"] = pd.to_numeric(source_df["Data value"], errors='coerce')
+    # all values that are < 0.01 are set to 0
+    source_df["Data value"] = source_df["Data value"].apply(lambda x: 0 if x < 0.01 else x)
+    # print(kwargs)
+    # print(source_df['data'])
+    # exit()
     source_df.replace('Türkiye', 'Turkey', inplace=True)
     return source_df
 
