@@ -1,3 +1,3 @@
 #!/bin/sh
 
-exec python -m dfpp.cli "$@"
+exec python -m dfpp.cli run

@@ -2,7 +2,7 @@ pandas
 azure-storage-blob
 aiohttp
 python-dotenv
-openpyxl==3.0.10
+openpyxl==3.1.0
 build
 xlrd
 scipy
