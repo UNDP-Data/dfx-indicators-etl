@@ -1,5 +1,5 @@
 services:
-  dfp_pipeline:
+  dv-data-pipeline:
     build: .
     volumes:
       - .:/app

@@ -20,6 +20,7 @@ corrected_indicators/
 output/
 local_utils/
 build/
+configs/
 downloadb.py
 dfpp/migration/check_missing_outputs.py
 *.zip

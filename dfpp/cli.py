@@ -46,7 +46,7 @@ async def main():
             "%Y-%m-%d %H:%M:%S",
         )
     )
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
     logger.name = 'dfpp'
@@ -55,7 +55,7 @@ async def main():
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      )
     parser.add_argument('-l', '--log-level', help='Set log level to ', type=str, choices=['INFO', 'DEBUG', 'TRACE'],
-                        default='DEBUG')
+                        default='INFO')
     parser.add_argument('--no-cache', help='Do not use cache', action='store_true')
     # parser.add_argument('-p', '--process_indicators',
     #                     help='The indicator/s to process. If not supplied all detected indicators '
