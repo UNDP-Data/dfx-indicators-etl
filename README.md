@@ -145,6 +145,7 @@ country_code_aggregate = <country code aggregate>
 aggregate = <aggregate>
 
 [downloader_params]
+file_name = <file name>
 ```
 
 The `source` section contains the following fields:
@@ -164,5 +165,9 @@ The `source` section contains the following fields:
 - `country_code_aggregate`: The country code aggregate of the source. This can be either `sum`,`mean`,`median`,`mode`,`min`,`max`,`first`,`last` or `count` depending on the country code aggregate of the source.
 - `aggregate`: The aggregate of the source. This can be either `sum`,`mean`,`median`,`mode`,`min`,`max`,`first`,`last` or `count` depending on the aggregate of the source.
 - `downloader_params`: This section contains the parameters that are required by the downloader function of the source.
+- `file_name`: The name of the file in a zip, in case the source file downloaded as a zip file.
+
+#### Deployment
+The pipeline is (intended) deployed on Azure using Azure Functions. The deployment process is automated using GitHub Actions.
 
 

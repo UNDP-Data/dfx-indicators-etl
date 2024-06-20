@@ -4,9 +4,7 @@ import pandas
 import pandas as pd
 import asyncpg
 import logging
-from dfpp import utils
 from dfpp import constants
-from urllib.parse import urlencode
 import json
 
 try:
@@ -172,7 +170,7 @@ async def upsert(conn_obj=None, table=None, df: pandas.DataFrame = None, overwri
         logger.info('No records were updated/inserted because no records were found to be different ')
 
 
-async def run(dsn=None, table='staging.dfpp', df=None , overwrite=False):
+async def run(dsn=None, table='staging.dfpp', df=None, overwrite=False):
 
     async with asyncpg.create_pool(dsn=dsn, min_size=constants.POOL_MINSIZE, max_size=constants.POOL_MAXSIZE,
                                    command_timeout=constants.POOL_COMMAND_TIMEOUT, ) as pool:

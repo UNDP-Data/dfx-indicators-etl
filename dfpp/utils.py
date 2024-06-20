@@ -5,16 +5,14 @@ import json
 import logging
 import warnings
 import os
-import datetime
 
 import numpy as np
 import pandas as pd
 from scipy.interpolate import CubicSpline, interp1d
-from pathlib import Path
 from dfpp.dfpp_exceptions import TransformationError, TransformationWarning
 from dfpp.storage import StorageManager
 from dfpp.constants import COUNTRY_LOOKUP_CSV_PATH, STANDARD_KEY_COLUMN, CURRENT_YEAR
-from typing import List, Union, Any
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -204,14 +202,14 @@ async def get_year_columns(columns, col_prefix=None, col_suffix=None, column_sub
         try:
             year = int(float(column_map[column]))
             year_columns[year] = column
-        except Exception as e:
+        except:
             pass
     # if not year_columns:
     #     raise RuntimeError(f'Could not establish year data columns for {indicator_id}')
     return year_columns
 
 
-async def rename_indicator(indicator: str, year: str|float):
+async def rename_indicator(indicator: str, year: str | float):
     """
     Renames an indicator by appending the year to its name.
 
@@ -502,9 +500,9 @@ async def list_command(
         sources=False,
         config=True,
 
-) -> List[str]:
+):
     async with StorageManager() as storage_manager:
-        logger.debug(f'Connected to Azure blob')
+        logger.debug('Connected to Azure blob')
         if sources:
             source_files = await storage_manager.list_sources_cfgs()
             source_ids = [os.path.split(sf)[-1].split('.cfg')[0].upper() for sf in source_files]
@@ -592,7 +590,7 @@ async def interpolate_data(data_frame: pd.DataFrame, target_column: Any = None, 
     return interpolated_years, linear_interpolated_values, cleaned_df
 
 
-async def base_df_for_indicator(storage_manager: StorageManager, indicator_id: str, project:str) -> pd.DataFrame:
+async def base_df_for_indicator(storage_manager: StorageManager, indicator_id: str, project: str) -> pd.DataFrame:
     """
     Read the base file for the indicator.
 
@@ -621,6 +619,7 @@ async def base_df_for_indicator(storage_manager: StorageManager, indicator_id: s
     base_file_df = pd.read_csv(io.BytesIO(await storage_manager.cached_download(source_path=base_file_path)))
 
     return base_file_df
+
 
 if __name__ == "__main__":
     test_df = pd.read_csv("./BTI_PROJECT.csv")

@@ -63,9 +63,9 @@ if __name__ == "__main__":
     import os
     from constants import *
 
-    connection_string = AZURE_STORAGE_CONNECTION_STRING
-    container_name = AZURE_STORAGE_CONTAINER_NAME
-    root_folder = ROOT_FOLDER
+    connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+    container_name = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
+    root_folder = os.getenv("ROOT_FOLDER")
     account_name = connection_string.split(";")[1].split("=")[1]
     prefix = f'{os.path.join(root_folder, "config", "sources")}'
     asyncio.run(

@@ -8,12 +8,13 @@ from dfpp.download import download_indicator_sources
 from dfpp.publish import publish
 from dfpp.run_transform import transform_sources
 from dfpp.storage import TMP_SOURCES
-from  distutils.util import strtobool
-from io import  StringIO
-from traceback import  print_exc
+from distutils.util import strtobool
+from io import StringIO
+from traceback import print_exc
 
-parser = argparse.ArgumentParser(description='Convert layers/bands from GDAL supported geospatial data files to COGs/PMtiles.',
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser = argparse.ArgumentParser(
+    description='Convert layers/bands from GDAL supported geospatial data files to COGs/PMtiles.',
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-s', '--stage',
                     help='The stage to run. Options are: download, transform, and publish')
 parser.add_argument('-i', '--indicators', help='The indicator/s to process. If not supplied all detected indicators '
@@ -24,6 +25,7 @@ parser.add_argument('-f', '--filter-indicators',
 parser.add_argument('-d', '--debug', type=strtobool,
                     help='Set log level to debug', default=False
                     )
+
 
 def run_pipeline():
     asyncio.run(main())
@@ -79,7 +81,8 @@ async def main():
             logger.info('Downloading Data Complete....')
             logger.info('Transforming data....')
             await sleep(1)
-            transformed_indicator_ids = await transform_sources(concurrent=True,indicator_ids=downloaded_indicator_ids, project="access_all_data")
+            await transform_sources(concurrent=True, indicator_ids=downloaded_indicator_ids,
+                                    project="access_all_data")
             logger.info('Transforming Data Complete....')
             # logger.info('Publishing data....')
             # await sleep(1)
@@ -92,7 +95,7 @@ async def main():
             print_exc(file=m)
             em = m.getvalue()
             logger.error(em)
-        
+
     finally:
         for k, v in TMP_SOURCES.items():
             exists = os.path.exists(v)

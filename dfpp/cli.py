@@ -8,7 +8,6 @@ from traceback import print_exc
 import os
 from dotenv import load_dotenv
 
-from dfpp.backup_pipeline import backup_pipeline, backup_raw_sources, backup_base_files
 
 load_dotenv()
 from functools import partial, partialmethod
@@ -136,7 +135,7 @@ async def main():
         logger.setLevel(args.log_level)
     if args.load_env_file is True:
         load_dotenv()
-    ## required
+    # required
     validate_env()
     """
     These import are here in case the 
