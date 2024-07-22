@@ -764,20 +764,6 @@ async def heritage_id_transform_preprocessing(bytes_data: bytes = None, **kwargs
         raise e
 
 
-# async def ilo_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
-#     assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
-#     try:
-#         source_df = pd.read_csv(io.BytesIO(bytes_data))
-#         source_df = source_df[source_df["FREQ"] == kwargs.get("filter_frequency_column")]
-#         source_df = source_df[source_df["SEX"] == kwargs.get("filter_sex_column")]
-#         source_df = source_df[source_df["AGE"] == kwargs.get("filter_age_column")]
-#         source_df["TIME_PERIOD"] = source_df["TIME_PERIOD"].apply(lambda x: datetime.strptime(str(x), '%Y'))
-#
-#         return source_df
-#     except Exception as e:
-#         logger.error(f"Error in ilo_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-#         raise e
-
 
 async def ilo_ee_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
@@ -888,7 +874,6 @@ async def ilo_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.
         for col, value in filters.items():
             if value is not None:
                 source_df = source_df[source_df[col] == value]
-
         # Convert TIME_PERIOD to datetime
         source_df["TIME_PERIOD"] = source_df["TIME_PERIOD"].apply(lambda x: datetime.strptime(str(x), '%Y'))
 

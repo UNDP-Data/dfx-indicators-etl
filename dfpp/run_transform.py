@@ -103,18 +103,25 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project: 
         year = source_cfg['source'].get('year', None)
 
         # TODO: Temporary fix for missing columns in the configuration
-        try:
-            filter_value_column = indicator_cfg.get('filter_value_column', None)
-            filter_sex_column = indicator_cfg.get('filter_sex_column', None)
-            filter_frequency_column = indicator_cfg.get('filter_frequency_column', None)
-            filter_age_column = indicator_cfg.get('filter_age_column', None)
-        except Exception as e:
-            filter_value_column = None
-            filter_sex_column = None
-            filter_frequency_column = None
-            filter_age_column = None
-        # TODO: End of temporary fix
+        # get the filter columns. These are the keys that start with 'filter_'
+        indicator_cfg_keys = indicator_cfg.keys()
+        filter_columns = [key for key in indicator_cfg_keys if key.startswith('filter_')]
+        # get the values of the available filter columns from the indicator configuration
+        filter_kwargs = {key: indicator_cfg[key] for key in filter_columns}
 
+        # try:
+        #     filter_value_column = indicator_cfg.get('filter_value_column', None)
+        #     filter_sex_column = indicator_cfg.get('filter_sex_column', None)
+        #     filter_frequency_column = indicator_cfg.get('filter_frequency_column', None)
+        #     filter_age_column = indicator_cfg.get('filter_age_column', None)
+        # except Exception as e:
+        #     filter_value_column = None
+        #     filter_sex_column = None
+        #     filter_frequency_column = None
+        #     filter_age_column = None
+        # # TODO: End of temporary fix
+        # print(filter_kwargs)
+        # exit()
         # Preprocess the source data using the preprocessing function
         source_df = await preprocessing_function(
             bytes_data=source_data_bytes,
@@ -125,10 +132,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None, project: 
             datetime_column=datetime_column,
             key_column=key_column,
             indicator_id=indicator_id,
-            filter_frequency_column=filter_frequency_column,
-            filter_value_column=filter_value_column,
-            filter_sex_column=filter_sex_column,
-            filter_age_column=filter_age_column
+            **filter_kwargs
         )
 
         # Replace '..' with NaN and drop columns with all NaN values
