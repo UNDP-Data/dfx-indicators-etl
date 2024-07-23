@@ -55,7 +55,7 @@ async def upload_indicator_cfgs(indicator_cfgs_path: pathlib.Path) -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(upload_source_cfgs(
-        source_cfgs_path=pathlib.Path("/home/thuha/Desktop/UNDP/dfp/dv-data-pipeline/configs/sources/sources")))
+    # asyncio.run(upload_source_cfgs(
+    #     source_cfgs_path=pathlib.Path("/home/thuha/Desktop/UNDP/dfp/dv-data-pipeline/configs/sources/sources")))
     asyncio.run(upload_indicator_cfgs(
         indicator_cfgs_path=pathlib.Path("/home/thuha/Desktop/UNDP/dfp/dv-data-pipeline/configs/indicators")))

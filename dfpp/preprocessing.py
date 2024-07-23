@@ -137,7 +137,6 @@ async def cpia_rlpr_transform_preprocessing(bytes_data: bytes = None, **kwargs) 
         # Replace ".." with NaN values
         source_df.replace("..", np.nan, inplace=True)
 
-
         # Rename the columns
         source_df.rename(columns={kwargs.get("country_column"): "Country", kwargs.get("key_column"): "Alpha-3 code"},
                          inplace=True)
@@ -765,20 +764,6 @@ async def heritage_id_transform_preprocessing(bytes_data: bytes = None, **kwargs
         raise e
 
 
-async def ilo_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
-    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
-    try:
-        source_df = pd.read_csv(io.BytesIO(bytes_data))
-        source_df = source_df[source_df["FREQ"] == kwargs.get("filter_frequency_column")]
-        source_df = source_df[source_df["SEX"] == kwargs.get("filter_sex_column")]
-        source_df = source_df[source_df["AGE"] == kwargs.get("filter_age_column")]
-        source_df["TIME_PERIOD"] = source_df["TIME_PERIOD"].apply(lambda x: datetime.strptime(str(x), '%Y'))
-
-        return source_df
-    except Exception as e:
-        logger.error(f"Error in ilo_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
-        raise e
-
 
 async def ilo_ee_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
@@ -810,6 +795,7 @@ async def ilo_ee_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> 
         logger.error(f"Error in ilo_ee_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         raise e
 
+
 async def ilo_piena_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
     try:
@@ -819,10 +805,12 @@ async def ilo_piena_transform_preprocessing(bytes_data: bytes = None, **kwargs) 
         source_df = source_df[source_df["ECO"] == kwargs.get("filter_value_column")]
         # Convert the "Time" column to datetime format
         source_df["TIME_PERIOD"] = source_df["TIME_PERIOD"].apply(lambda x: datetime.strptime(str(x), '%Y'))
-        return  source_df
+        return source_df
     except Exception as e:
-        logger.error(f"Error in ilo_piena_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(
+            f"Error in ilo_piena_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         raise e
+
 
 async def ilo_lfs_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
@@ -856,40 +844,46 @@ async def ilo_lfs_transform_preprocessing(bytes_data: bytes = None, **kwargs) ->
         raise e
 
 
-async def ilo_nifl_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
+async def ilo_transform_preprocessing(bytes_data: bytes = None, **kwargs) -> pd.DataFrame:
     """
-    Preprocesses the data for the ILO National Income from Labor (NIFL) transform.
+    Preprocesses the data for the ILO transform.
 
     Args:
-        bytes_data (bytes, optional): The bytes data of the Excel file. Defaults to None.
+        bytes_data (bytes, optional): The bytes data of the file. Defaults to None.
+        **kwargs: Additional keyword arguments for processing.
 
     Returns:
-        pandas.DataFrame: The preprocessed DataFrame for the ILO NIFL transform.
-
+        pandas.DataFrame: The preprocessed DataFrame.
     """
-    assert isinstance(bytes_data, bytes), f'bytes_data arg needs to be of type bytes'
+    assert isinstance(bytes_data, bytes), 'bytes_data arg needs to be of type bytes'
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
-        # Read the Excel file into a DataFrame, skipping the first 5 rows
-        source_df = pd.read_csv(io.BytesIO(bytes_data), low_memory=False)
-        try:
-            source_df = source_df[source_df["FREQ"] == kwargs.get("filter_frequency_column")]
-            source_df = source_df[source_df["SEX"] == kwargs.get("filter_sex_column")]
-            source_df = source_df[source_df["STE"] == kwargs.get("filter_value_column")]
-        except KeyError:
-            pass
 
-        # print(source_df.head())
-        # exit()
-        # Convert the "Time" column to datetime format
+        # Read the CSV file into a DataFrame
+        source_df = pd.read_csv(io.BytesIO(bytes_data), low_memory=False)
+
+        # Filter based on provided column names and values
+        filters = {
+            "FREQ": kwargs.get("filter_frequency_column"),
+            "SEX": kwargs.get("filter_sex_column"),
+            "AGE": kwargs.get("filter_age_column"),
+            "ECO": kwargs.get("filter_eco_column"),
+            "STE": kwargs.get("filter_ste_column")
+        }
+
+        for col, value in filters.items():
+            if value is not None:
+                source_df = source_df[source_df[col] == value]
+        # Convert TIME_PERIOD to datetime
         source_df["TIME_PERIOD"] = source_df["TIME_PERIOD"].apply(lambda x: datetime.strptime(str(x), '%Y'))
 
-        source_df.rename(columns={kwargs.get("key_column"): "Alpha-3 code"},
-                         inplace=True)
-        # Return the preprocessed DataFrame
+        # Rename columns
+        source_df.rename(columns={kwargs.get("key_column"): "Alpha-3 code"}, inplace=True)
+
         return source_df
+
     except Exception as e:
-        logger.error(f"Error in ilo_nifl_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
+        logger.error(f"Error in ilo_transform_preprocessing: {e} while preprocessing {kwargs.get('indicator_id')}")
         raise e
 
 
