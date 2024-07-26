@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import asyncio
 import base64
 import io
 import json

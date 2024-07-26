@@ -3,7 +3,6 @@ A pyhon module to hold common (between stages) functions for the DFP pipeline
 """
 import logging
 import os
-import tempfile
 from configparser import ConfigParser, RawConfigParser
 
 logger = logging.getLogger(__name__)
