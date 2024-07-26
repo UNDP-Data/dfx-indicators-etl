@@ -7,8 +7,8 @@ load_dotenv(dotenv_path='../../.env')
 from io import StringIO
 from traceback import print_exc
 
-from dfpp.run_transform import run_transformation_for_indicator
-from dfpp.storage import StorageManager
+from .run_transform import run_transformation_for_indicator
+from .storage import StorageManager
 
 
 async def main():

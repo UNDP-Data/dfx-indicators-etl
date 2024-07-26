@@ -9,9 +9,9 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from dfpp.constants import STANDARD_COUNTRY_COLUMN, STANDARD_KEY_COLUMN
-from dfpp.storage import StorageManager
-from dfpp.utils import (
+from .constants import STANDARD_COUNTRY_COLUMN, STANDARD_KEY_COLUMN
+from .storage import StorageManager
+from .utils import (
     add_country_code,
     add_region_code,
     change_iso3_to_system_region_iso3,

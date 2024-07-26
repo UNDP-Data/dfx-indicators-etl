@@ -5,7 +5,7 @@ import pathlib
 
 from dotenv import load_dotenv
 
-from dfpp.storage import StorageManager
+from .storage import StorageManager
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

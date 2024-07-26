@@ -8,10 +8,10 @@ from distutils.util import strtobool
 from io import StringIO
 from traceback import print_exc
 
-from dfpp.download import download_indicator_sources
-from dfpp.publish import publish
-from dfpp.run_transform import transform_sources
-from dfpp.storage import TMP_SOURCES
+from .download import download_indicator_sources
+from .publish import publish
+from .run_transform import transform_sources
+from .storage import TMP_SOURCES
 
 parser = argparse.ArgumentParser(
     description='Convert layers/bands from GDAL supported geospatial data files to COGs/PMtiles.',

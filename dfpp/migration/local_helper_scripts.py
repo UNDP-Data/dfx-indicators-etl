@@ -3,7 +3,7 @@ import os
 
 import pandas as pd
 
-from dfpp.storage import AsyncAzureBlobStorageManager
+from .storage import AsyncAzureBlobStorageManager
 
 
 def add_preprocessing_field_to_sources_list_local():

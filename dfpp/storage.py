@@ -13,7 +13,7 @@ from azure.storage.blob import ContainerClient, ContentSettings
 from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import ContainerClient as AContainerClient
 
-from dfpp.dfpp_exceptions import ConfigError
+from .dfpp_exceptions import ConfigError
 
 logger = logging.getLogger(__name__)
 ROOT_FOLDER = os.environ.get('ROOT_FOLDER')

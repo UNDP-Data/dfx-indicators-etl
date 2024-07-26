@@ -11,9 +11,9 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import CubicSpline, interp1d
 
-from dfpp.constants import COUNTRY_LOOKUP_CSV_PATH, CURRENT_YEAR, STANDARD_KEY_COLUMN
-from dfpp.dfpp_exceptions import TransformationError, TransformationWarning
-from dfpp.storage import StorageManager
+from .constants import COUNTRY_LOOKUP_CSV_PATH, CURRENT_YEAR, STANDARD_KEY_COLUMN
+from .dfpp_exceptions import TransformationError, TransformationWarning
+from .storage import StorageManager
 
 logger = logging.getLogger(__name__)
 

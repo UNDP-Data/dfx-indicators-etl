@@ -12,9 +12,9 @@ from typing import List
 import numpy as np
 import pandas as pd
 
-from dfpp.constants import OUTPUT_FOLDER, STANDARD_KEY_COLUMN
-from dfpp.storage import StorageManager
-from dfpp.utils import country_group_dataframe, region_group_dataframe
+from .constants import OUTPUT_FOLDER, STANDARD_KEY_COLUMN
+from .storage import StorageManager
+from .utils import country_group_dataframe, region_group_dataframe
 
 AREA_TYPES = ['countries', 'regions']
 logger = logging.getLogger(__name__)

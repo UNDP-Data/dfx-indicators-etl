@@ -5,7 +5,7 @@ import os
 
 import pandas as pd
 
-from dfpp.storage import AsyncAzureBlobStorageManager
+from .storage import AsyncAzureBlobStorageManager
 
 
 async def source_list_csv():

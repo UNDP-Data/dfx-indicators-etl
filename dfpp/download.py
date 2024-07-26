@@ -20,10 +20,10 @@ import tqdm
 from aiohttp import ClientTimeout
 from dotenv import load_dotenv
 
-from dfpp.common import ERROR_REPORTS
-from dfpp.constants import STANDARD_KEY_COLUMN
-from dfpp.storage import StorageManager
-from dfpp.utils import chunker
+from .common import ERROR_REPORTS
+from .constants import STANDARD_KEY_COLUMN
+from .storage import StorageManager
+from .utils import chunker
 
 load_dotenv()
 

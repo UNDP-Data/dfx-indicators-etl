@@ -6,7 +6,7 @@ import asyncpg
 import pandas
 import pandas as pd
 
-from dfpp import constants
+from . import constants
 
 try:
     import urlparse

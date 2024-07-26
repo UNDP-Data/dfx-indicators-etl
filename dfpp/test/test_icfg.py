@@ -8,7 +8,7 @@ import logging
 logging.basicConfig()
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-from dfpp.storage import StorageManager
+from .storage import StorageManager
 
 
 async def run():

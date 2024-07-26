@@ -6,8 +6,8 @@ import logging
 
 import toml
 
-from dfpp.download import country_downloader
-from dfpp.storage import StorageManager, cfg2dict
+from .download import country_downloader
+from .storage import StorageManager, cfg2dict
 
 logging.basicConfig()
 logger = logging.getLogger()

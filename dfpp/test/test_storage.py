@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from dfpp.storage import AsyncAzureBlobStorageManager, AzureBlobStorageManager
+from .storage import AsyncAzureBlobStorageManager, AzureBlobStorageManager
 
 CONNECTION_STRING = os.environ["CONNECTION_STRING"]
 CONTAINER_NAME = os.environ["CONTAINER_NAME"]

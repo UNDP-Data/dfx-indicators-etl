@@ -139,13 +139,13 @@ async def main():
     """
     These import are here in case the 
     """
-    from dfpp.download import download_indicator_sources
-    from dfpp.publishpg import publish
+    from .download import download_indicator_sources
+    from .publishpg import publish
 
-    # from dfpp.publish_new import publish
-    from dfpp.run_transform import transform_sources
-    from dfpp.storage import TMP_SOURCES
-    from dfpp.utils import list_command
+    # from .publish_new import publish
+    from .run_transform import transform_sources
+    from .storage import TMP_SOURCES
+    from .utils import list_command
 
     if args.no_cache:
         TMP_SOURCES.clear()

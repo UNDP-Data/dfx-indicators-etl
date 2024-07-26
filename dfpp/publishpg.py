@@ -10,10 +10,11 @@ from typing import List
 
 import pandas as pd
 
-from dfpp import constants
-from dfpp.dfpp_exceptions import AggregationError, PublishError
-from dfpp.storage import StorageManager
-from dfpp.utils import base_df_for_indicator, chunker
+from . import constants
+
+from .dfpp_exceptions import AggregationError, PublishError
+from .storage import StorageManager
+from .utils import base_df_for_indicator, chunker
 
 logger = logging.getLogger(__name__)
 project = 'access_all_data'
