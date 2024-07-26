@@ -1,9 +1,9 @@
-pandas
-azure-storage-blob
-aiohttp
-python-dotenv
-openpyxl==3.1.0
-build
-xlrd
-scipy
-tqdm
+pandas ~= 2.1.1
+azure-storage-blob ~= 12.21.0
+aiohttp ~= 3.9.5
+python-dotenv ~= 1.0.1
+openpyxl ~= 3.1.5
+build == 1.2.1
+xlrd ~= 2.0.1
+scipy ~= 1.14.0
+tqdm ~= 4.66.1
