@@ -9,7 +9,7 @@ from traceback import print_exc
 
 from dotenv import load_dotenv
 
-from .download import download_indicator_sources
+from .retrieval import download_indicator_sources
 # from .publish_new import publish
 from .publishpg import publish
 from .run_transform import transform_sources
