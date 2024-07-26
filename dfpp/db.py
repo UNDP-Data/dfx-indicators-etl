@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -184,8 +185,6 @@ async def run(dsn=None, table='staging.dfpp', df=None, overwrite=False):
 
 
 if __name__ == '__main__':
-    import asyncio
-
     dsn = os.environ.get('POSTGRES_DSN')
     logging.basicConfig()
     # azlogger = logging.getLogger('azure.core.pipeline.policies.http_logging_policy')

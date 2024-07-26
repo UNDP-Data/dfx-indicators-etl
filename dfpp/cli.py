@@ -3,13 +3,21 @@ import asyncio
 import logging
 import os
 import sys
+from functools import partial, partialmethod
 from io import StringIO
 from traceback import print_exc
 
 from dotenv import load_dotenv
 
+from .download import download_indicator_sources
+# from .publish_new import publish
+from .publishpg import publish
+from .run_transform import transform_sources
+from .storage import TMP_SOURCES
+from .utils import list_command
+
 load_dotenv()
-from functools import partial, partialmethod
+
 
 logging.TRACE = 5
 logging.addLevelName(logging.TRACE, 'TRACE')
@@ -136,16 +144,6 @@ async def main():
         load_dotenv()
     # required
     validate_env()
-    """
-    These import are here in case the 
-    """
-    from .download import download_indicator_sources
-    from .publishpg import publish
-
-    # from .publish_new import publish
-    from .run_transform import transform_sources
-    from .storage import TMP_SOURCES
-    from .utils import list_command
 
     if args.no_cache:
         TMP_SOURCES.clear()

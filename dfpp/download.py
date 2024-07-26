@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import asyncio
 import base64
 import io
 import json
@@ -845,9 +846,6 @@ async def download_indicator_sources(
 
 
 if __name__ == "__main__":
-    import asyncio
-    import logging
-
     load_dotenv(dotenv_path='./.env')
 
     logging.basicConfig()

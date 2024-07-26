@@ -1,6 +1,7 @@
 import asyncio
 import configparser
 import json
+import os
 
 from azure.storage.blob.aio import BlobPrefix, ContainerClient
 
@@ -60,10 +61,6 @@ async def list(connection_string: str = None, container_name=None, prefix: str =
 
 
 if __name__ == "__main__":
-    import os
-
-    from constants import *
-
     connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
     container_name = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
     root_folder = os.getenv("ROOT_FOLDER")
