@@ -10,10 +10,10 @@ from typing import List
 
 import pandas as pd
 
-from .constants import STANDARD_KEY_COLUMN
-from .exceptions import PublishError
-from .storage import StorageManager
-from .utils import chunker
+from ..constants import STANDARD_KEY_COLUMN
+from ..exceptions import PublishError
+from ..storage import StorageManager
+from ..utils import chunker
 
 logger = logging.getLogger(__name__)
 project = 'access_all_data'
