@@ -61,6 +61,7 @@ async def list(connection_string: str = None, container_name=None, prefix: str =
 
 if __name__ == "__main__":
     import os
+
     from constants import *
 
     connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")

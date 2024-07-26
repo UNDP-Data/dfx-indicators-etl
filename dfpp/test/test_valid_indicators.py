@@ -1,12 +1,14 @@
 import asyncio
 import logging
+
 from dotenv import load_dotenv
 
 load_dotenv(dotenv_path='../../.env')
-from dfpp.storage import StorageManager
-from dfpp.run_transform import run_transformation_for_indicator
 from io import StringIO
 from traceback import print_exc
+
+from dfpp.run_transform import run_transformation_for_indicator
+from dfpp.storage import StorageManager
 
 
 async def main():

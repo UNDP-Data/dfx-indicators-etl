@@ -1,8 +1,7 @@
 import configparser
 import csv
-import os
 import json
-
+import os
 
 ## TODO: Update Retrieval User Data/downloader_params automatically condtionally updated
 ## right now user must manually update these

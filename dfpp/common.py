@@ -2,10 +2,9 @@
 A pyhon module to hold common (between stages) functions for the DFP pipeline
 """
 import logging
-from configparser import ConfigParser, RawConfigParser
-
 import os
 import tempfile
+from configparser import ConfigParser, RawConfigParser
 
 logger = logging.getLogger(__name__)
 CONNECTION_STRING = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')

@@ -1,16 +1,17 @@
-import json
-import os
 import asyncio
+import json
 import logging
-from typing import List
-import numpy as np
-from dfpp.storage import StorageManager
-from dfpp import preprocessing
-from dfpp.utils import chunker
-# This is importing all transform functions from transform_functions.py. DO NOT REMOVE EVEN IF IDE SAYS IT IS UNUSED
-from dfpp import transform_functions
+import os
 from io import StringIO
 from traceback import print_exc
+from typing import List
+
+import numpy as np
+
+# This is importing all transform functions from transform_functions.py. DO NOT REMOVE EVEN IF IDE SAYS IT IS UNUSED
+from dfpp import preprocessing, transform_functions
+from dfpp.storage import StorageManager
+from dfpp.utils import chunker
 
 logger = logging.getLogger(__name__)
 
@@ -314,6 +315,7 @@ async def transform_sources(concurrent=True,
 
 if __name__ == "__main__":
     import os
+
     from dotenv import load_dotenv
     load_dotenv()
     logging.basicConfig()

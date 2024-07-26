@@ -1,21 +1,21 @@
 """
 Functions to publish indicators to PostgreSQL
 """
+import asyncio
 import io
 import json
 import logging
 import os
-import asyncio
 from traceback import print_exc
 from typing import List
 
 import pandas as pd
+
 from dfpp import constants
 from dfpp.aggregation import aggregate_indicator
-from dfpp.dfpp_exceptions import PublishError, AggregationError
+from dfpp.dfpp_exceptions import AggregationError, PublishError
 from dfpp.storage import StorageManager
-from dfpp.utils import chunker, base_df_for_indicator
-
+from dfpp.utils import base_df_for_indicator, chunker
 
 logger = logging.getLogger(__name__)
 project = 'access_all_data'

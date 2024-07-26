@@ -1,11 +1,12 @@
+import json
+import logging
 import os
 
+import asyncpg
 import pandas
 import pandas as pd
-import asyncpg
-import logging
+
 from dfpp import constants
-import json
 
 try:
     import urlparse

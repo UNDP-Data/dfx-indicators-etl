@@ -1,12 +1,13 @@
 """
 Functions to publish indicators to PostgreSQL
 """
+import asyncio
 import io
 import logging
 import os
-import asyncio
 from traceback import print_exc
 from typing import List
+
 import pandas as pd
 
 from dfpp.constants import STANDARD_KEY_COLUMN

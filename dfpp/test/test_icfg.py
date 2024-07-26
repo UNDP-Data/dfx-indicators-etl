@@ -1,8 +1,10 @@
 import asyncio
 
 from dotenv import load_dotenv
+
 load_dotenv()
 import logging
+
 logging.basicConfig()
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

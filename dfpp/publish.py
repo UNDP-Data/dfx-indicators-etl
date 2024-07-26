@@ -2,17 +2,17 @@
 A module responsible for publishing Data Futures Platform pipeline data sets
 
 """
+import asyncio
 import io
 import json
 import logging
 import os
-import asyncio
 from typing import List
 
 import numpy as np
 import pandas as pd
 
-from dfpp.constants import STANDARD_KEY_COLUMN, OUTPUT_FOLDER
+from dfpp.constants import OUTPUT_FOLDER, STANDARD_KEY_COLUMN
 from dfpp.storage import StorageManager
 from dfpp.utils import country_group_dataframe, region_group_dataframe
 

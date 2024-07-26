@@ -1,13 +1,12 @@
 import argparse
 import asyncio
 import logging
+import os
 import sys
-
 from io import StringIO
 from traceback import print_exc
-import os
-from dotenv import load_dotenv
 
+from dotenv import load_dotenv
 
 load_dotenv()
 from functools import partial, partialmethod
@@ -142,6 +141,7 @@ async def main():
     """
     from dfpp.download import download_indicator_sources
     from dfpp.publishpg import publish
+
     # from dfpp.publish_new import publish
     from dfpp.run_transform import transform_sources
     from dfpp.storage import TMP_SOURCES
