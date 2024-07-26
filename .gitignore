@@ -153,4 +153,5 @@ cython_debug/
 
 # Manually added
 data/
+**/*.DS_Store
 **/*.sqlite
