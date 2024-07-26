@@ -524,7 +524,7 @@ async def list_command(
         if config:
             keys = ['ROOT_FOLDER', 'INDICATORS_CFG_PATH', 'SOURCES_CFG_PATH', 'UTILITIES_PATH', 'SOURCES_PATH',
                     'OUTPUT_PATH', 'container_name', 'conn_str']
-            pipeline_cfg = dict()
+            pipeline_cfg = {}
             for k in keys:
                 pipeline_cfg[k] = getattr(storage_manager, k, None)
 

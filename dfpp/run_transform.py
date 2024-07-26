@@ -224,9 +224,9 @@ async def transform_sources(concurrent=True,
     """
     assert project not in ['', None], f'Invalid project={project}.'
 
-    failed_indicators_ids = list()
-    skipped_indicators_id = list()
-    transformed_indicators = list()
+    failed_indicators_ids = []
+    skipped_indicators_id = []
+    transformed_indicators = []
     # Initialize the StorageManager
     async with StorageManager(
         connection_string=os.getenv("AZURE_STORAGE_CONNECTION_STRING"),
@@ -243,9 +243,9 @@ async def transform_sources(concurrent=True,
         for chunk in chunker(indicators_cfgs, concurrent_chunk_size):
 
             # await storage_manager.delete_blob(blob_path=os.path.join('DataFuturePlatform', 'pipeline', 'config', 'indicators', 'mmrlatest_gii.cfg'))
-            tasks = list()
+            tasks = []
             # List to store transformed indicator IDs
-            chunk_transformed_indicators = list()
+            chunk_transformed_indicators = []
             # Loop through each indicator configuration and perform transformations
             for indicator_cfg in chunk:
                 indicator_section = indicator_cfg['indicator']

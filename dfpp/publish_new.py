@@ -122,9 +122,9 @@ async def publish(indicator_ids: List[str] = None, indicator_id_contain_filter: 
     """
     assert project in ['access_all_data', 'vaccine_equity'], "Project must be one of access_all_data or vaccine_equity"
     try:
-        skipped_indicators = list()
-        failed_indicators = list()
-        processed_indicators = list()
+        skipped_indicators = []
+        failed_indicators = []
+        processed_indicators = []
 
         async with StorageManager() as storage_manager:
             indicator_cfgs = await storage_manager.get_indicators_cfg(
@@ -138,7 +138,7 @@ async def publish(indicator_ids: List[str] = None, indicator_id_contain_filter: 
 
             # Process indicators in chunks to avoid overwhelming resources
             for chunk in chunker(indicator_ids, 50):
-                tasks = list()
+                tasks = []
                 for indicator_id in chunk:
                     tasks.append(publish_indicator(storage_manager=storage_manager, indicator_id=indicator_id))
                 for task in asyncio.as_completed(tasks, timeout=30 * len(tasks)):

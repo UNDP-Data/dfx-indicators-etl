@@ -732,7 +732,7 @@ async def download_indicator_sources(
             f' {len(unique_source_ids)} sources defining {len(indicator_configs)} indicators have been detected in the config folder {storage_manager.INDICATORS_CFG_PATH}')
 
         for chunk in chunker(unique_source_ids, size=concurrent_chunk_size):
-            download_tasks = list()
+            download_tasks = []
             for source_id in chunk:
 
                 indicator_cfg = list(filter(lambda x: x['indicator']['source_id'] == source_id, indicator_configs))[0]

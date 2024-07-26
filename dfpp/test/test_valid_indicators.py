@@ -12,8 +12,8 @@ from dfpp.storage import StorageManager
 
 
 async def main():
-    skipped_or_failed = list()
-    transformed_indicators = list()
+    skipped_or_failed = []
+    transformed_indicators = []
     indicator_cfgs = {}
     async with StorageManager() as sm:
         indicator_cfgs = await sm.get_indicators_cfg()

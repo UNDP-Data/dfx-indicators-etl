@@ -58,7 +58,7 @@ def cfg2dict(config_object=None):
     :param config_object:
     :return: dict
     """
-    output_dict = dict()
+    output_dict = {}
     sections = config_object.sections()
     for section in sections:
         items = config_object.items(section)

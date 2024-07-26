@@ -43,12 +43,12 @@ def cfg2dict(config_object=None, c=None):
     :return: dict
     """
     print(config_object,c )
-    output_dict = dict()
+    output_dict = {}
     sections = config_object.sections()
     for section in sections:
         items = config_object.items(section)
 
-        pitems = list()
+        pitems = []
         for k, v in items:
             pitems.append((k, recurse(v)))
             # try:
