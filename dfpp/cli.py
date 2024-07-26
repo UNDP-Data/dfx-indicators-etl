@@ -12,7 +12,8 @@ from dotenv import load_dotenv
 from .retrieval import download_indicator_sources
 # from .publish_new import publish
 from .publishpg import publish
-from .run_transform import transform_sources
+from .retrieval import download_indicator_sources
+from .transformation import transform_sources
 from .utils import list_command
 
 load_dotenv()

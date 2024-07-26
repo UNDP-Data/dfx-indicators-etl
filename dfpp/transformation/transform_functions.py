@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 
 pd.options.mode.chained_assignment = None
-from .constants import STANDARD_COUNTRY_COLUMN, STANDARD_KEY_COLUMN
-from .utils import (
+from ..constants import STANDARD_COUNTRY_COLUMN, STANDARD_KEY_COLUMN
+from ..utils import (
     add_country_code,
     add_region_code,
     get_year_columns,
