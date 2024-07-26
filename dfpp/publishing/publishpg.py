@@ -1,21 +1,19 @@
 """
 Functions to publish indicators to PostgreSQL
 """
+import asyncio
 import io
-import json
 import logging
 import os
-import asyncio
 from traceback import print_exc
 from typing import List
 
 import pandas as pd
-from dfpp import constants
-from dfpp.aggregation import aggregate_indicator
-from dfpp.dfpp_exceptions import PublishError, AggregationError
-from dfpp.storage import StorageManager
-from dfpp.utils import chunker, base_df_for_indicator
 
+from .. import constants
+from ..exceptions import AggregationError, PublishError
+from ..storage import StorageManager
+from ..utils import base_df_for_indicator, chunker
 
 logger = logging.getLogger(__name__)
 project = 'access_all_data'
@@ -118,8 +116,8 @@ async def publish(
     dsn = os.environ.get('POSTGRES_DSN')
     try:
 
-        failed_indicators = list()
-        processed_indicators = list()
+        failed_indicators = []
+        processed_indicators = []
         async with StorageManager() as storage_manager:
             indicator_cfgs = await storage_manager.get_indicators_cfg(
                 indicator_ids=indicator_ids,
@@ -130,7 +128,7 @@ async def publish(
             indicator_ids = [cfg['indicator']['indicator_id'] for cfg in indicator_cfgs]
 
             for chunk in chunker(indicator_ids, size=concurrent_chunk_size):
-                tasks = list()
+                tasks = []
                 for indicator_id in chunk:
                     tasks.append(
                         publish_indicator(

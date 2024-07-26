@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 
-from dfpp.storage import StorageManager
+from .storage import StorageManager
 
 logger = logging.getLogger(__name__)
 stream_handler = logging.StreamHandler()

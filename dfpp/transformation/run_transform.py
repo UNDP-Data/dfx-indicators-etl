@@ -1,16 +1,14 @@
-import json
-import os
 import asyncio
 import logging
-from typing import List
-import numpy as np
-from dfpp.storage import StorageManager
-from dfpp import preprocessing
-from dfpp.utils import chunker
-# This is importing all transform functions from transform_functions.py. DO NOT REMOVE EVEN IF IDE SAYS IT IS UNUSED
-from dfpp import transform_functions
 from io import StringIO
 from traceback import print_exc
+from typing import List
+
+import numpy as np
+
+from ..storage import StorageManager
+from ..utils import chunker
+from . import preprocessing, transform_functions
 
 logger = logging.getLogger(__name__)
 
@@ -225,9 +223,9 @@ async def transform_sources(concurrent=True,
     """
     assert project not in ['', None], f'Invalid project={project}.'
 
-    failed_indicators_ids = list()
-    skipped_indicators_id = list()
-    transformed_indicators = list()
+    failed_indicators_ids = []
+    skipped_indicators_id = []
+    transformed_indicators = []
     # Initialize the StorageManager
     async with StorageManager(
         connection_string=os.getenv("AZURE_STORAGE_CONNECTION_STRING"),
@@ -244,9 +242,9 @@ async def transform_sources(concurrent=True,
         for chunk in chunker(indicators_cfgs, concurrent_chunk_size):
 
             # await storage_manager.delete_blob(blob_path=os.path.join('DataFuturePlatform', 'pipeline', 'config', 'indicators', 'mmrlatest_gii.cfg'))
-            tasks = list()
+            tasks = []
             # List to store transformed indicator IDs
-            chunk_transformed_indicators = list()
+            chunk_transformed_indicators = []
             # Loop through each indicator configuration and perform transformations
             for indicator_cfg in chunk:
                 indicator_section = indicator_cfg['indicator']
@@ -314,6 +312,7 @@ async def transform_sources(concurrent=True,
 
 if __name__ == "__main__":
     import os
+
     from dotenv import load_dotenv
     load_dotenv()
     logging.basicConfig()

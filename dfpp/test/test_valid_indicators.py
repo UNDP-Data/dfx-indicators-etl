@@ -1,17 +1,19 @@
 import asyncio
 import logging
+
 from dotenv import load_dotenv
 
 load_dotenv(dotenv_path='../../.env')
-from dfpp.storage import StorageManager
-from dfpp.run_transform import run_transformation_for_indicator
 from io import StringIO
 from traceback import print_exc
 
+from .run_transform import run_transformation_for_indicator
+from .storage import StorageManager
+
 
 async def main():
-    skipped_or_failed = list()
-    transformed_indicators = list()
+    skipped_or_failed = []
+    transformed_indicators = []
     indicator_cfgs = {}
     async with StorageManager() as sm:
         indicator_cfgs = await sm.get_indicators_cfg()

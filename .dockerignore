@@ -1,37 +1,48 @@
-.github
-.gitignore
-*.md
+# Ignore Python bytecode files
 *.pyc
 *.pyo
-*.cfg
-*.ini
-# ignore pycharm config
-.idea
-# ignore VSCode config
-.vscode
-# ignore pycharm project files
-*.iml
-# ignore python cache
+*.pyd
 __pycache__
 
-# ignore .env files
-*.env
+# Ignore virtual environment directories
+venv/
+env/
+ENV/
+.venv/
 
-# ignore python local build files
-dfpp.egg-info
-dist
-indicator_cfg_files/
-source_cfg_files/
-corrected_indicators/
-output/
-local_utils/
+# Ignore development and build artifacts
+*.egg
+*.egg-info
+dist/
 build/
-downloadb.py
-dfpp/migration/check_missing_outputs.py
-*.zip
-*.csv
-.pytest_cache
-*test.txt
+*.log
+
+# Ignore configuration files and local settings
+*.env
+*.local
+*.ini
+*.json
+
+# Ignore package managers directories and files
 Pipfile.lock
-Pipfile
-*.xlsx
+poetry.lock
+__pypackages__/
+
+# Ignore Docker-related files
+Dockerfile
+.dockerignore
+
+# Ignore system files and directories
+.DS_Store
+*.swp
+*.swo
+
+# Ignore IDE and editor files
+.vscode/
+.idea/
+
+# Ignore other unnecessary files
+*.md
+*.rst
+*.git
+.gitignore

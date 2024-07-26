@@ -1,16 +1,21 @@
 import argparse
 import asyncio
 import logging
+import os
 import sys
-
+from functools import partial, partialmethod
 from io import StringIO
 from traceback import print_exc
-import os
+
 from dotenv import load_dotenv
 
+from .publishing import publish
+from .retrieval import download_indicator_sources
+from .transformation import transform_sources
+from .utils import list_command
 
 load_dotenv()
-from functools import partial, partialmethod
+
 
 logging.TRACE = 5
 logging.addLevelName(logging.TRACE, 'TRACE')
@@ -137,18 +142,7 @@ async def main():
         load_dotenv()
     # required
     validate_env()
-    """
-    These import are here in case the 
-    """
-    from dfpp.download import download_indicator_sources
-    from dfpp.publishpg import publish
-    # from dfpp.publish_new import publish
-    from dfpp.run_transform import transform_sources
-    from dfpp.storage import TMP_SOURCES
-    from dfpp.utils import list_command
 
-    if args.no_cache:
-        TMP_SOURCES.clear()
     try:
         if args.command == 'list':
             if not (args.indicators or args.sources or args.config):
@@ -202,12 +196,6 @@ async def main():
             print_exc(file=m)
             em = m.getvalue()
             logger.error(em)
-    finally:
-        for k, v in TMP_SOURCES.items():
-            exists = os.path.exists(v)
-            if exists:
-                logger.debug(f'Removing cache {v} for {k} ')
-                os.remove(v)
 
 
 if __name__ == '__main__':

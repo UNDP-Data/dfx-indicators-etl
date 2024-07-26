@@ -1,12 +1,14 @@
-import json
-import toml
-from dfpp.storage import StorageManager, cfg2dict
-import asyncio
-import json
 import ast
-from dfpp.download import country_downloader
+import asyncio
 import configparser
+import json
 import logging
+
+import toml
+
+from .download import country_downloader
+from .storage import StorageManager, cfg2dict
+
 logging.basicConfig()
 logger = logging.getLogger()
 logging_stream_handler = logging.StreamHandler()
@@ -41,12 +43,12 @@ def cfg2dict(config_object=None, c=None):
     :return: dict
     """
     print(config_object,c )
-    output_dict = dict()
+    output_dict = {}
     sections = config_object.sections()
     for section in sections:
         items = config_object.items(section)
 
-        pitems = list()
+        pitems = []
         for k, v in items:
             pitems.append((k, recurse(v)))
             # try:

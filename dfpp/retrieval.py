@@ -1,28 +1,29 @@
 from __future__ import annotations
-from io import StringIO
-from traceback import print_exc
+
 import ast
+import asyncio
 import base64
 import io
 import json
 import logging
+import os
 import time
 import zipfile
-from typing import Any, Tuple, List, Dict
+from io import StringIO
+from traceback import print_exc
+from typing import Any, Dict, List, Tuple
 from urllib.parse import urlencode
-from dotenv import load_dotenv
-import os
+
 import aiohttp
 import numpy as np
 import pandas as pd
-from aiohttp import ClientTimeout
-
-from dfpp.common import ERROR_REPORTS
-from dfpp.storage import StorageManager
-from dfpp.constants import STANDARD_KEY_COLUMN
-from dfpp.utils import chunker
-import asyncio
 import tqdm
+from aiohttp import ClientTimeout
+from dotenv import load_dotenv
+
+from .constants import STANDARD_KEY_COLUMN
+from .storage import StorageManager
+from .utils import chunker
 
 load_dotenv()
 
@@ -710,6 +711,7 @@ async def download_indicator_sources(
     skipped_source_ids = []
     source_indicator_map = {}
     source_indicator_map_tod = {}
+    error_reports = []
 
     async with StorageManager(
     ) as storage_manager:
@@ -731,7 +733,7 @@ async def download_indicator_sources(
             f' {len(unique_source_ids)} sources defining {len(indicator_configs)} indicators have been detected in the config folder {storage_manager.INDICATORS_CFG_PATH}')
 
         for chunk in chunker(unique_source_ids, size=concurrent_chunk_size):
-            download_tasks = list()
+            download_tasks = []
             for source_id in chunk:
 
                 indicator_cfg = list(filter(lambda x: x['indicator']['source_id'] == source_id, indicator_configs))[0]
@@ -757,7 +759,7 @@ async def download_indicator_sources(
                 except Exception as e:
                     logger.error(f'Failed to download/upload source {source_id} ')
                     logger.error(e)
-                    ERROR_REPORTS.append({
+                    error_reports.append({
                         'indicator_id': indicator_cfg['indicator']['indicator_id'],
                         'source_id': source_id,
                         'error': e
@@ -801,7 +803,7 @@ async def download_indicator_sources(
                             pending_task.cancel()
                             await pending_task
                             failed_source_ids.append(source_id)
-                            ERROR_REPORTS.append({
+                            error_reports.append({
                                 'indicator_id': indicator_id,
                                 'source_id': source_id,
                                 'error': 'Timeout'
@@ -810,7 +812,7 @@ async def download_indicator_sources(
                             logger.debug(
                                 f'Pending future for source {source_id} has been cancelled')
                         except Exception as e:
-                            ERROR_REPORTS.append({
+                            error_reports.append({
                                 'indicator_id': indicator_id,
                                 'source_id': source_id,
                                 'error': e
@@ -837,16 +839,15 @@ async def download_indicator_sources(
         logger.info(f'SKIPPED {len(skipped_source_ids)} defining {len(skipped_indicators)} indicators')
     logger.info('#' * 200)
 
-    error_df = pd.DataFrame(ERROR_REPORTS)
-    if not error_df.empty:
-        error_df.to_csv('error_report.csv', index=False)
+    df_errors = pd.DataFrame(error_reports)
+    if not df_errors.empty:
+        file_path = 'error_report.csv'
+        mode = 'a' if os.path.exists(file_path) else 'w'
+        df_errors.to_csv(file_path, mode=mode, index=False)
     return downloaded_indicators
 
 
 if __name__ == "__main__":
-    import asyncio
-    import logging
-
     load_dotenv(dotenv_path='./.env')
 
     logging.basicConfig()

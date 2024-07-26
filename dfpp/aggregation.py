@@ -1,17 +1,16 @@
 import io
+import logging
 import os
 import re
-import logging
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from dfpp.constants import STANDARD_KEY_COLUMN, CURRENT_YEAR
-from dfpp.dfpp_exceptions import AggregationError
-from dfpp.utils import base_df_for_indicator
-from dfpp.storage import StorageManager
-from dfpp.utils import interpolate_data
+from .constants import CURRENT_YEAR, STANDARD_KEY_COLUMN
+from .exceptions import AggregationError
+from .storage import StorageManager
+from .utils import base_df_for_indicator, interpolate_data
 
 logger = logging.getLogger(__name__)
 

@@ -1,18 +1,20 @@
+import ast
 import asyncio
 import configparser
 import hashlib
+import itertools
 import logging
-from typing import Any, AsyncGenerator, Dict, Generator, List, Optional, Tuple
-from azure.core.exceptions import ResourceNotFoundError
+import math
+import os
+import tempfile
+from typing import Any, Dict, List, Optional
+
 from azure.storage.blob import ContainerClient, ContentSettings
 from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import ContainerClient as AContainerClient
-import os
-from dfpp.dfpp_exceptions import ConfigError, DFPSourceError
-import math
-import tempfile
-import ast
-import itertools
+
+from ..common import cfg2dict, dict2cfg
+from ..exceptions import ConfigError
 
 logger = logging.getLogger(__name__)
 ROOT_FOLDER = os.environ.get('ROOT_FOLDER')
@@ -49,32 +51,6 @@ def chunker(iterable, size):
         if not chunk:
             break
         yield chunk
-
-
-def cfg2dict(config_object=None):
-    """
-    Copnverts a config object to dict
-    :param config_object:
-    :return: dict
-    """
-    output_dict = dict()
-    sections = config_object.sections()
-    for section in sections:
-        items = config_object.items(section)
-        output_dict[section] = dict(items)
-    return output_dict
-
-
-async def dict2cfg(cfg_dict=None):
-    """
-    Converts a dict to a config object
-    :param cfg_dict:
-    :return:
-    """
-    parser = configparser.ConfigParser(interpolation=None)
-    for section, options in cfg_dict.items():
-        parser[section] = options
-    return parser
 
 
 def validate_src_cfg(cfg_dict=None, cfg_file_path=None):
