@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from .constants import CURRENT_YEAR, STANDARD_KEY_COLUMN
-from .dfpp_exceptions import AggregationError
+from .exceptions import AggregationError
 from .storage import StorageManager
 from .utils import base_df_for_indicator, interpolate_data
 

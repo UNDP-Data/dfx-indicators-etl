@@ -11,7 +11,7 @@ from typing import List
 import pandas as pd
 
 from .constants import STANDARD_KEY_COLUMN
-from .dfpp_exceptions import PublishError
+from .exceptions import PublishError
 from .storage import StorageManager
 from .utils import chunker
 

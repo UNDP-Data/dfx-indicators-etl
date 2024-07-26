@@ -5,7 +5,7 @@ import os
 
 from azure.storage.blob.aio import BlobPrefix, ContainerClient
 
-from .dfpp_exceptions import ConfigError
+from .exceptions import ConfigError
 
 
 async def list_blobs(connection_string: str = None, container_name=None, prefix: str = None):

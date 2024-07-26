@@ -12,7 +12,7 @@ import pandas as pd
 from scipy.interpolate import CubicSpline, interp1d
 
 from .constants import COUNTRY_LOOKUP_CSV_PATH, CURRENT_YEAR, STANDARD_KEY_COLUMN
-from .dfpp_exceptions import TransformationError, TransformationWarning
+from .exceptions import TransformationError, TransformationWarning
 from .storage import StorageManager
 
 logger = logging.getLogger(__name__)
