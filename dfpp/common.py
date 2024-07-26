@@ -6,8 +6,6 @@ from configparser import ConfigParser, RawConfigParser
 
 logger = logging.getLogger(__name__)
 
-ERROR_REPORTS = []
-
 
 def cfg2dict(config_object=None):
     """

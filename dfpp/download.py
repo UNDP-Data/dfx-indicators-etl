@@ -21,7 +21,6 @@ import tqdm
 from aiohttp import ClientTimeout
 from dotenv import load_dotenv
 
-from .common import ERROR_REPORTS
 from .constants import STANDARD_KEY_COLUMN
 from .storage import StorageManager
 from .utils import chunker
@@ -712,6 +711,7 @@ async def download_indicator_sources(
     skipped_source_ids = []
     source_indicator_map = {}
     source_indicator_map_tod = {}
+    error_reports = []
 
     async with StorageManager(
     ) as storage_manager:
@@ -759,7 +759,7 @@ async def download_indicator_sources(
                 except Exception as e:
                     logger.error(f'Failed to download/upload source {source_id} ')
                     logger.error(e)
-                    ERROR_REPORTS.append({
+                    error_reports.append({
                         'indicator_id': indicator_cfg['indicator']['indicator_id'],
                         'source_id': source_id,
                         'error': e
@@ -803,7 +803,7 @@ async def download_indicator_sources(
                             pending_task.cancel()
                             await pending_task
                             failed_source_ids.append(source_id)
-                            ERROR_REPORTS.append({
+                            error_reports.append({
                                 'indicator_id': indicator_id,
                                 'source_id': source_id,
                                 'error': 'Timeout'
@@ -812,7 +812,7 @@ async def download_indicator_sources(
                             logger.debug(
                                 f'Pending future for source {source_id} has been cancelled')
                         except Exception as e:
-                            ERROR_REPORTS.append({
+                            error_reports.append({
                                 'indicator_id': indicator_id,
                                 'source_id': source_id,
                                 'error': e
@@ -839,9 +839,11 @@ async def download_indicator_sources(
         logger.info(f'SKIPPED {len(skipped_source_ids)} defining {len(skipped_indicators)} indicators')
     logger.info('#' * 200)
 
-    error_df = pd.DataFrame(ERROR_REPORTS)
-    if not error_df.empty:
-        error_df.to_csv('error_report.csv', index=False)
+    df_errors = pd.DataFrame(error_reports)
+    if not df_errors.empty:
+        file_path = 'error_report.csv'
+        mode = 'a' if os.path.exists(file_path) else 'w'
+        df_errors.to_csv(file_path, mode=mode, index=False)
     return downloaded_indicators
 
 
