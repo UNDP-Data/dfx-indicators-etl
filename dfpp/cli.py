@@ -13,7 +13,6 @@ from .download import download_indicator_sources
 # from .publish_new import publish
 from .publishpg import publish
 from .run_transform import transform_sources
-from .storage import TMP_SOURCES
 from .utils import list_command
 
 load_dotenv()
@@ -145,8 +144,6 @@ async def main():
     # required
     validate_env()
 
-    if args.no_cache:
-        TMP_SOURCES.clear()
     try:
         if args.command == 'list':
             if not (args.indicators or args.sources or args.config):
@@ -200,12 +197,6 @@ async def main():
             print_exc(file=m)
             em = m.getvalue()
             logger.error(em)
-    finally:
-        for k, v in TMP_SOURCES.items():
-            exists = os.path.exists(v)
-            if exists:
-                logger.debug(f'Removing cache {v} for {k} ')
-                os.remove(v)
 
 
 if __name__ == '__main__':
