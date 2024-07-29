@@ -48,13 +48,6 @@ def get_logger():
     default="INFO",
     help="Set log level",
 )
-@click.option("--no-cache", is_flag=True, help="Do not use cache")
-@click.option(
-    "-e",
-    "--load-env-file",
-    is_flag=True,
-    help="Search for a .env file containing environment variables",
-)
 @click.pass_context
 def cli(ctx, **kwargs):
     ctx.obj |= kwargs
