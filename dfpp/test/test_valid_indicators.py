@@ -3,12 +3,12 @@ import logging
 
 from dotenv import load_dotenv
 
-load_dotenv(dotenv_path='../../.env')
+load_dotenv(dotenv_path="../../.env")
 from io import StringIO
 from traceback import print_exc
 
-from ..transformation import run_transformation_for_indicator
 from ..storage import StorageManager
+from ..transformation import run_transformation_for_indicator
 
 
 async def main():
@@ -19,18 +19,20 @@ async def main():
         indicator_cfgs = await sm.get_indicators_cfg()
 
         for indicator_cfg in indicator_cfgs:
-            indicator_section = indicator_cfg['indicator']
-            indicator_id = indicator_section['indicator_id']
-            if indicator_section.get('preprocessing') is None:
+            indicator_section = indicator_cfg["indicator"]
+            indicator_id = indicator_section["indicator_id"]
+            if indicator_section.get("preprocessing") is None:
                 # Skip if no preprocessing function is specified
                 logger.info(
-                    f"Skipping preprocessing for indicator {indicator_id} as no preprocessing function is specified")
+                    f"Skipping preprocessing for indicator {indicator_id} as no preprocessing function is specified"
+                )
                 continue
 
             try:
                 # Perform transformation sequentially
-                transformed_indicator_id = await run_transformation_for_indicator(indicator_cfg=indicator_section,
-                                                                                  project="access_all_data")
+                transformed_indicator_id = await run_transformation_for_indicator(
+                    indicator_cfg=indicator_section, project="access_all_data"
+                )
                 transformed_indicators.append(transformed_indicator_id)
 
             except Exception as te:
@@ -38,16 +40,18 @@ async def main():
                 with StringIO() as m:
                     print_exc(file=m)
                     em = m.getvalue()
-                    logger.error(f'Error {em} was encountered while processing  {indicator_id}')
+                    logger.error(
+                        f"Error {em} was encountered while processing  {indicator_id}"
+                    )
                     continue
 
-    logger.info(f'Total no of indicators: {len(indicator_cfgs)}')
-    logger.info(f'Skipped or failed no of indicators: {len(skipped_or_failed)}')
-    logger.info(f'Processed no of indicators: {len(transformed_indicators)}')
+    logger.info(f"Total no of indicators: {len(indicator_cfgs)}")
+    logger.info(f"Skipped or failed no of indicators: {len(skipped_or_failed)}")
+    logger.info(f"Processed no of indicators: {len(transformed_indicators)}")
     print(skipped_or_failed)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.basicConfig()
     logger = logging.getLogger("azure.storage.blob")
     logging_stream_handler = logging.StreamHandler()

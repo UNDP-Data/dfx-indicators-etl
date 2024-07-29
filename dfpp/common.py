@@ -1,6 +1,7 @@
 """
 A pyhon module to hold common (between stages) functions for the DFP pipeline
 """
+
 import logging
 from configparser import ConfigParser, RawConfigParser
 
@@ -43,19 +44,25 @@ async def read_indicator(storage_manager=None, indicator_blob_rel_path=None):
     :return: the configuration file as a dict
     """
 
-    logger.info(f'Downloading config for indicator {indicator_blob_rel_path}')
+    logger.info(f"Downloading config for indicator {indicator_blob_rel_path}")
 
-    indicator_cfg_file_exists = await storage_manager.check_blob_exists(blob_name=indicator_blob_rel_path)
+    indicator_cfg_file_exists = await storage_manager.check_blob_exists(
+        blob_name=indicator_blob_rel_path
+    )
     if not indicator_cfg_file_exists:
-        raise FileNotFoundError(f'Indicator configuration file {indicator_blob_rel_path} does not exist')
+        raise FileNotFoundError(
+            f"Indicator configuration file {indicator_blob_rel_path} does not exist"
+        )
     file_in_bytes = await storage_manager.download(blob_name=indicator_blob_rel_path)
 
     indicator_parser = ConfigParser(interpolation=None)
-    indicator_parser.read_string(file_in_bytes.decode('utf-8'))
+    indicator_parser.read_string(file_in_bytes.decode("utf-8"))
 
     cfg_dict = cfg2dict(indicator_parser)
 
-    assert 'indicator' in cfg_dict, f'Indicator config file  {indicator_blob_rel_path} is invalid'
-    assert cfg_dict, f'Indicator config file  {indicator_blob_rel_path} is invalid'
+    assert (
+        "indicator" in cfg_dict
+    ), f"Indicator config file  {indicator_blob_rel_path} is invalid"
+    assert cfg_dict, f"Indicator config file  {indicator_blob_rel_path} is invalid"
 
     return cfg_dict
