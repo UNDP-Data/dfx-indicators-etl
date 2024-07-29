@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from io import StringIO
 from traceback import print_exc
 from typing import List
@@ -383,7 +384,6 @@ async def transform_sources(
 
 
 if __name__ == "__main__":
-    import os
 
     from dotenv import load_dotenv
 
