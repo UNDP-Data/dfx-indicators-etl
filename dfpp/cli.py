@@ -72,15 +72,15 @@ def list(indicators, sources, configs):
 @cli.group(chain=True, help="Run specific stages or the whole pipeline")
 @click.option(
     "-i",
-    "--indicator-ids",
+    "--indicators",
     multiple=True,
-    help="The id of indicator/s to process. If not supplied all detected indicators will be processed",
+    help="Indicator ID(s) to process. If not supplied all detected indicators will be processed.",
 )
 @click.option(
-    "-f",
-    "--filter-indicators-string",
+    "-p",
+    "--pattern",
     type=str,
-    help="Process only indicators whose id contains this string",
+    help="Process only indicators whose IDs contain the pattern.",
 )
 @click.pass_context
 def run(ctx, **kwargs):
@@ -93,8 +93,8 @@ def run(ctx, **kwargs):
 def download(ctx):
     args = ctx.ensure_object(dict)
     results = download_indicator_sources(
-        indicator_ids=args["indicator_ids"],
-        indicator_id_contain_filter=args["filter_indicators_string"],
+        indicator_ids=args["indicators"],
+        indicator_id_contain_filter=args["pattern"],
     )
     asyncio.run(results)
 
@@ -104,8 +104,8 @@ def download(ctx):
 def transform(ctx):
     args = ctx.ensure_object(dict)
     results = transform_sources(
-        indicator_ids=args["indicator_ids"],
-        indicator_id_contain_filter=args["filter_indicators_string"],
+        indicator_ids=args["indicators"],
+        indicator_id_contain_filter=args["pattern"],
         project="access_all_data",
     )
     asyncio.run(results)
@@ -116,8 +116,8 @@ def transform(ctx):
 def publish(ctx):
     args = ctx.ensure_object(dict)
     results = publish(
-        indicator_ids=args["indicator_ids"],
-        indicator_id_contain_filter=args["filter_indicators_string"],
+        indicator_ids=args["indicators"],
+        indicator_id_contain_filter=args["pattern"],
         project="access_all_data",
     )
     asyncio.run(results)
