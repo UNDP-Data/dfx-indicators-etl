@@ -4,10 +4,9 @@ import configparser
 import json
 import logging
 
-import toml
 
-from .download import country_downloader
-from .storage import StorageManager, cfg2dict
+from ..storage import StorageManager
+from ..common import cfg2dict
 
 logging.basicConfig()
 logger = logging.getLogger()
@@ -36,30 +35,8 @@ def recurse(d):
         print(f'd failed {d} {type(d)}')
         return d
     return loaded_d
-def cfg2dict(config_object=None, c=None):
-    """
-    Copnverts a config object to dict
-    :param config_object:
-    :return: dict
-    """
-    print(config_object,c )
-    output_dict = {}
-    sections = config_object.sections()
-    for section in sections:
-        items = config_object.items(section)
 
-        pitems = []
-        for k, v in items:
-            pitems.append((k, recurse(v)))
-            # try:
-            #     jv = json.loads(v,)
-            #     pitems.append((k, jv))
-            # except json.JSONDecodeError:
-            #     pitems.append((k, v))
 
-        output_dict[section] = pitems
-        #print('haha', items)
-    return output_dict
 async def run():
     async with StorageManager() as sm:
         an_ind = await sm.get_indicator_cfg(indicator_id='expected_years_of_schooling_female_hdr')
