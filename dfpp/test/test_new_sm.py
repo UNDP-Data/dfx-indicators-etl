@@ -3,7 +3,7 @@ import json
 import logging
 import os
 
-from .storage import StorageManager
+from ..storage import StorageManager
 
 azlogger = logging.getLogger('azure.core.pipeline.policies.http_logging_policy')
 azlogger.setLevel(logging.WARNING)
@@ -35,7 +35,7 @@ async def main():
         downloaded_indicator_ids = [e['indicator']['indicator_id'] for e in indicators_cfg if
                                     e['indicator']['source_id'] in downloaded_source_ids]
         logger.info(f'{len(source_ids)}, {len(indicator_ids)} {len(downloaded_indicator_ids)}')
-        from .run_transform import transform_sources
+        # from .run_transform import transform_sources
 
         #transform_sources(indicator_ids=indicator_ids)
         for e in sources_cfg:

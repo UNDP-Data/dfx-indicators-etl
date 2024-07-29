@@ -21,9 +21,9 @@ import tqdm
 from aiohttp import ClientTimeout
 from dotenv import load_dotenv
 
-from .constants import STANDARD_KEY_COLUMN
-from .storage import StorageManager
-from .utils import chunker
+from ..constants import STANDARD_KEY_COLUMN
+from ..storage import StorageManager
+from ..utils import chunker
 
 load_dotenv()
 
