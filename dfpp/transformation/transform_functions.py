@@ -45,22 +45,22 @@ async def type1_transform(**kwargs) -> None:
     if source_df is None:
         raise ValueError("The 'source_df' argument is required.")
 
-    value_column = kwargs.get('value_column', None)
+    value_column = kwargs.get("value_column", None)
     # if value_column is None:
     #     raise ValueError("The 'value_column' argument is required for type1_transform.")
 
-    indicator_id = kwargs.get('indicator_id')
-    base_filename = kwargs.get('base_filename', None)
-    country_column = kwargs.get('country_column', None)
-    key_column = kwargs.get('key_column', None)
-    column_prefix = kwargs.get('column_prefix', None)
-    column_suffix = kwargs.get('column_suffix', None)
-    column_substring = kwargs.get('column_substring', None)
-    group_column = kwargs.get('group_column', None)
-    group_name = kwargs.get('group_name', None)
-    aggregate = kwargs.get('aggregate', False)
-    keep = kwargs.get('keep', 'last')
-    project = kwargs.get('project')
+    indicator_id = kwargs.get("indicator_id")
+    base_filename = kwargs.get("base_filename", None)
+    country_column = kwargs.get("country_column", None)
+    key_column = kwargs.get("key_column", None)
+    column_prefix = kwargs.get("column_prefix", None)
+    column_suffix = kwargs.get("column_suffix", None)
+    column_substring = kwargs.get("column_substring", None)
+    group_column = kwargs.get("group_column", None)
+    group_name = kwargs.get("group_name", None)
+    aggregate = kwargs.get("aggregate", False)
+    keep = kwargs.get("keep", "last")
+    project = kwargs.get("project")
 
     assert isinstance(source_df, pd.DataFrame), "source_df must be a pandas DataFrame"
     assert indicator_id is not None, "indicator_id must be provided"
@@ -76,13 +76,19 @@ async def type1_transform(**kwargs) -> None:
     else:
         df = source_df.copy()
     # Get year columns based on column_prefix, column_suffix, or column_substring
-    year_columns = await get_year_columns(df.columns, col_prefix=column_prefix, col_suffix=column_suffix,
-                                          column_substring=column_substring)
+    year_columns = await get_year_columns(
+        df.columns,
+        col_prefix=column_prefix,
+        col_suffix=column_suffix,
+        column_substring=column_substring,
+    )
 
     # Rename columns using the indicator_id and year
     indicator_rename = {}
     for year in year_columns:
-        indicator_rename[year_columns[year]] = await rename_indicator(indicator_id, year)
+        indicator_rename[year_columns[year]] = await rename_indicator(
+            indicator_id, year
+        )
 
     inverted_dictionary = await invert_dictionary(indicator_rename)
     indicator_cols = list(inverted_dictionary.keys())
@@ -125,7 +131,9 @@ async def type1_transform(**kwargs) -> None:
 
     save_as = base_filename + ".csv"
 
-    await update_base_file(indicator_id=indicator_id, df=df, blob_name=save_as, project=project)
+    await update_base_file(
+        indicator_id=indicator_id, df=df, blob_name=save_as, project=project
+    )
 
 
 async def type2_transform(**kwargs):
@@ -160,20 +168,20 @@ async def type2_transform(**kwargs):
     if source_df is None:
         raise ValueError("The 'source_df' argument is required.")
 
-    indicator_id = kwargs.get('indicator_id')
-    value_column = kwargs.get('value_column', None)
-    base_filename = kwargs.get('base_filename', None)
-    country_column = kwargs.get('country_column', None)
-    key_column = kwargs.get('key_column', None)
-    year = kwargs.get('year', None)
-    group_column = kwargs.get('group_column', None)
-    group_name = kwargs.get('group_name', None)
-    aggregate = kwargs.get('aggregate', False)
-    keep = kwargs.get('keep', 'last')
-    return_dataframe = kwargs.get('return_dataframe', True)
-    country_code_aggregate = kwargs.get('country_code_aggregate', False)
-    region_column = kwargs.get('region_column', None)
-    project = kwargs.get('project')
+    indicator_id = kwargs.get("indicator_id")
+    value_column = kwargs.get("value_column", None)
+    base_filename = kwargs.get("base_filename", None)
+    country_column = kwargs.get("country_column", None)
+    key_column = kwargs.get("key_column", None)
+    year = kwargs.get("year", None)
+    group_column = kwargs.get("group_column", None)
+    group_name = kwargs.get("group_name", None)
+    aggregate = kwargs.get("aggregate", False)
+    keep = kwargs.get("keep", "last")
+    return_dataframe = kwargs.get("return_dataframe", True)
+    country_code_aggregate = kwargs.get("country_code_aggregate", False)
+    region_column = kwargs.get("region_column", None)
+    project = kwargs.get("project")
 
     assert isinstance(source_df, pd.DataFrame), "source_df must be a pandas DataFrame"
     assert indicator_id is not None, "indicator_id must be provided"
@@ -222,7 +230,9 @@ async def type2_transform(**kwargs):
         # Rearrange columns and add country code and region code
         df = df[[STANDARD_COUNTRY_COLUMN] + indicator_cols]
         df = await add_country_code(df, country_name_column=country_column)
-        df = await add_region_code(source_df=df, region_name_col=country_column, region_key_col=region_column)
+        df = await add_region_code(
+            source_df=df, region_name_col=country_column, region_key_col=region_column
+        )
 
     if country_column is None:
         # Rearrange columns
@@ -251,7 +261,9 @@ async def type2_transform(**kwargs):
 
     # Save the transformed DataFrame to a CSV file and upload it as a blob
     save_as = base_filename + ".csv"
-    await update_base_file(indicator_id=indicator_id, df=df, blob_name=save_as, project=project)
+    await update_base_file(
+        indicator_id=indicator_id, df=df, blob_name=save_as, project=project
+    )
 
 
 async def type3_transform(**kwargs) -> pd.DataFrame or None:
@@ -289,21 +301,21 @@ async def type3_transform(**kwargs) -> pd.DataFrame or None:
     if source_df is None:
         raise ValueError("The 'source_df' argument is required.")
 
-    indicator_id = kwargs.get('indicator_id')
-    value_column = kwargs.get('value_column', None)
-    base_filename = kwargs.get('base_filename', None)
-    country_column = kwargs.get('country_column', None)
-    key_column = kwargs.get('key_column', None)
-    datetime_column = kwargs.get('datetime_column', None)
-    group_column = kwargs.get('group_column', None)
-    group_name = kwargs.get('group_name', None)
-    aggregate = kwargs.get('aggregate', False)
-    aggregate_type = kwargs.get('aggregate_type', 'sum')
-    keep = kwargs.get('keep', 'last')
-    country_code_aggregate = kwargs.get('country_code_aggregate', False)
-    return_dataframe = kwargs.get('return_dataframe', False)
-    region_column = kwargs.get('region_column', None)
-    project = kwargs.get('project')
+    indicator_id = kwargs.get("indicator_id")
+    value_column = kwargs.get("value_column", None)
+    base_filename = kwargs.get("base_filename", None)
+    country_column = kwargs.get("country_column", None)
+    key_column = kwargs.get("key_column", None)
+    datetime_column = kwargs.get("datetime_column", None)
+    group_column = kwargs.get("group_column", None)
+    group_name = kwargs.get("group_name", None)
+    aggregate = kwargs.get("aggregate", False)
+    aggregate_type = kwargs.get("aggregate_type", "sum")
+    keep = kwargs.get("keep", "last")
+    country_code_aggregate = kwargs.get("country_code_aggregate", False)
+    return_dataframe = kwargs.get("return_dataframe", False)
+    region_column = kwargs.get("region_column", None)
+    project = kwargs.get("project")
 
     assert isinstance(source_df, pd.DataFrame), "source_df must be a pandas DataFrame"
     assert indicator_id is not None, "indicator_id must be provided"
@@ -311,7 +323,7 @@ async def type3_transform(**kwargs) -> pd.DataFrame or None:
 
     # If 'key_column' is not provided, use 'country_column' as the index column
     index_col = key_column if key_column else country_column
-    pd.set_option('display.max_rows', None)
+    pd.set_option("display.max_rows", None)
     if group_name and group_column:
         # Filter the DataFrame based on the group name
         df = source_df.groupby(group_column).get_group(group_name)
@@ -320,10 +332,13 @@ async def type3_transform(**kwargs) -> pd.DataFrame or None:
         df = source_df.copy()
     if country_column and index_col != country_column:
         # Create a unique index DataFrame with the country column if provided
-        unique_index_df = df.drop_duplicates(subset=[index_col], keep="last")[[
-            index_col, country_column]].set_index(index_col)
+        unique_index_df = df.drop_duplicates(subset=[index_col], keep="last")[
+            [index_col, country_column]
+        ].set_index(index_col)
     else:
-        unique_index_df = df.drop_duplicates(subset=[index_col], keep="last").set_index(index_col)
+        unique_index_df = df.drop_duplicates(subset=[index_col], keep="last").set_index(
+            index_col
+        )
 
     # Group the DataFrame by the index column
     df_grouped = df.groupby(index_col)
@@ -348,19 +363,30 @@ async def type3_transform(**kwargs) -> pd.DataFrame or None:
         for index, row in country_df.iterrows():
             try:
                 # If indicator column does not exist in 'unique_index_df', create it with the same data type
-                if await rename_indicator(indicator_id, row["Year Column"]) not in unique_index_df.columns:
+                if (
+                    await rename_indicator(indicator_id, row["Year Column"])
+                    not in unique_index_df.columns
+                ):
                     unique_index_df.astype(
-                        {await rename_indicator(indicator_id, row["Year Column"]): type(row[value_column])})
+                        {
+                            await rename_indicator(
+                                indicator_id, row["Year Column"]
+                            ): type(row[value_column])
+                        }
+                    )
             except Exception as e:
                 pass
 
             # Update the value for the corresponding indicator column in 'unique_index_df'
-            unique_index_df.at[country, await rename_indicator(indicator_id, row["Year Column"])] = row[
-                fr"{value_column}"]
+            unique_index_df.at[
+                country, await rename_indicator(indicator_id, row["Year Column"])
+            ] = row[rf"{value_column}"]
 
             # print(indicator_id)
             # exit()
-            indicator_cols.append(await rename_indicator(indicator_id, row["Year Column"]))
+            indicator_cols.append(
+                await rename_indicator(indicator_id, row["Year Column"])
+            )
 
     indicator_cols = list(set(indicator_cols))
     unique_index_df.reset_index(inplace=True)
@@ -369,15 +395,21 @@ async def type3_transform(**kwargs) -> pd.DataFrame or None:
         # Rearrange columns and add country code and region code
         unique_index_df = unique_index_df[[country_column] + indicator_cols]
 
-        unique_index_df = await add_country_code(unique_index_df, country_name_column=country_column)
-        unique_index_df = await add_region_code(unique_index_df, country_column, region_column)
+        unique_index_df = await add_country_code(
+            unique_index_df, country_name_column=country_column
+        )
+        unique_index_df = await add_region_code(
+            unique_index_df, country_column, region_column
+        )
 
     elif not country_column:
         # Rearrange columns
         unique_index_df = unique_index_df[[key_column] + indicator_cols]
     else:
         # Rearrange columns, add region code, and rearrange columns again
-        unique_index_df = await add_region_code(unique_index_df, country_column, region_column)
+        unique_index_df = await add_region_code(
+            unique_index_df, country_column, region_column
+        )
         unique_index_df = unique_index_df[[key_column, country_column] + indicator_cols]
 
     if country_code_aggregate:
@@ -398,8 +430,12 @@ async def type3_transform(**kwargs) -> pd.DataFrame or None:
         unique_index_df.reset_index(inplace=True)
 
     # Save the transformed DataFrame to a CSV file and upload it as a blob
-    await update_base_file(indicator_id=indicator_id, df=unique_index_df, blob_name=base_filename + ".csv",
-                           project=project)
+    await update_base_file(
+        indicator_id=indicator_id,
+        df=unique_index_df,
+        blob_name=base_filename + ".csv",
+        project=project,
+    )
     if return_dataframe:
         return unique_index_df
     # await update_base_file(df=unique_index_df, blob_name=
@@ -435,22 +471,26 @@ async def sme_transform(**kwargs) -> None:
     if not isinstance(source_df, pd.DataFrame):
         raise ValueError("The 'source_df' argument must be a DataFrame.")
 
-    indicator_id = kwargs.get('indicator_id')
-    base_filename = kwargs.get('base_filename', None)
-    dividend = kwargs.get('dividend', None)
-    divisor = kwargs.get('divisor', None)
-    project = kwargs.get('project')
+    indicator_id = kwargs.get("indicator_id")
+    base_filename = kwargs.get("base_filename", None)
+    dividend = kwargs.get("dividend", None)
+    divisor = kwargs.get("divisor", None)
+    project = kwargs.get("project")
 
     async def get_float_values(row, dividend_, divisor_):
         divisor_val = []
         row.replace(" ", np.nan, inplace=True)
         if isinstance(row[dividend_], str):
-            dividend_val = float(row[dividend_].replace(",", "").replace(" ", "").replace(":", ""))
+            dividend_val = float(
+                row[dividend_].replace(",", "").replace(" ", "").replace(":", "")
+            )
         else:
             dividend_val = row[dividend_]
         for col in divisor_:
             if isinstance(row[col], str):
-                divisor_val.append(float(row[col].replace(",", "").replace(" ", "").replace(":", "")))
+                divisor_val.append(
+                    float(row[col].replace(",", "").replace(" ", "").replace(":", ""))
+                )
             else:
                 divisor_val.append(row[col])
         return dividend_val, divisor_val
@@ -461,9 +501,9 @@ async def sme_transform(**kwargs) -> None:
     assert dividend is not None, "dividend must be provided"
     assert divisor is not None, "divisor must be provided"
     assert project is not None, "project must be provided"
-    source_unique_df = \
-        source_df.drop_duplicates(subset=[STANDARD_KEY_COLUMN], keep="last").set_index(STANDARD_KEY_COLUMN)[
-            [STANDARD_COUNTRY_COLUMN]]
+    source_unique_df = source_df.drop_duplicates(
+        subset=[STANDARD_KEY_COLUMN], keep="last"
+    ).set_index(STANDARD_KEY_COLUMN)[[STANDARD_COUNTRY_COLUMN]]
     cols = list(set(source_df.columns))
     group_df = source_df.groupby(STANDARD_KEY_COLUMN)
     for country in group_df.groups.keys():
@@ -479,15 +519,25 @@ async def sme_transform(**kwargs) -> None:
             df.at[0, STANDARD_KEY_COLUMN] = country
             df.set_index(STANDARD_KEY_COLUMN, inplace=True)
             for sources in sources_list:
-                df.update(sources_group.get_group(sources).set_index(STANDARD_KEY_COLUMN))
+                df.update(
+                    sources_group.get_group(sources).set_index(STANDARD_KEY_COLUMN)
+                )
             df.reset_index(inplace=True)
-            dividends, divisors = await get_float_values(df.iloc[0], str(dividend), json.loads(divisor))
+            dividends, divisors = await get_float_values(
+                df.iloc[0], str(dividend), json.loads(divisor)
+            )
             indicator_val = np.nan
             if sum(divisors) != 0 and (not (np.isnan(sum(divisors)))):
                 indicator_val = dividends / sum(divisors) * 100
             source_unique_df.at[
-                df.iloc[0][STANDARD_KEY_COLUMN], await rename_indicator(indicator_id, year)] = indicator_val
+                df.iloc[0][STANDARD_KEY_COLUMN],
+                await rename_indicator(indicator_id, year),
+            ] = indicator_val
     source_unique_df.reset_index(inplace=True)
 
-    data = await update_base_file(indicator_id=indicator_id, df=source_unique_df, project=project,
-                                  blob_name=base_filename + ".csv")
+    data = await update_base_file(
+        indicator_id=indicator_id,
+        df=source_unique_df,
+        project=project,
+        blob_name=base_filename + ".csv",
+    )

@@ -1,1 +1,1 @@
-from .run_transform import transform_sources, run_transformation_for_indicator
+from .run_transform import run_transformation_for_indicator, transform_sources

@@ -27,13 +27,15 @@ from ..utils import chunker
 
 load_dotenv()
 
-DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=120, connect=20, sock_connect=20, sock_read=20)
+DEFAULT_TIMEOUT = aiohttp.ClientTimeout(
+    total=120, connect=20, sock_connect=20, sock_read=20
+)
 
 logger = logging.getLogger(__name__)
 
 
 async def simple_url_get(
-        url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
+    url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
 ) -> tuple[bytes, str] | tuple[None, None] | None:
     """
     Downloads the content in bytes from a given URL using the aiohttp library.
@@ -44,21 +46,23 @@ async def simple_url_get(
     :param params: Optional dictionary of URL parameters to include in the request.
     :return: a tuple containing the downloaded content and the content type, or None if the download fails.
     """
-    if kwargs.get('value') is None:
+    if kwargs.get("value") is None:
         request_args = {}
-    if kwargs.get('type') == 'json':
-        request_args = {'json': kwargs.get('value')}
-    elif kwargs.get('type') == 'params':
-        request_args = {'params': kwargs.get('value')}
-    elif kwargs.get('type') == 'data':
-        request_args = {'data': kwargs.get('value')}
+    if kwargs.get("type") == "json":
+        request_args = {"json": kwargs.get("value")}
+    elif kwargs.get("type") == "params":
+        request_args = {"params": kwargs.get("value")}
+    elif kwargs.get("type") == "data":
+        request_args = {"data": kwargs.get("value")}
     else:
-        request_args = {'headers': kwargs.get('value')}
+        request_args = {"headers": kwargs.get("value")}
     try:
         async with aiohttp.ClientSession() as session:
             for retry_count in range(max_retries):
                 try:
-                    async with session.get(url, timeout=timeout, **request_args) as resp:
+                    async with session.get(
+                        url, timeout=timeout, **request_args
+                    ) as resp:
                         with tqdm.tqdm(total=resp.content.total_bytes) as pbar:
                             if resp.status == 200:
                                 downloaded_bytes = 0
@@ -66,15 +70,20 @@ async def simple_url_get(
 
                                 data = b""
                                 logger.info(f"Downloading {url}")
-                                async for chunk in resp.content.iter_chunked(chunk_size):
+                                async for chunk in resp.content.iter_chunked(
+                                    chunk_size
+                                ):
                                     downloaded_bytes += len(chunk)
                                     data += chunk
                                     pbar.update(len(chunk))
-                                logger.debug(f"Downloaded {downloaded_bytes} bytes from {url}")
+                                logger.debug(
+                                    f"Downloaded {downloaded_bytes} bytes from {url}"
+                                )
                                 return data, resp.content_type
                             else:
                                 raise Exception(
-                                    f'Failed to download data from {url}. Encountered status error {resp.status}')
+                                    f"Failed to download data from {url}. Encountered status error {resp.status}"
+                                )
 
                 except asyncio.TimeoutError as e:
                     logger.error(f"Timeout error occurred while downloading {url}.")
@@ -104,7 +113,7 @@ async def simple_url_get(
 
 
 async def simple_url_post(
-        url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
+    url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
 ) -> tuple[bytes, str] | tuple[None, None] | None:
     """
     Sends a POST request to a given URL using the aiohttp library and returns the content in bytes.
@@ -116,27 +125,31 @@ async def simple_url_post(
     :return: a tuple containing the downloaded content and the content type, or None if the request fails.
     """
 
-    assert kwargs.get('type') is not None and kwargs.get('value') is not None
-    if kwargs.get('type') == 'json':
-        request_args = {'json': kwargs['value']}
-    elif kwargs.get('type') == 'params':
-        request_args = {'params': kwargs['value']}
-    elif kwargs.get('type') == 'data':
-        request_args = {'data': kwargs['value']}
+    assert kwargs.get("type") is not None and kwargs.get("value") is not None
+    if kwargs.get("type") == "json":
+        request_args = {"json": kwargs["value"]}
+    elif kwargs.get("type") == "params":
+        request_args = {"params": kwargs["value"]}
+    elif kwargs.get("type") == "data":
+        request_args = {"data": kwargs["value"]}
     else:
-        request_args = {'headers': kwargs['value']}
+        request_args = {"headers": kwargs["value"]}
     try:
         async with aiohttp.ClientSession() as session:
             for retry_count in range(max_retries):
                 try:
-                    async with session.post(url, timeout=timeout, **request_args, verify_ssl=False) as resp:
+                    async with session.post(
+                        url, timeout=timeout, **request_args, verify_ssl=False
+                    ) as resp:
                         if resp.status == 200:
                             with tqdm.tqdm(total=resp.content.total_bytes) as pbar:
                                 downloaded_bytes = 0
                                 chunk_size = 1024 * 200
                                 data = b""
                                 logger.info(f"Downloading {url}")
-                                async for chunk in resp.content.iter_chunked(chunk_size):
+                                async for chunk in resp.content.iter_chunked(
+                                    chunk_size
+                                ):
                                     downloaded_bytes += len(chunk)
                                     data += chunk
                                     pbar.update(len(chunk))
@@ -145,7 +158,8 @@ async def simple_url_post(
                         else:
                             logger.error(f"Failed to download source: {resp.status}")
                             raise Exception(
-                                f'Failed to download data from {url}. Encountered status error {resp.status}')
+                                f"Failed to download data from {url}. Encountered status error {resp.status}"
+                            )
                 except asyncio.TimeoutError as e:
                     logger.exception(f"Timeout error occurred while downloading {url}.")
                     if retry_count == max_retries - 1:
@@ -154,7 +168,9 @@ async def simple_url_post(
                         )
                         raise e
                 except aiohttp.ClientError as e:
-                    logger.exception(f"Client error occurred while downloading {url}: {e}")
+                    logger.exception(
+                        f"Client error occurred while downloading {url}: {e}"
+                    )
                     if retry_count == max_retries - 1:
                         logger.warning(
                             f"Reached maximum number of retries ({max_retries}). Giving up."
@@ -219,7 +235,14 @@ async def country_downloader(**kwargs):
     params_codes = kwargs.get("params_codes")
     storage_manager = kwargs.get("storage_manager")
 
-    assert source_id is not None and source_url is not None and storage_manager is not None and params_url is not None and params_codes is not None and params_type is not None, "Check that required arguments are not none"
+    assert (
+        source_id is not None
+        and source_url is not None
+        and storage_manager is not None
+        and params_url is not None
+        and params_codes is not None
+        and params_type is not None
+    ), "Check that required arguments are not none"
     try:
 
         countries_territory_data = await storage_manager.get_utility_file(
@@ -235,15 +258,15 @@ async def country_downloader(**kwargs):
             columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True
         )
         # replace empty values with NaN and convert the latitude and longitude columns to float64 type
-        countries_territory_dataframe[
-            "longitude (average)"
-        ] = countries_territory_dataframe["longitude (average)"].replace(r"", np.NaN)
-        countries_territory_dataframe[
-            "latitude (average)"
-        ] = countries_territory_dataframe["latitude (average)"].astype(np.float64)
-        countries_territory_dataframe[
-            "longitude (average)"
-        ] = countries_territory_dataframe["longitude (average)"].astype(np.float64)
+        countries_territory_dataframe["longitude (average)"] = (
+            countries_territory_dataframe["longitude (average)"].replace(r"", np.NaN)
+        )
+        countries_territory_dataframe["latitude (average)"] = (
+            countries_territory_dataframe["latitude (average)"].astype(np.float64)
+        )
+        countries_territory_dataframe["longitude (average)"] = (
+            countries_territory_dataframe["longitude (average)"].astype(np.float64)
+        )
 
         # create a new dataframe with only the alpha-3 code column from the countries_territory_dataframe
         country_codes_df = pd.DataFrame(columns=["Alpha-3 code"])
@@ -261,7 +284,7 @@ async def country_downloader(**kwargs):
             )
             text_response_task = asyncio.create_task(
                 simple_url_get(
-                    os.path.join(source_url, row['Alpha-3 code'].lower()),
+                    os.path.join(source_url, row["Alpha-3 code"].lower()),
                     timeout=DEFAULT_TIMEOUT,
                 )
             )
@@ -272,11 +295,13 @@ async def country_downloader(**kwargs):
         )  # list of responses in bytes in the format [bytes, content_type]
 
         for i, response in enumerate(
-                responses
+            responses
         ):  # response is a list of bytes and content type as follows: [bytes, content_type]
             # if the response is not None and the length of the response is greater than 0, then convert the response to a dataframe and add the data to the country_codes_df dataframe
             if isinstance(response, Exception):
-                raise Exception(f"Error occurred while downloading {source_url}: {response}")
+                raise Exception(
+                    f"Error occurred while downloading {source_url}: {response}"
+                )
 
             if response is not None and len(response[0]) > 0:
 
@@ -298,9 +323,7 @@ async def country_downloader(**kwargs):
         # if the params_type is BATCH_ADD, then download the data from the params_url and add the data to the country_codes_df dataframe
         if params_type == "BATCH_ADD":
             logger.info(f"Downloading {source_id} from {params_url}")
-            text_response = await simple_url_get(
-                params_url, timeout=DEFAULT_TIMEOUT
-            )
+            text_response = await simple_url_get(params_url, timeout=DEFAULT_TIMEOUT)
             region_dataframe = pd.read_csv(
                 io.StringIO(text_response[0].decode("utf-8"))
             )
@@ -308,10 +331,14 @@ async def country_downloader(**kwargs):
                 region_dataframe["iso3"].isin(params_codes.split("|"))
             ]
             selected_dataframe["iso3"] = selected_dataframe["country"]
-            selected_dataframe.rename(columns={"iso3": STANDARD_KEY_COLUMN}, inplace=True)
+            selected_dataframe.rename(
+                columns={"iso3": STANDARD_KEY_COLUMN}, inplace=True
+            )
             selected_dataframe = selected_dataframe[country_codes_df.columns]
 
-            country_codes_df = pd.merge(country_codes_df, selected_dataframe, on=STANDARD_KEY_COLUMN)
+            country_codes_df = pd.merge(
+                country_codes_df, selected_dataframe, on=STANDARD_KEY_COLUMN
+            )
             # country_codes_df = pd.concat(
             #     [country_codes_df, selected_dataframe], ignore_index=True
             # )
@@ -452,7 +479,7 @@ async def zip_content_downloader(**kwargs) -> Tuple[bytes, str]:
 
                 with zip_file.open(outer_zip_name) as outer_zip_file:
                     with zipfile.ZipFile(
-                            io.BytesIO(outer_zip_file.read()), "r"
+                        io.BytesIO(outer_zip_file.read()), "r"
                     ) as inner_zip:
                         target_file = inner_zip.open(inner_path)
             else:
@@ -479,17 +506,53 @@ async def rcc_downloader(**kwargs) -> Tuple[bytes, str]:
                    source_id: The identifier of the source.
     :return: A tuple containing the raw content data and content type.
     """
-    column_names = ['emergency', 'country_name', 'region', 'iso3', 'admin_level_1',
-                    'indicator_id', 'subvariable', 'indicator_name', 'thematic',
-                    'thematic_description', 'topic', 'topic_description',
-                    'indicator_description', 'type', 'question', 'indicator_value',
-                    'nominator', 'error_margin', 'denominator', 'indicator_month',
-                    'category', 'gender', 'age_group', 'age_info', 'target_group',
-                    'indicator_matching', 'representativeness', 'limitation',
-                    'indicator_comment', 'source_id', 'organisation', 'title', 'details',
-                    'authors', 'methodology', 'sample_size', 'target_pop', 'scale',
-                    'quality_check', 'access_type', 'source_comment', 'publication_channel',
-                    'link', 'source_date', 'sample_type']
+    column_names = [
+        "emergency",
+        "country_name",
+        "region",
+        "iso3",
+        "admin_level_1",
+        "indicator_id",
+        "subvariable",
+        "indicator_name",
+        "thematic",
+        "thematic_description",
+        "topic",
+        "topic_description",
+        "indicator_description",
+        "type",
+        "question",
+        "indicator_value",
+        "nominator",
+        "error_margin",
+        "denominator",
+        "indicator_month",
+        "category",
+        "gender",
+        "age_group",
+        "age_info",
+        "target_group",
+        "indicator_matching",
+        "representativeness",
+        "limitation",
+        "indicator_comment",
+        "source_id",
+        "organisation",
+        "title",
+        "details",
+        "authors",
+        "methodology",
+        "sample_size",
+        "target_pop",
+        "scale",
+        "quality_check",
+        "access_type",
+        "source_comment",
+        "publication_channel",
+        "link",
+        "source_date",
+        "sample_type",
+    ]
     refresh_time = 1
     page_limit = 50
     offset_number = 0
@@ -500,16 +563,16 @@ async def rcc_downloader(**kwargs) -> Tuple[bytes, str]:
         while True:
             time.sleep(refresh_time)
             parameters = {
-                'indicator_id': 'PRA003',
-                'limit': f'{page_limit}',
-                'offset': f'{offset_number}',
-                'include_header': 1
+                "indicator_id": "PRA003",
+                "limit": f"{page_limit}",
+                "offset": f"{offset_number}",
+                "include_header": 1,
             }
-            url = f'{source_url}?{urlencode(parameters)}'
+            url = f"{source_url}?{urlencode(parameters)}"
             response_content, _ = await simple_url_get(
                 url, timeout=DEFAULT_TIMEOUT, max_retries=5
             )
-            response_content = response_content.decode('utf-8')
+            response_content = response_content.decode("utf-8")
             country_df = pd.read_csv(io.StringIO(response_content))
 
             if country_df.empty:
@@ -521,7 +584,7 @@ async def rcc_downloader(**kwargs) -> Tuple[bytes, str]:
                 offset_number += page_limit
 
         # Convert dataframe to csv in bytes format
-        csv_bytes = df.to_csv(index=False).encode('utf-8')
+        csv_bytes = df.to_csv(index=False).encode("utf-8")
         return csv_bytes, "text/csv"
     except Exception as e:
         raise e
@@ -560,8 +623,13 @@ async def sipri_downloader(**kwargs) -> Tuple[bytes, str]:
         "countryList": [],
     }
     try:
-        formatted_parameters = {'params': json.dumps({'type': 'json', 'value': parameters}, separators=(',', ':'),
-                                                     default=lambda x: x.__dict__)}
+        formatted_parameters = {
+            "params": json.dumps(
+                {"type": "json", "value": parameters},
+                separators=(",", ":"),
+                default=lambda x: x.__dict__,
+            )
+        }
         # Execute the POST request
         response_content, _ = await simple_url_post(
             source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, **formatted_parameters
@@ -627,8 +695,12 @@ async def call_function(function_name, *args, **kwargs) -> Any:
         raise ValueError(f"Function {function} is not defined or not callable")
 
 
-async def download_for_indicator(indicator_cfg: Dict[str, Any], source_cfg: Dict[str, Any],
-                                 storage_manager: StorageManager, sync_upload=True):
+async def download_for_indicator(
+    indicator_cfg: Dict[str, Any],
+    source_cfg: Dict[str, Any],
+    storage_manager: StorageManager,
+    sync_upload=True,
+):
     """
 
     :param indicator_cfg:
@@ -637,35 +709,38 @@ async def download_for_indicator(indicator_cfg: Dict[str, Any], source_cfg: Dict
     :param sync_upload: default=False, use sync blob client to upload
     :return: number of downloaded/uploaded bytes
     """
-    source_id = indicator_cfg['indicator']['source_id']
+    source_id = indicator_cfg["indicator"]["source_id"]
     assert source_id is not None, "Source ID must be specified in indicator config"
     # try:
     logger.info(
-        f"Starting to download source {source_id} from {source_cfg['source']['url']} using {source_cfg['source']['downloader_function']}.")
+        f"Starting to download source {source_id} from {source_cfg['source']['url']} using {source_cfg['source']['downloader_function']}."
+    )
 
-    downloader_params = source_cfg['downloader_params']
+    downloader_params = source_cfg["downloader_params"]
     # requests_cache.install_cache("cache_name",
     #                              expire_after=3600)  # Cache data for one hour (in seconds)
-    if downloader_params.get('request_params') is None:
+    if downloader_params.get("request_params") is None:
         data, content_type = await call_function(
-            source_cfg['source']["downloader_function"],
+            source_cfg["source"]["downloader_function"],
             source_id=source_id,
-            source_url=source_cfg['source'].get("url"),
-            source_save_as=source_cfg['source'].get("save_as"),
+            source_url=source_cfg["source"].get("url"),
+            source_save_as=source_cfg["source"].get("save_as"),
             storage_manager=storage_manager,
-            params_file=downloader_params.get('file'),
+            params_file=downloader_params.get("file"),
         )
     else:
-        request_params = json.loads(downloader_params.get('request_params'))
-        params_file = downloader_params.get('file')
-        params_type = request_params.get("type"),
-        params_url = json.loads(request_params.get("value").replace("'", '"')).get("url"),
-        params_codes = downloader_params.get("codes"),
+        request_params = json.loads(downloader_params.get("request_params"))
+        params_file = downloader_params.get("file")
+        params_type = (request_params.get("type"),)
+        params_url = (
+            json.loads(request_params.get("value").replace("'", '"')).get("url"),
+        )
+        params_codes = (downloader_params.get("codes"),)
         data, content_type = await call_function(
-            source_cfg['source']["downloader_function"],
+            source_cfg["source"]["downloader_function"],
             source_id=source_id,
-            source_url=source_cfg['source'].get("url"),
-            source_save_as=source_cfg['source'].get("save_as"),
+            source_url=source_cfg["source"].get("url"),
+            source_save_as=source_cfg["source"].get("save_as"),
             params_type=params_type,
             params_url=params_url,
             params_codes=params_codes,
@@ -678,24 +753,22 @@ async def download_for_indicator(indicator_cfg: Dict[str, Any], source_cfg: Dict
     # if the source data have been downloaded and the result uploaded to azure
     if data is not None:
 
-        dst_path = os.path.join(storage_manager.SOURCES_PATH, source_cfg['source']['save_as'])
+        dst_path = os.path.join(
+            storage_manager.SOURCES_PATH, source_cfg["source"]["save_as"]
+        )
         if sync_upload is False:
             await asyncio.create_task(
                 storage_manager.upload(
                     data=data,
                     content_type=content_type,
                     dst_path=dst_path,
-                    overwrite=True
+                    overwrite=True,
                 )
             )
         else:
             await storage_manager.upload(
-                data=data,
-                content_type=content_type,
-                dst_path=dst_path,
-                overwrite=True
+                data=data, content_type=content_type, dst_path=dst_path, overwrite=True
             )
-
 
         return len(data)
     else:
@@ -703,9 +776,9 @@ async def download_for_indicator(indicator_cfg: Dict[str, Any], source_cfg: Dict
 
 
 async def download_indicator_sources(
-        indicator_ids: List | str = None,
-        indicator_id_contain_filter: str = None,
-        concurrent_chunk_size: int = 50
+    indicator_ids: List | str = None,
+    indicator_id_contain_filter: str = None,
+    concurrent_chunk_size: int = 50,
 ) -> list[str]:
     failed_source_ids = []
     skipped_source_ids = []
@@ -713,142 +786,191 @@ async def download_indicator_sources(
     source_indicator_map_tod = {}
     error_reports = []
 
-    async with StorageManager(
-    ) as storage_manager:
-        logger.debug(f'Connected to Azure blob')
+    async with StorageManager() as storage_manager:
+        logger.debug(f"Connected to Azure blob")
 
-        indicator_configs = await storage_manager.get_indicators_cfg(indicator_ids=indicator_ids,
-                                                                     contain_filter=indicator_id_contain_filter)
-        sources = [indicator_cfg['indicator']['source_id'] for indicator_cfg in indicator_configs]
+        indicator_configs = await storage_manager.get_indicators_cfg(
+            indicator_ids=indicator_ids, contain_filter=indicator_id_contain_filter
+        )
+        sources = [
+            indicator_cfg["indicator"]["source_id"]
+            for indicator_cfg in indicator_configs
+        ]
         unique_source_ids = set(sources)
         for c in indicator_configs:
-            src = c['indicator']['source_id']
-            ind = c['indicator']['indicator_id']
+            src = c["indicator"]["source_id"]
+            ind = c["indicator"]["indicator_id"]
             if not src in source_indicator_map_tod:
                 source_indicator_map_tod[src] = [ind]
             else:
                 source_indicator_map_tod[src].append(ind)
 
         logger.info(
-            f' {len(unique_source_ids)} sources defining {len(indicator_configs)} indicators have been detected in the config folder {storage_manager.INDICATORS_CFG_PATH}')
+            f" {len(unique_source_ids)} sources defining {len(indicator_configs)} indicators have been detected in the config folder {storage_manager.INDICATORS_CFG_PATH}"
+        )
 
         for chunk in chunker(unique_source_ids, size=concurrent_chunk_size):
             download_tasks = []
             for source_id in chunk:
 
-                indicator_cfg = list(filter(lambda x: x['indicator']['source_id'] == source_id, indicator_configs))[0]
+                indicator_cfg = list(
+                    filter(
+                        lambda x: x["indicator"]["source_id"] == source_id,
+                        indicator_configs,
+                    )
+                )[0]
 
-                source_id = indicator_cfg['indicator'].get('source_id')
+                source_id = indicator_cfg["indicator"].get("source_id")
                 # get source config is checking for existence as well
                 try:
-                    source_cfg = await storage_manager.get_source_cfg(source_id=source_id)
-                    if source_cfg['source']['source_type'] == "Manual":
+                    source_cfg = await storage_manager.get_source_cfg(
+                        source_id=source_id
+                    )
+                    if source_cfg["source"]["source_type"] == "Manual":
                         logger.info(f"Skipping manual source {source_id}")
-                        #skipped_source_ids.append(source_id)
-                        source_indicator_map[source_id] = source_indicator_map_tod[source_id]
+                        # skipped_source_ids.append(source_id)
+                        source_indicator_map[source_id] = source_indicator_map_tod[
+                            source_id
+                        ]
                         continue
-                    if source_cfg['source'].get('save_as') is None:  # compute missing
+                    if source_cfg["source"].get("save_as") is None:  # compute missing
                         save_as = f"{source_id}.{source_cfg['url'].split('.')[-1]}"
-                        logger.warning(f'Source data for {source_id} wil be saved  to  {save_as}')
-                        source_cfg['source']['save_as'] = save_as
+                        logger.warning(
+                            f"Source data for {source_id} wil be saved  to  {save_as}"
+                        )
+                        source_cfg["source"]["save_as"] = save_as
                     download_task = asyncio.create_task(
-                        download_for_indicator(indicator_cfg=indicator_cfg, source_cfg=source_cfg,
-                                               storage_manager=storage_manager), name=source_id)
+                        download_for_indicator(
+                            indicator_cfg=indicator_cfg,
+                            source_cfg=source_cfg,
+                            storage_manager=storage_manager,
+                        ),
+                        name=source_id,
+                    )
 
                     download_tasks.append(download_task)
                 except Exception as e:
-                    logger.error(f'Failed to download/upload source {source_id} ')
+                    logger.error(f"Failed to download/upload source {source_id} ")
                     logger.error(e)
-                    error_reports.append({
-                        'indicator_id': indicator_cfg['indicator']['indicator_id'],
-                        'source_id': source_id,
-                        'error': e
-                    })
+                    error_reports.append(
+                        {
+                            "indicator_id": indicator_cfg["indicator"]["indicator_id"],
+                            "source_id": source_id,
+                            "error": e,
+                        }
+                    )
                     failed_source_ids.append(source_id)
                     continue
             if download_tasks:
-                logger.info(f'Downloading {len(download_tasks)} indicator sources concurrently')
-                done, pending = await asyncio.wait(download_tasks,
-                                                   return_when=asyncio.ALL_COMPLETED,
-                                                   timeout=concurrent_chunk_size * DEFAULT_TIMEOUT.total + 10
-                                                   # to make 100% sure the download
-                                                   # never gets stuck
-                                                   )
+                logger.info(
+                    f"Downloading {len(download_tasks)} indicator sources concurrently"
+                )
+                done, pending = await asyncio.wait(
+                    download_tasks,
+                    return_when=asyncio.ALL_COMPLETED,
+                    timeout=concurrent_chunk_size * DEFAULT_TIMEOUT.total + 10,
+                    # to make 100% sure the download
+                    # never gets stuck
+                )
                 if done:
-                    logger.info(f'Collecting results for {len(chunk)} sources')
+                    logger.info(f"Collecting results for {len(chunk)} sources")
                     for done_task in done:
 
                         try:
                             source_id = done_task.get_name()
                             data_size_bytes = await done_task
-                            if data_size_bytes < 100:  # TODO: establish  a realistic value
-                                logger.warning(f'No data was downloaded for indicator {source_id}')
+                            if (
+                                data_size_bytes < 100
+                            ):  # TODO: establish  a realistic value
+                                logger.warning(
+                                    f"No data was downloaded for indicator {source_id}"
+                                )
                                 failed_source_ids.append(source_id)
                             else:
-                                source_indicator_map[source_id] = source_indicator_map_tod[source_id]
+                                source_indicator_map[source_id] = (
+                                    source_indicator_map_tod[source_id]
+                                )
                         except Exception as e:
                             failed_source_ids.append(source_id)
                             with StringIO() as m:
                                 print_exc(file=m)
                                 em = m.getvalue()
-                                logger.error(f'Error {em} was encountered while processing  {source_id}')
+                                logger.error(
+                                    f"Error {em} was encountered while processing  {source_id}"
+                                )
 
                 if pending:
-                    logger.debug(f'{len(pending)} out of {len(chunk)} sources  have timed out')
+                    logger.debug(
+                        f"{len(pending)} out of {len(chunk)} sources  have timed out"
+                    )
 
                     for pending_task in pending:
 
                         try:
-                            source_id, indicator_id = done_task.get_name().split('::')
+                            source_id, indicator_id = done_task.get_name().split("::")
                             pending_task.cancel()
                             await pending_task
                             failed_source_ids.append(source_id)
-                            error_reports.append({
-                                'indicator_id': indicator_id,
-                                'source_id': source_id,
-                                'error': 'Timeout'
-                            })
+                            error_reports.append(
+                                {
+                                    "indicator_id": indicator_id,
+                                    "source_id": source_id,
+                                    "error": "Timeout",
+                                }
+                            )
                         except asyncio.CancelledError:
                             logger.debug(
-                                f'Pending future for source {source_id} has been cancelled')
+                                f"Pending future for source {source_id} has been cancelled"
+                            )
                         except Exception as e:
-                            error_reports.append({
-                                'indicator_id': indicator_id,
-                                'source_id': source_id,
-                                'error': e
-                            })
+                            error_reports.append(
+                                {
+                                    "indicator_id": indicator_id,
+                                    "source_id": source_id,
+                                    "error": e,
+                                }
+                            )
                             raise e
             else:
-                logger.info(f'No sources were downloaded')
+                logger.info(f"No sources were downloaded")
 
-    downloaded_indicators = sorted([item for sublist in source_indicator_map.values() for item in sublist])
+    downloaded_indicators = sorted(
+        [item for sublist in source_indicator_map.values() for item in sublist]
+    )
 
-    logger.info('#' * 200)
-    logger.info(f'TASKED: {len(unique_source_ids)} sources defining {len(indicator_configs)} indicators')
+    logger.info("#" * 200)
     logger.info(
-        f'DOWNLOADED:  {len(source_indicator_map.keys())} sources defining {len(downloaded_indicators)} indicators')
+        f"TASKED: {len(unique_source_ids)} sources defining {len(indicator_configs)} indicators"
+    )
+    logger.info(
+        f"DOWNLOADED:  {len(source_indicator_map.keys())} sources defining {len(downloaded_indicators)} indicators"
+    )
     if failed_source_ids:
         failed_indicators = []
         for fsource in failed_source_ids:
             failed_indicators += source_indicator_map_tod[fsource]
-        logger.info(f'FAILED {len(failed_source_ids)} defining {len(failed_indicators)} indicators')
+        logger.info(
+            f"FAILED {len(failed_source_ids)} defining {len(failed_indicators)} indicators"
+        )
     if skipped_source_ids:
         skipped_indicators = []
         for ssource in skipped_indicators:
             skipped_indicators += source_indicator_map_tod[ssource]
-        logger.info(f'SKIPPED {len(skipped_source_ids)} defining {len(skipped_indicators)} indicators')
-    logger.info('#' * 200)
+        logger.info(
+            f"SKIPPED {len(skipped_source_ids)} defining {len(skipped_indicators)} indicators"
+        )
+    logger.info("#" * 200)
 
     df_errors = pd.DataFrame(error_reports)
     if not df_errors.empty:
-        file_path = 'error_report.csv'
-        mode = 'a' if os.path.exists(file_path) else 'w'
+        file_path = "error_report.csv"
+        mode = "a" if os.path.exists(file_path) else "w"
         df_errors.to_csv(file_path, mode=mode, index=False)
     return downloaded_indicators
 
 
 if __name__ == "__main__":
-    load_dotenv(dotenv_path='./.env')
+    load_dotenv(dotenv_path="./.env")
 
     logging.basicConfig()
     logger = logging.getLogger("azure.storage.blob")
