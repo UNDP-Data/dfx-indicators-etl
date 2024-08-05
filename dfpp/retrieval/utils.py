@@ -59,34 +59,24 @@ async def country_downloader(**kwargs):
     ), "Check that required arguments are not none"
     try:
 
-        countries_territory_data = await storage_manager.get_utility_file(
-            "country_territory_groups.cfg"
-        )
-        country_territories_data_list = []
-        for key, data in countries_territory_data.items():
+        m49 = await storage_manager.get_utility_file("country_territory_groups.cfg")
+        records = []
+        for key, data in m49.items():
             data.update({"Alpha-3 code-1": key})
-            country_territories_data_list.append(data)
-        countries_territory_dataframe = pd.DataFrame(country_territories_data_list)
+            records.append(data)
+        df_m49 = pd.DataFrame(records)
 
-        countries_territory_dataframe.rename(
-            columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True
-        )
+        df_m49.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
         # replace empty values with NaN and convert the latitude and longitude columns to float64 type
-        countries_territory_dataframe["longitude (average)"] = (
-            countries_territory_dataframe["longitude (average)"].replace(r"", np.NaN)
+        df_m49["longitude (average)"] = df_m49["longitude (average)"].replace(
+            r"", np.NaN
         )
-        countries_territory_dataframe["latitude (average)"] = (
-            countries_territory_dataframe["latitude (average)"].astype(np.float64)
-        )
-        countries_territory_dataframe["longitude (average)"] = (
-            countries_territory_dataframe["longitude (average)"].astype(np.float64)
-        )
+        df_m49["latitude (average)"] = df_m49["latitude (average)"].astype(np.float64)
+        df_m49["longitude (average)"] = df_m49["longitude (average)"].astype(np.float64)
 
         # create a new dataframe with only the alpha-3 code column from the countries_territory_dataframe
-        country_codes_df = pd.DataFrame(columns=["Alpha-3 code"])
-        country_codes_df["Alpha-3 code"] = countries_territory_dataframe[
-            "Alpha-3 code"
-        ]  # only has the alpha-3 code column
+        # only has the alpha-3 code column
+        country_codes_df = df_m49[["Alpha-3 code"]].copy()
         logger.info("Processed country_territory_groups.json")
 
         # create a list of tasks to download the country data for each country code and wait for all tasks to complete
