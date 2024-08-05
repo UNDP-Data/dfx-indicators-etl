@@ -12,7 +12,6 @@ import pandas as pd
 from ..storage import StorageManager
 from ..utils import chunker
 from .http import *
-from .http import simple_url_get
 from .sipri import *
 from .utils import *
 from .vdem import *
