@@ -3,6 +3,7 @@ import asyncio
 import io
 import logging
 import zipfile
+from typing import Literal
 
 import aiohttp
 import tqdm
@@ -24,6 +25,80 @@ DEFAULT_TIMEOUT = aiohttp.ClientTimeout(
 logger = logging.getLogger(__name__)
 
 
+async def make_request(
+    url: str,
+    method: str = Literal["GET", "POST"],
+    timeout: ClientTimeout = DEFAULT_TIMEOUT,
+    max_retries: int = 5,
+    **kwargs,
+) -> tuple[bytes, str] | tuple[None, None] | None:
+    if kwargs.get("type") == "json":
+        request_args = {"json": kwargs.get("value")}
+    elif kwargs.get("type") == "params":
+        request_args = {"params": kwargs.get("value")}
+    elif kwargs.get("type") == "data":
+        request_args = {"data": kwargs.get("value")}
+    else:
+        request_args = {"headers": kwargs.get("value")}
+
+    async with aiohttp.ClientSession() as session:
+        for retry_count in range(max_retries):
+            try:
+                if method == "GET":
+                    func = session.get
+                elif method == "POST":
+                    func = session.post
+                else:
+                    raise ValueError("Method must be either 'GET' or 'POST'")
+                async with func(
+                    url, timeout=timeout, **request_args, verify_ssl=False
+                ) as resp:
+                    if resp.status == 200:
+                        with tqdm.tqdm(total=resp.content.total_bytes) as pbar:
+                            downloaded_bytes = 0
+                            chunk_size = 1024 * 200
+
+                            data = b""
+                            logger.info(f"Downloading {url}")
+                            async for chunk in resp.content.iter_chunked(chunk_size):
+                                downloaded_bytes += len(chunk)
+                                data += chunk
+                                pbar.update(len(chunk))
+                            logger.debug(
+                                f"Downloaded {downloaded_bytes} bytes from {url}"
+                            )
+                            return data, resp.content_type
+                    else:
+                        logger.error(f"Failed to download source: {resp.status}")
+                        raise Exception(
+                            f"Failed to download data from {url}. Encountered status error {resp.status}"
+                        )
+
+            except asyncio.TimeoutError as e:
+                logger.error(f"Timeout error occurred while downloading {url}.")
+                if retry_count == max_retries - 1:
+                    logger.warning(
+                        f"Reached maximum number of retries ({max_retries}). Giving up."
+                    )
+                    raise e
+
+            except aiohttp.ClientError as e:
+                logger.error(f"Client error occurred while downloading {url}: {e}")
+                if retry_count == max_retries - 1:
+                    logger.warning(
+                        f"Reached maximum number of retries ({max_retries}). Giving up."
+                    )
+                    raise e
+
+            except Exception as e:
+                logger.error(f"Error occurred while downloading {url}: {e}")
+                if retry_count == max_retries - 1:
+                    logger.warning(
+                        f"Reached maximum number of retries ({max_retries}). Giving up."
+                    )
+                    raise e
+
+
 async def simple_url_get(
     url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
 ) -> tuple[bytes, str] | tuple[None, None] | None:
@@ -36,68 +111,15 @@ async def simple_url_get(
     :param params: Optional dictionary of URL parameters to include in the request.
     :return: a tuple containing the downloaded content and the content type, or None if the download fails.
     """
-    if kwargs.get("value") is None:
-        request_args = {}
-    if kwargs.get("type") == "json":
-        request_args = {"json": kwargs.get("value")}
-    elif kwargs.get("type") == "params":
-        request_args = {"params": kwargs.get("value")}
-    elif kwargs.get("type") == "data":
-        request_args = {"data": kwargs.get("value")}
-    else:
-        request_args = {"headers": kwargs.get("value")}
     try:
-        async with aiohttp.ClientSession() as session:
-            for retry_count in range(max_retries):
-                try:
-                    async with session.get(
-                        url, timeout=timeout, **request_args
-                    ) as resp:
-                        with tqdm.tqdm(total=resp.content.total_bytes) as pbar:
-                            if resp.status == 200:
-                                downloaded_bytes = 0
-                                chunk_size = 1024 * 200
-
-                                data = b""
-                                logger.info(f"Downloading {url}")
-                                async for chunk in resp.content.iter_chunked(
-                                    chunk_size
-                                ):
-                                    downloaded_bytes += len(chunk)
-                                    data += chunk
-                                    pbar.update(len(chunk))
-                                logger.debug(
-                                    f"Downloaded {downloaded_bytes} bytes from {url}"
-                                )
-                                return data, resp.content_type
-                            else:
-                                raise Exception(
-                                    f"Failed to download data from {url}. Encountered status error {resp.status}"
-                                )
-
-                except asyncio.TimeoutError as e:
-                    logger.error(f"Timeout error occurred while downloading {url}.")
-                    if retry_count == max_retries - 1:
-                        logger.warning(
-                            f"Reached maximum number of retries ({max_retries}). Giving up."
-                        )
-                        raise e
-
-                except aiohttp.ClientError as e:
-                    logger.error(f"Client error occurred while downloading {url}: {e}")
-                    if retry_count == max_retries - 1:
-                        logger.warning(
-                            f"Reached maximum number of retries ({max_retries}). Giving up."
-                        )
-                        raise e
-
-                except Exception as e:
-                    logger.error(f"Error occurred while downloading {url}: {e}")
-                    if retry_count == max_retries - 1:
-                        logger.warning(
-                            f"Reached maximum number of retries ({max_retries}). Giving up."
-                        )
-                        raise e
+        result = await make_request(
+            url=url,
+            method="GET",
+            timeout=timeout,
+            max_retries=max_retries,
+            **kwargs,
+        )
+        return result
     except Exception as e:
         raise e
 
@@ -114,66 +136,16 @@ async def simple_url_post(
     :param kwargs: Additional arguments to pass to the session.post method (headers, params, data).
     :return: a tuple containing the downloaded content and the content type, or None if the request fails.
     """
-
     assert kwargs.get("type") is not None and kwargs.get("value") is not None
-    if kwargs.get("type") == "json":
-        request_args = {"json": kwargs["value"]}
-    elif kwargs.get("type") == "params":
-        request_args = {"params": kwargs["value"]}
-    elif kwargs.get("type") == "data":
-        request_args = {"data": kwargs["value"]}
-    else:
-        request_args = {"headers": kwargs["value"]}
     try:
-        async with aiohttp.ClientSession() as session:
-            for retry_count in range(max_retries):
-                try:
-                    async with session.post(
-                        url, timeout=timeout, **request_args, verify_ssl=False
-                    ) as resp:
-                        if resp.status == 200:
-                            with tqdm.tqdm(total=resp.content.total_bytes) as pbar:
-                                downloaded_bytes = 0
-                                chunk_size = 1024 * 200
-                                data = b""
-                                logger.info(f"Downloading {url}")
-                                async for chunk in resp.content.iter_chunked(
-                                    chunk_size
-                                ):
-                                    downloaded_bytes += len(chunk)
-                                    data += chunk
-                                    pbar.update(len(chunk))
-                                # data = await resp.read()
-                                return data, resp.content_type
-                        else:
-                            logger.error(f"Failed to download source: {resp.status}")
-                            raise Exception(
-                                f"Failed to download data from {url}. Encountered status error {resp.status}"
-                            )
-                except asyncio.TimeoutError as e:
-                    logger.exception(f"Timeout error occurred while downloading {url}.")
-                    if retry_count == max_retries - 1:
-                        logger.warning(
-                            f"Reached maximum number of retries ({max_retries}). Giving up."
-                        )
-                        raise e
-                except aiohttp.ClientError as e:
-                    logger.exception(
-                        f"Client error occurred while downloading {url}: {e}"
-                    )
-                    if retry_count == max_retries - 1:
-                        logger.warning(
-                            f"Reached maximum number of retries ({max_retries}). Giving up."
-                        )
-                        raise e
-
-                except Exception as e:
-                    logger.exception(f"Error occurred while downloading {url}: {e}")
-                    if retry_count == max_retries - 1:
-                        logger.warning(
-                            f"Reached maximum number of retries ({max_retries}). Giving up."
-                        )
-                        raise e
+        result = await make_request(
+            url=url,
+            method="POST",
+            timeout=timeout,
+            max_retries=max_retries,
+            **kwargs,
+        )
+        return result
     except Exception as e:
         logger.exception(f"Error occurred while downloading {url}: {e}")
         raise e
