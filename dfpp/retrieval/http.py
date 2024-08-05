@@ -3,7 +3,6 @@ import asyncio
 import io
 import logging
 import zipfile
-from typing import Tuple
 
 import aiohttp
 import tqdm
@@ -198,7 +197,7 @@ async def default_http_downloader(**kwargs):
         raise e
 
 
-async def get_downloader(**kwargs) -> Tuple[bytes, str]:
+async def get_downloader(**kwargs) -> tuple[bytes, str]:
     """
     Downloads content using a GET request, and returns it as a CSV.
 
@@ -230,7 +229,7 @@ async def get_downloader(**kwargs) -> Tuple[bytes, str]:
         raise e
 
 
-async def post_downloader(**kwargs) -> Tuple[bytes, str]:
+async def post_downloader(**kwargs) -> tuple[bytes, str]:
     """
     Downloads content using a POST request, and returns it as a CSV.
 
@@ -262,7 +261,7 @@ async def post_downloader(**kwargs) -> Tuple[bytes, str]:
         raise e
 
 
-async def zip_content_downloader(**kwargs) -> Tuple[bytes, str]:
+async def zip_content_downloader(**kwargs) -> tuple[bytes, str]:
     """
     Downloads a ZIP, or nested ZIP file, using a GET request, extracts its content, and returns it as a CSV.
 

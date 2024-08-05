@@ -1,7 +1,6 @@
 import base64
 import json
 import logging
-from typing import Tuple
 
 import aiohttp
 
@@ -18,7 +17,7 @@ DEFAULT_TIMEOUT = aiohttp.ClientTimeout(
 logger = logging.getLogger(__name__)
 
 
-async def sipri_downloader(**kwargs) -> Tuple[bytes, str]:
+async def sipri_downloader(**kwargs) -> tuple[bytes, str]:
     """
     Downloads content using a custom POST request logic from SIPRI, and returns the raw data and content type.
 

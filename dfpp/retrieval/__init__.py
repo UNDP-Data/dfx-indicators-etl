@@ -4,7 +4,7 @@ import logging
 import os
 from io import StringIO
 from traceback import print_exc
-from typing import Any, Dict, List
+from typing import Any
 
 import aiohttp
 import pandas as pd
@@ -64,8 +64,8 @@ async def call_function(function_name, *args, **kwargs) -> Any:
 
 
 async def download_for_indicator(
-    indicator_cfg: Dict[str, Any],
-    source_cfg: Dict[str, Any],
+    indicator_cfg: dict[str, Any],
+    source_cfg: dict[str, Any],
     storage_manager: StorageManager,
     sync_upload=True,
 ):
@@ -144,7 +144,7 @@ async def download_for_indicator(
 
 
 async def download_indicator_sources(
-    indicator_ids: List | str = None,
+    indicator_ids: list[str] | str = None,
     indicator_id_contain_filter: str = None,
     concurrent_chunk_size: int = 50,
 ) -> list[str]:
