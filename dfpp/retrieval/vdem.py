@@ -2,17 +2,12 @@ import io
 import logging
 import zipfile
 
-import aiohttp
-
 from .http import simple_url_get
 
 __all__ = [
     "vdem_downloader",
 ]
 
-DEFAULT_TIMEOUT = aiohttp.ClientTimeout(
-    total=120, connect=20, sock_connect=20, sock_read=20
-)
 
 logger = logging.getLogger(__name__)
 

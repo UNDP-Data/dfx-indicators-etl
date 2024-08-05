@@ -100,51 +100,35 @@ async def make_request(
 
 
 async def simple_url_get(
-    url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
+    url: str, **kwargs
 ) -> tuple[bytes, str] | tuple[None, None] | None:
     """
     Downloads the content in bytes from a given URL using the aiohttp library.
 
     :param url: The URL to download.
-    :param timeout: The maximum amount of time to wait for a response from the server, in seconds.
-    :param max_retries: The maximum number of times to retry the download if an error occurs.
-    :param params: Optional dictionary of URL parameters to include in the request.
+    :param kwargs: Optional dictionary of URL parameters to include in the request.
     :return: a tuple containing the downloaded content and the content type, or None if the download fails.
     """
     try:
-        result = await make_request(
-            url=url,
-            method="GET",
-            timeout=timeout,
-            max_retries=max_retries,
-            **kwargs,
-        )
+        result = await make_request(url=url, method="GET", **kwargs)
         return result
     except Exception as e:
         raise e
 
 
 async def simple_url_post(
-    url: str, timeout: ClientTimeout = DEFAULT_TIMEOUT, max_retries: int = 5, **kwargs
+    url: str, **kwargs
 ) -> tuple[bytes, str] | tuple[None, None] | None:
     """
     Sends a POST request to a given URL using the aiohttp library and returns the content in bytes.
 
     :param url: The URL to send the POST request to.
-    :param timeout: The maximum amount of time to wait for a response from the server, in seconds.
-    :param max_retries: The maximum number of times to retry the POST request if an error occurs.
     :param kwargs: Additional arguments to pass to the session.post method (headers, params, data).
     :return: a tuple containing the downloaded content and the content type, or None if the request fails.
     """
     assert kwargs.get("type") is not None and kwargs.get("value") is not None
     try:
-        result = await make_request(
-            url=url,
-            method="POST",
-            timeout=timeout,
-            max_retries=max_retries,
-            **kwargs,
-        )
+        result = await make_request(url=url, method="POST", **kwargs)
         return result
     except Exception as e:
         logger.exception(f"Error occurred while downloading {url}: {e}")
@@ -187,12 +171,7 @@ async def get_downloader(**kwargs) -> tuple[bytes, str]:
     try:
         request_params = ast.literal_eval(kwargs.get("request_params"))
         request_params["value"] = ast.literal_eval(request_params["value"])
-        response_content, _ = await simple_url_get(
-            source_url,
-            timeout=DEFAULT_TIMEOUT,
-            max_retries=5,
-            **request_params,
-        )
+        response_content, _ = await simple_url_get(source_url, **request_params)
 
         logging.info(f"Successfully downloaded {source_id} from {source_url}")
 
@@ -219,12 +198,7 @@ async def post_downloader(**kwargs) -> tuple[bytes, str]:
     try:
         request_params = ast.literal_eval(kwargs.get("request_params"))
         request_params["value"] = ast.literal_eval(request_params["value"])
-        response_content, _ = await simple_url_post(
-            source_url,
-            timeout=DEFAULT_TIMEOUT,
-            max_retries=5,
-            **request_params,
-        )
+        response_content, _ = await simple_url_post(source_url, **request_params)
 
         logging.info(f"Successfully downloaded {source_id} from {source_url}")
 
@@ -251,9 +225,7 @@ async def zip_content_downloader(**kwargs) -> tuple[bytes, str]:
     assert source_id, "source_id not provided"
     assert params_file, "params_file not provided"
 
-    response_content, _ = await simple_url_get(
-        source_url, timeout=DEFAULT_TIMEOUT, max_retries=5
-    )
+    response_content, _ = await simple_url_get(source_url)
 
     # print response type
     # logging.info(f"Response type: {type(response_content)}")

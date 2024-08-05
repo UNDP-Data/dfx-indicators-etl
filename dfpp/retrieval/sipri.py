@@ -2,17 +2,12 @@ import base64
 import json
 import logging
 
-import aiohttp
-
 from .http import simple_url_post
 
 __all__ = [
     "sipri_downloader",
 ]
 
-DEFAULT_TIMEOUT = aiohttp.ClientTimeout(
-    total=120, connect=20, sock_connect=20, sock_read=20
-)
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +53,7 @@ async def sipri_downloader(**kwargs) -> tuple[bytes, str]:
             )
         }
         # Execute the POST request
-        response_content, _ = await simple_url_post(
-            source_url, timeout=DEFAULT_TIMEOUT, max_retries=5, **formatted_parameters
-        )
+        response_content, _ = await simple_url_post(source_url, **formatted_parameters)
 
         # Process the response
         data = json.loads(response_content)

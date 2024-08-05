@@ -3,7 +3,6 @@ import io
 import logging
 import os
 
-import aiohttp
 import numpy as np
 import pandas as pd
 
@@ -13,10 +12,6 @@ from .http import simple_url_get
 __all__ = [
     "country_downloader",
 ]
-
-DEFAULT_TIMEOUT = aiohttp.ClientTimeout(
-    total=120, connect=20, sock_connect=20, sock_read=20
-)
 
 logger = logging.getLogger(__name__)
 
@@ -87,10 +82,7 @@ async def country_downloader(**kwargs):
                 f"Downloading {row['Alpha-3 code']} from {source_url + row['Alpha-3 code'].lower()}"
             )
             text_response_task = asyncio.create_task(
-                simple_url_get(
-                    os.path.join(source_url, row["Alpha-3 code"].lower()),
-                    timeout=DEFAULT_TIMEOUT,
-                )
+                simple_url_get(os.path.join(source_url, row["Alpha-3 code"].lower()))
             )
             tasks.append(text_response_task)
 
@@ -127,7 +119,7 @@ async def country_downloader(**kwargs):
         # if the params_type is BATCH_ADD, then download the data from the params_url and add the data to the country_codes_df dataframe
         if params_type == "BATCH_ADD":
             logger.info(f"Downloading {source_id} from {params_url}")
-            text_response = await simple_url_get(params_url, timeout=DEFAULT_TIMEOUT)
+            text_response = await simple_url_get(params_url)
             region_dataframe = pd.read_csv(
                 io.StringIO(text_response[0].decode("utf-8"))
             )

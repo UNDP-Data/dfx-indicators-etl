@@ -5,7 +5,6 @@ import zipfile
 from typing import Tuple
 from urllib.parse import urlencode
 
-import aiohttp
 import pandas as pd
 
 from .http import simple_url_get
@@ -14,9 +13,7 @@ __all__ = [
     "cpia_downloader",
     "rcc_downloader",
 ]
-DEFAULT_TIMEOUT = aiohttp.ClientTimeout(
-    total=120, connect=20, sock_connect=20, sock_read=20
-)
+
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +30,7 @@ async def cpia_downloader(**kwargs):
     assert source_url, "source_url not provided"
     try:
 
-        data, _ = await simple_url_get(source_url, timeout=DEFAULT_TIMEOUT)
+        data, _ = await simple_url_get(source_url)
         with io.BytesIO(data) as zip_file:
             with zipfile.ZipFile(zip_file) as zip_f:
                 if kwargs.get("source_save_as") not in exception_list:
@@ -122,9 +119,7 @@ async def rcc_downloader(**kwargs) -> Tuple[bytes, str]:
                 "include_header": 1,
             }
             url = f"{source_url}?{urlencode(parameters)}"
-            response_content, _ = await simple_url_get(
-                url, timeout=DEFAULT_TIMEOUT, max_retries=5
-            )
+            response_content, _ = await simple_url_get(url)
             response_content = response_content.decode("utf-8")
             country_df = pd.read_csv(io.StringIO(response_content))
 
