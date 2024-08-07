@@ -1,6 +1,5 @@
 import asyncio
 import configparser
-import hashlib
 import logging
 import math
 import os
@@ -58,24 +57,19 @@ class StorageManager:
             f"\t OUTPUT_PATH: {self.output_path}\n"
         )
 
-    async def get_md5_checksum(self, blob_name: str = None, data: bytes = None):
+    async def get_md5(self, blob_name: str) -> str:
         """
         :param blob_name:
-        :param data:
         :return:
         """
-        assert blob_name is not None, f"blob_name is None"
-        # assert await self.check_blob_exists(blob_name), f'Blob {blob_name} does not exist'
-        if await self.check_blob_exists(blob_name):
-            blob_client = self.container_client.get_blob_client(blob=blob_name)
-            properties = await blob_client.get_blob_properties()
-            return properties["content_settings"]["content_md5"]
-        else:
-            if data is not None:
-                md5_hash = hashlib.md5(data).hexdigest()
-                return md5_hash
-            else:
-                raise ValueError("Data is None and the blob does not exist.")
+        if not isinstance(blob_name, str):
+            raise ValueError("blob_name must be a valid string None")
+        elif not await self.check_blob_exists(blob_name):
+            raise ValueError(f"Blob {blob_name} does not exist.")
+
+        blob_client = self.container_client.get_blob_client(blob=blob_name)
+        properties = await blob_client.get_blob_properties()
+        return properties["content_settings"]["content_md5"]
 
     async def list_indicators(self):
         logger.info(f"Listing {self.indicators_cfg_path}")

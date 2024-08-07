@@ -375,7 +375,7 @@ def chunker(iterable, size):
 async def validate_indicator_transformed(
     storage_manager: StorageManager,
     indicator_id: str = None,
-    pre_update_checksum: str = None,
+    pre_update_checksum: str | None = None,
     df: pd.DataFrame = None,
 ):
     """
@@ -394,7 +394,6 @@ async def validate_indicator_transformed(
     assert indicator_id is not None, "Indicator ID is required"
     assert df is not None, "DataFrame is required"
     assert isinstance(df, pd.DataFrame), "DataFrame must be a pandas DataFrame"
-    assert pre_update_checksum is not None, "Base DataFrame checksum is required"
     try:
         indicator_configuration = await storage_manager.get_indicator_cfg(
             indicator_id=indicator_id
@@ -427,15 +426,15 @@ async def validate_indicator_transformed(
             )
 
         # Compare previous md5 checksum with current md5 checksum
-        md5_checksum = await storage_manager.get_md5_checksum(
-            blob_name=os.path.join(
-                "output",
-                "access_all_data",
-                "base",
-                base_file_name,
-            )
+        md5_checksum = await storage_manager.get_md5(
+            blob_name=os.path.join("output", "access_all_data", "base", base_file_name)
         )
-        if md5_checksum == pre_update_checksum:
+        if pre_update_checksum is None:
+            warnings.warn(
+                f"pre_update_checksum is None, indicating that the base file did not exist and was created after the transformation for indicator {indicator_id}.",
+                TransformationWarning,
+            )
+        elif md5_checksum == pre_update_checksum:
             warnings.warn(
                 f"Base file {base_file_name} has not changed since the last transformation. This could be because of no new data since previous transformation, or that transformation failed for indicator {indicator_id}.",
                 TransformationWarning,
@@ -464,9 +463,8 @@ async def update_base_file(
     """
 
     async with StorageManager() as storage_manager:
-        pre_update_md5_checksum = await storage_manager.get_md5_checksum(
+        pre_update_md5_checksum = await storage_manager.get_md5(
             blob_name=os.path.join("output", project, "base", blob_name),
-            data=df.to_csv().encode("utf-8"),
         )
         try:
             # Reset the index of the DataFrame
