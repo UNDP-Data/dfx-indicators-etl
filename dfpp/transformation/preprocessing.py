@@ -1561,7 +1561,6 @@ async def mdp_transform_preprocessing(
             async with StorageManager() as storage:
                 country_df_bytes = await storage.download(
                     blob_name=os.path.join(
-                        os.environ.get("ROOT_FOLDER"),
                         "config",
                         "utilities",
                         "MDP_META.json",
@@ -3346,9 +3345,7 @@ async def il_fishing_transform_preprocessing(
 ) -> pd.DataFrame:
     async with StorageManager() as storage_manager:
         meta_bytes_data = await storage_manager.download(
-            blob_name=os.path.join(
-                storage_manager.ROOT_FOLDER, "sources", "raw", "IL_FISH_META.json"
-            )
+            blob_name=os.path.join("sources", "raw", "IL_FISH_META.json")
         )
         meta_data = meta_bytes_data.decode("utf-8")
         meta_data_dict = json.loads(meta_data)
@@ -3413,9 +3410,7 @@ async def med_waste_transform_preprocessing(
 ) -> pd.DataFrame:
     async with StorageManager() as storage_manager:
         meta_bytes_data = await storage_manager.download(
-            blob_name=os.path.join(
-                storage_manager.ROOT_FOLDER, "sources", "raw", "MED_WASTE_META.csv"
-            )
+            blob_name=os.path.join("sources", "raw", "MED_WASTE_META.csv")
         )
         source_meta_df = pd.read_csv(
             io.BytesIO(meta_bytes_data),

@@ -13,7 +13,7 @@ from typing import List
 import numpy as np
 import pandas as pd
 
-from ..constants import OUTPUT_FOLDER, STANDARD_KEY_COLUMN
+from ..constants import STANDARD_KEY_COLUMN
 from ..storage import StorageManager
 from ..utils import country_group_dataframe, region_group_dataframe
 
@@ -37,7 +37,7 @@ async def update_and_get_output_csv(
     Update the output csv file with the latest data
     """
     output_csv_file_path = os.path.join(
-        OUTPUT_FOLDER, project, f"output_{area_type}.csv"
+        storage_manager.output_path, project, f"output_{area_type}.csv"
     )
     logger.info(f"Reading current stored {output_csv_file_path} file...")
     if not await storage_manager.check_blob_exists(output_csv_file_path):
@@ -61,7 +61,7 @@ async def update_and_get_output_csv(
         base_files_list = []
         for indicator_cfg in indicator_cfgs:
             base_file_path = os.path.join(
-                storage_manager.OUTPUT_PATH,
+                storage_manager.output_path,
                 project,
                 "base",
                 f"{indicator_cfg['indicator']['source_id']}.csv",
@@ -266,7 +266,9 @@ async def generate_indicator_data(
     # dataframe = dataframe[[STANDARD_KEY_COLUMN] + country_dataframe.columns.to_list() + columns_list]
     # Upload json file to blob
     await storage_manager.upload(
-        dst_path=os.path.join(OUTPUT_FOLDER, project, f"output_{area_type}.json"),
+        dst_path=os.path.join(
+            storage_manager.output_path, project, f"output_{area_type}.json"
+        ),
         data=dataframe.to_json(orient="records").encode("utf-8"),
         content_type="application/json",
         overwrite=True,
@@ -274,7 +276,7 @@ async def generate_indicator_data(
     # upload minified json file to blob
     await storage_manager.upload(
         dst_path=os.path.join(
-            OUTPUT_FOLDER, project, f"output_{area_type}_minified.json"
+            storage_manager.output_path, project, f"output_{area_type}_minified.json"
         ),
         data=dataframe.to_json(orient="records", indent=False).encode("utf-8"),
         content_type="application/json",
@@ -286,7 +288,7 @@ async def generate_indicator_data(
         task = asyncio.create_task(
             storage_manager.upload(
                 dst_path=os.path.join(
-                    OUTPUT_FOLDER,
+                    storage_manager.output_path,
                     project,
                     f"Output{area_type.capitalize()}",
                     row[STANDARD_KEY_COLUMN] + ".json",
@@ -463,7 +465,9 @@ async def process_latest_data(
 
     # Upload json file to blob
     await storage_manager.upload(
-        dst_path=os.path.join(OUTPUT_FOLDER, project, f"output_{area_type}.json"),
+        dst_path=os.path.join(
+            storage_manager.output_path, project, f"output_{area_type}.json"
+        ),
         data=dataframe.to_json(orient="records").encode("utf-8"),
         content_type="application/json",
         overwrite=True,
@@ -471,7 +475,7 @@ async def process_latest_data(
     # upload minified json file to blob
     await storage_manager.upload(
         dst_path=os.path.join(
-            OUTPUT_FOLDER, project, f"output_{area_type}_minified.json"
+            storage_manager.output_path, project, f"output_{area_type}_minified.json"
         ),
         data=dataframe.to_json(orient="records", indent=False).encode("utf-8"),
         content_type="application/json",
@@ -485,7 +489,7 @@ async def process_latest_data(
             asyncio.create_task(
                 storage_manager.upload(
                     dst_path=os.path.join(
-                        OUTPUT_FOLDER,
+                        storage_manager.output_path,
                         project,
                         f"Output{area_type.capitalize()}",
                         f"{row['Alpha-3 code']}.json",
@@ -611,7 +615,7 @@ async def generate_output_per_indicator(
                 asyncio.create_task(
                     storage_manager.upload(
                         dst_path=os.path.join(
-                            OUTPUT_FOLDER,
+                            storage_manager.output_path,
                             project,
                             "OutputIndicators",
                             f"{indicator}.json",

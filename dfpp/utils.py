@@ -286,7 +286,6 @@ async def country_group_dataframe():
                 io.BytesIO(
                     await storage_manager.cached_download(
                         source_path=os.path.join(
-                            storage_manager.ROOT_FOLDER,
                             "config",
                             "utilities",
                             "country_territory_groups.json",
@@ -311,7 +310,6 @@ async def country_group_dataframe():
                 io.BytesIO(
                     await storage_manager.cached_download(
                         source_path=os.path.join(
-                            storage_manager.ROOT_FOLDER,
                             "config",
                             "utilities",
                             "aggregate_territory_groups.json",
@@ -361,7 +359,6 @@ async def region_group_dataframe():
                 io.BytesIO(
                     await storage_manager.cached_download(
                         source_path=os.path.join(
-                            storage_manager.ROOT_FOLDER,
                             "config",
                             "utilities",
                             "aggregate_territory_groups.json",
@@ -452,7 +449,6 @@ async def validate_indicator_transformed(
         # Compare previous md5 checksum with current md5 checksum
         md5_checksum = await storage_manager.get_md5_checksum(
             blob_name=os.path.join(
-                storage_manager.ROOT_FOLDER,
                 "output",
                 "access_all_data",
                 "base",
@@ -489,9 +485,7 @@ async def update_base_file(
 
     async with StorageManager() as storage_manager:
         pre_update_md5_checksum = await storage_manager.get_md5_checksum(
-            blob_name=os.path.join(
-                storage_manager.ROOT_FOLDER, "output", project, "base", blob_name
-            ),
+            blob_name=os.path.join("output", project, "base", blob_name),
             data=df.to_csv().encode("utf-8"),
         )
         try:
@@ -503,9 +497,7 @@ async def update_base_file(
 
             # Check if the blob file already exists in Azure Blob Storage
             blob_exists = await storage_manager.check_blob_exists(
-                blob_name=os.path.join(
-                    storage_manager.ROOT_FOLDER, "output", project, "base", blob_name
-                )
+                blob_name=os.path.join("output", project, "base", blob_name)
             )
 
             # Create an empty DataFrame for the keys
@@ -519,7 +511,6 @@ async def update_base_file(
                 # Download the base file as bytes and read it as a DataFrame
                 base_file_bytes = await storage_manager.cached_download(
                     source_path=os.path.join(
-                        storage_manager.ROOT_FOLDER,
                         "output",
                         project,
                         "base",
@@ -582,9 +573,7 @@ async def update_base_file(
             # base_file_df.reset_index(inplace=True)
 
             # Define the destination path for the CSV file
-            destination_path = os.path.join(
-                storage_manager.ROOT_FOLDER, "output", project, "base", blob_name
-            )
+            destination_path = os.path.join("output", project, "base", blob_name)
 
             await storage_manager.upload(
                 data=base_file_df.to_csv(encoding="utf-8"),
@@ -635,20 +624,6 @@ async def list_command(
         # if indicators:
         #     indicator_configs = await storage_manager.get_indicators_cfg()
         #     indicator_ids = [icfg['indicator']['indicator_id'] for icfg in indicator_configs]
-        if config:
-            keys = [
-                "ROOT_FOLDER",
-                "INDICATORS_CFG_PATH",
-                "SOURCES_CFG_PATH",
-                "UTILITIES_PATH",
-                "SOURCES_PATH",
-                "OUTPUT_PATH",
-                "container_name",
-                "conn_str",
-            ]
-            pipeline_cfg = {}
-            for k in keys:
-                pipeline_cfg[k] = getattr(storage_manager, k, None)
 
         if indicators:
             logger.info(
@@ -659,6 +634,7 @@ async def list_command(
                 f"{len(source_ids)} indicator sources were detected: {json.dumps(source_ids, indent=4)}"
             )
         if config:
+            pipeline_cfg = {"container_name": storage_manager.container_name}
             logger.info(
                 f"Pipeline configuration: {json.dumps([pipeline_cfg], indent=4)}"
             )
@@ -762,7 +738,7 @@ async def base_df_for_indicator(
 
     # Create the base file path
     base_file_path = os.path.join(
-        storage_manager.OUTPUT_PATH, project, "base", base_file_name
+        storage_manager.output_path, project, "base", base_file_name
     )
 
     logger.info(f"downloading base file {base_file_name}")

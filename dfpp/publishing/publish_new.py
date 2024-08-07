@@ -47,7 +47,7 @@ async def base_df_for_indicator(
 
     # Create the base file path
     base_file_path = os.path.join(
-        storage_manager.OUTPUT_PATH, project, "base", base_file_name
+        storage_manager.output_path, project, "base", base_file_name
     )
 
     logger.info(f"downloading base file {base_file_name}")
@@ -189,7 +189,7 @@ async def publish(
             await storage_manager.upload(
                 data=output_dataframe.to_csv(index=False).encode("utf-8"),
                 dst_path=os.path.join(
-                    storage_manager.OUTPUT_PATH, project, "output_test.csv"
+                    storage_manager.output_path, project, "output_test.csv"
                 ),
                 content_type="text/csv",
                 overwrite=True,

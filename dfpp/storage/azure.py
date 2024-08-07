@@ -17,9 +17,6 @@ from ..common import cfg2dict, dict2cfg
 from ..exceptions import ConfigError
 
 logger = logging.getLogger(__name__)
-ROOT_FOLDER = os.environ.get("ROOT_FOLDER")
-AZURE_STORAGE_CONNECTION_STRING = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
-AZURE_STORAGE_CONTAINER_NAME = os.environ.get("AZURE_STORAGE_CONTAINER_NAME")
 MANDATORY_SOURCE_COLUMNS = "id", "url", "save_as"
 TMP_SOURCES = {}
 
@@ -85,39 +82,25 @@ def validate_src_cfg(cfg_dict=None, cfg_file_path=None):
 
 
 class StorageManager:
-    REL_INDICATORS_CFG_PATH = "config/indicators"
-    REL_SOURCES_CFG_PATH = "config/sources"
-    REL_UTILITIES_PATH = "config/utilities"
-    REL_SOURCES_PATH = "sources/raw"
-    REL_OUTPUT_PATH = "output"
 
-    def __init__(
-        self,
-        connection_string: str = AZURE_STORAGE_CONNECTION_STRING,
-        container_name: str = AZURE_STORAGE_CONTAINER_NAME,
-        root_folder=ROOT_FOLDER,
-        clear_cache: bool = False,
-    ):
-        self.conn_str = connection_string
-        self.container_name = container_name
-        self.container_client = AContainerClient.from_connection_string(
-            conn_str=self.conn_str, container_name=self.container_name
+    def __init__(self, clear_cache: bool = False):
+        self.container_client = AContainerClient.from_container_url(
+            container_url=os.environ["AZURE_STORAGE_SAS_URL"]
         )
-        self.sync_container_client = ContainerClient.from_connection_string(
-            conn_str=self.conn_str, container_name=self.container_name
+        self.sync_container_client = ContainerClient.from_container_url(
+            container_url=os.environ["AZURE_STORAGE_SAS_URL"]
         )
         self.clear_cache = clear_cache
-        self.ROOT_FOLDER = root_folder
-        self.INDICATORS_CFG_PATH = os.path.join(
-            self.ROOT_FOLDER, self.REL_INDICATORS_CFG_PATH
-        )
-        self.SOURCES_CFG_PATH = os.path.join(
-            self.ROOT_FOLDER, self.REL_SOURCES_CFG_PATH
-        )
-        self.UTILITIES_PATH = os.path.join(self.ROOT_FOLDER, self.REL_UTILITIES_PATH)
-        self.SOURCES_PATH = os.path.join(self.ROOT_FOLDER, self.REL_SOURCES_PATH)
-        self.OUTPUT_PATH = os.path.join(self.ROOT_FOLDER, self.REL_OUTPUT_PATH)
-        self.BACKUP_PATH = os.path.join(self.ROOT_FOLDER, "backup")
+        self.indicators_cfg_path = "config/indicators"
+        self.sources_cfg_path = "config/sources"
+        self.utilities_path = "config/utilities"
+        self.sources_path = "sources/raw"
+        self.output_path = "output"
+        self.backup_path = "backup"
+
+    @property
+    def container_name(self) -> str:
+        return self.container_client.container_name
 
     async def __aenter__(self):
         return self
@@ -128,13 +111,11 @@ class StorageManager:
     def __str__(self):
         return (
             f"{self.__class__.__name__}\n"
-            f'\t connected to container "{self.container_name}"\n'
-            f"\t ROOT_FOLDER: {self.ROOT_FOLDER}\n"
-            f"\t INDICATORS_CFG_PATH: {self.INDICATORS_CFG_PATH}\n"
-            f"\t SOURCES_CFG_PATH: {self.SOURCES_CFG_PATH}\n"
-            f"\t UTILITIES_PATH: {self.UTILITIES_PATH}\n"
-            f"\t SOURCES_PATH: {self.SOURCES_PATH}\n"
-            f"\t OUTPUT_PATH: {self.OUTPUT_PATH}\n"
+            f"\t INDICATORS_CFG_PATH: {self.indicators_cfg_path}\n"
+            f"\t SOURCES_CFG_PATH: {self.sources_cfg_path}\n"
+            f"\t UTILITIES_PATH: {self.utilities_path}\n"
+            f"\t SOURCES_PATH: {self.sources_path}\n"
+            f"\t OUTPUT_PATH: {self.output_path}\n"
         )
 
     async def get_md5_checksum(self, blob_name: str = None, data: bytes = None):
@@ -157,9 +138,9 @@ class StorageManager:
                 raise ValueError("Data is None and the blob does not exist.")
 
     async def list_indicators(self):
-        logger.info(f"Listing {self.INDICATORS_CFG_PATH}")
+        logger.info(f"Listing {self.indicators_cfg_path}")
         async for blob in self.container_client.list_blobs(
-            name_starts_with=self.INDICATORS_CFG_PATH
+            name_starts_with=self.indicators_cfg_path
         ):
             if (
                 not isinstance(blob, BlobPrefix)
@@ -173,10 +154,10 @@ class StorageManager:
         List all the source cfgs in the container
         :return:
         """
-        logger.info(f"Listing {self.SOURCES_CFG_PATH}")
+        logger.info(f"Listing {self.sources_cfg_path}")
         cfgs = []
         async for blob in self.container_client.list_blobs(
-            name_starts_with=self.SOURCES_CFG_PATH
+            name_starts_with=self.sources_cfg_path
         ):
             if (
                 not isinstance(blob, BlobPrefix)
@@ -194,7 +175,7 @@ class StorageManager:
                     indicator_path is None
                 ), f"use either indicator_id or indicator_path"
                 indicator_path = (
-                    f"{os.path.join(self.INDICATORS_CFG_PATH, indicator_id)}.cfg"
+                    f"{os.path.join(self.indicators_cfg_path, indicator_id)}.cfg"
                 )
             else:
                 _, indicator_name = os.path.split(indicator_path)
@@ -268,7 +249,7 @@ class StorageManager:
         try:
             if source_id:
                 assert source_path is None, f"use either source_id or source_path"
-                source_path = f'{os.path.join(self.SOURCES_CFG_PATH, source_id.lower(), f"{source_id.lower()}.cfg")}'
+                source_path = f'{os.path.join(self.sources_cfg_path, source_id.lower(), f"{source_id.lower()}.cfg")}'
                 _, source_name = os.path.split(source_path)
             else:
                 _, source_name = os.path.split(source_path)
@@ -347,8 +328,9 @@ class StorageManager:
 
         """
         # os.path.join doesn't work for filtering returned Azure blob paths
-        prefix = f"{self.UTILITIES_PATH}"
-        async for blob in self.container_client.list_blobs(name_starts_with=prefix):
+        async for blob in self.container_client.list_blobs(
+            name_starts_with=self.utilities_path
+        ):
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
@@ -554,7 +536,7 @@ class StorageManager:
             blob.name
             async for blob in self.container_client.list_blobs(
                 name_starts_with=os.path.join(
-                    self.OUTPUT_PATH, "access_all_data", "base/"
+                    self.output_path, "access_all_data", "base/"
                 )
             )
         ]

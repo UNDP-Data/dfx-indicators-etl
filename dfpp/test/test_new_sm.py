@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import os
 
 from ..storage import StorageManager
 
@@ -10,15 +9,10 @@ azlogger.setLevel(logging.WARNING)
 logging.basicConfig()
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-connection_string = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
-container_name = os.environ.get("AZURE_STORAGE_CONTAINER_NAME")
 
 
 async def main():
-    async with StorageManager(
-        connection_string=connection_string,
-        container_name=container_name,
-    ) as sm:
+    async with StorageManager() as sm:
 
         logger.info(f"connected to azure")
         logger.info(str(sm))
