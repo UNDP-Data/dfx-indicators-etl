@@ -578,36 +578,25 @@ async def list_command(
 ):
     async with StorageManager() as storage_manager:
         logger.debug("Connected to Azure blob")
-        if sources:
-            source_files = await storage_manager.list_sources_cfgs()
-            source_ids = [
-                os.path.split(sf)[-1].split(".cfg")[0].upper() for sf in source_files
-            ]
-
         if indicators:
             indicator_files = [
-                indicator_blob.name
-                async for indicator_blob in storage_manager.list_indicators()
+                blob_name
+                async for blob_name in storage_manager.list_configs(kind="indicators")
             ]
             indicator_ids = [
                 os.path.split(sf)[-1].split(".cfg")[0] for sf in indicator_files
             ]
-        """
-            the code below could be sued if we decide to validate the configs and list only those that are valid
-        """
-        # if sources:
-        #     source_configs = await storage_manager.get_sources_cfgs()
-        #     source_ids = [scfg['source']['id'] for scfg in source_configs]
-        #
-        # if indicators:
-        #     indicator_configs = await storage_manager.get_indicators_cfg()
-        #     indicator_ids = [icfg['indicator']['indicator_id'] for icfg in indicator_configs]
-
-        if indicators:
             logger.info(
                 f"{len(indicator_ids)} indicators were detected: {json.dumps(indicator_ids, indent=4)}"
             )
         if sources:
+            source_files = [
+                blob_name
+                async for blob_name in storage_manager.list_configs(kind="sources")
+            ]
+            source_ids = [
+                os.path.split(sf)[-1].split(".cfg")[0].upper() for sf in source_files
+            ]
             logger.info(
                 f"{len(source_ids)} indicator sources were detected: {json.dumps(source_ids, indent=4)}"
             )

@@ -5,7 +5,7 @@ import math
 import os
 import tempfile
 from io import BytesIO
-from typing import Any, Literal
+from typing import Any, AsyncGenerator, Literal
 
 import pandas as pd
 from azure.storage.blob import ContainerClient, ContentSettings
@@ -71,35 +71,19 @@ class StorageManager:
         properties = await blob_client.get_blob_properties()
         return properties["content_settings"]["content_md5"]
 
-    async def list_indicators(self):
-        logger.info(f"Listing {self.indicators_cfg_path}")
-        async for blob in self.container_client.list_blobs(
-            name_starts_with=self.indicators_cfg_path
-        ):
-            if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and "indicators" in blob.name
-            ):
-                yield blob
-
-    async def list_sources_cfgs(self):
-        """
-        List all the source cfgs in the container
-        :return:
-        """
-        logger.info(f"Listing {self.sources_cfg_path}")
-        cfgs = []
-        async for blob in self.container_client.list_blobs(
-            name_starts_with=self.sources_cfg_path
-        ):
-            if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and "sources" in blob.name
-            ):
-                cfgs.append(blob.name)
-        return cfgs
+    async def list_configs(
+        self, kind: Literal["indicators", "sources"]
+    ) -> AsyncGenerator[str, None]:
+        path = getattr(self, f"{kind}_cfg_path")
+        logger.info(f"Listing {kind} configs at {path}")
+        async for blob in self.container_client.list_blobs(name_starts_with=path):
+            if isinstance(blob, BlobPrefix):
+                continue
+            elif not blob.name.endswith(".cfg"):
+                continue
+            elif kind not in blob.name:
+                continue
+            yield blob.name
 
     async def get_indicator_cfg(self, indicator_id: str = None, indicator_path=None):
 
@@ -153,20 +137,20 @@ class StorageManager:
         tasks = []
 
         if contain_filter:
-            async for indicator_blob in self.list_indicators():
+            async for blob_name in self.list_configs(kind="indicators"):
 
-                if contain_filter and contain_filter not in indicator_blob.name:
+                if contain_filter and contain_filter not in blob_name:
                     continue
 
                 t = asyncio.create_task(
-                    self.get_indicator_cfg(indicator_path=indicator_blob.name)
+                    self.get_indicator_cfg(indicator_path=blob_name)
                 )
                 tasks.append(t)
         else:
             if indicator_ids is None:
-                async for indicator_blob in self.list_indicators():
+                async for blob_name in self.list_configs(kind="indicators"):
                     t = asyncio.create_task(
-                        self.get_indicator_cfg(indicator_path=indicator_blob.name)
+                        self.get_indicator_cfg(indicator_path=blob_name)
                     )
                     tasks.append(t)
             else:
@@ -223,8 +207,8 @@ class StorageManager:
         """
         tasks = []
         if source_ids is None:
-            for source_cfg_path in await self.list_sources_cfgs():
-                source_id = os.path.split(source_cfg_path)[1].split(".")[0]
+            async for blob_name in self.list_configs(kind="sources"):
+                source_id = os.path.split(blob_name)[-1].split(".")[0]
                 t = asyncio.create_task(self.get_source_cfg(source_id=source_id))
                 tasks.append(t)
         else:
