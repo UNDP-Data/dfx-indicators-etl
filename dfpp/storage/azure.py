@@ -8,9 +8,8 @@ from io import BytesIO
 from typing import Any, AsyncGenerator, Literal
 
 import pandas as pd
-from azure.storage.blob import ContainerClient, ContentSettings
-from azure.storage.blob.aio import BlobPrefix
-from azure.storage.blob.aio import ContainerClient as AContainerClient
+from azure.storage.blob import ContentSettings
+from azure.storage.blob.aio import BlobPrefix, ContainerClient
 
 from ..common import cfg2dict, dict2cfg
 from ..exceptions import ConfigError
@@ -23,10 +22,7 @@ TMP_SOURCES = {}
 class StorageManager:
 
     def __init__(self, clear_cache: bool = False):
-        self.container_client = AContainerClient.from_container_url(
-            container_url=os.environ["AZURE_STORAGE_SAS_URL"]
-        )
-        self.sync_container_client = ContainerClient.from_container_url(
+        self.container_client = ContainerClient.from_container_url(
             container_url=os.environ["AZURE_STORAGE_SAS_URL"]
         )
         self.clear_cache = clear_cache
@@ -312,50 +308,6 @@ class StorageManager:
                     overwrite=overwrite,
                     content_settings=ContentSettings(content_type=content_type),
                     progress_hook=_progress_,
-                )
-            else:
-                raise ValueError("Either 'src_path' or 'data' must be provided.")
-        except Exception as e:
-            raise e
-
-    def sync_upload(
-        self,
-        dst_path: str = None,
-        src_path: str = None,
-        data: bytes = None,
-        content_type: str = None,
-        overwrite: bool = True,
-        max_concurrency: int = 8,
-    ):
-
-        try:
-
-            _, blob_name = os.path.split(dst_path)
-
-            def _progress_(current, total) -> None:
-                progress = current / total * 100
-                rounded_progress = int(math.floor(progress))
-                logger.info(f"{blob_name} was uploaded - {rounded_progress}%")
-
-            blob_client = self.sync_container_client.get_blob_client(blob=dst_path)
-            if src_path:
-                with open(src_path, "rb") as f:
-                    logger.debug(f"Uploading {src_path} to {dst_path}")
-                    blob_client.upload_blob(
-                        data=f,
-                        overwrite=overwrite,
-                        content_settings=ContentSettings(content_type=content_type),
-                        progress_hook=_progress_,
-                        max_concurrency=max_concurrency,
-                    )
-            elif data:
-                logger.debug(f"Uploading bytes/data to {dst_path}")
-                blob_client.upload_blob(
-                    data=data,
-                    overwrite=overwrite,
-                    content_settings=ContentSettings(content_type=content_type),
-                    progress_hook=_progress_,
-                    max_concurrency=max_concurrency,
                 )
             else:
                 raise ValueError("Either 'src_path' or 'data' must be provided.")
