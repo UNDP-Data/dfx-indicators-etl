@@ -121,9 +121,7 @@ class StorageManager:
         self, contain_filter: str = None, indicator_ids: list[str] = None
     ):
         if indicator_ids is None:
-            indicators = [
-                blob_name async for blob_name in self.list_configs(kind="indicators")
-            ]
+            indicators = [name async for name in self.list_configs(kind="indicators")]
         else:
             indicators = indicator_ids
         tasks = []
@@ -137,27 +135,23 @@ class StorageManager:
         results = await asyncio.gather(*tasks)
         return [e for e in results if e]
 
-    async def get_source_cfg(self, source_id=None, source_path=None):
+    async def get_source_cfg(self, source_id_or_path: str):
+        if not isinstance(source_id_or_path, str):
+            raise ValueError("source_id_or_path must be a valid string")
+
+        if source_id_or_path.endswith(".cfg"):
+            *_, source_name = os.path.split(source_id_or_path)
+            source_id, _ = os.path.splitext(source_name)
+            source_path = source_id_or_path
+        else:
+            source_id = source_id_or_path
+            source_path = f"{os.path.join(self.sources_cfg_path, source_id.lower(), source_id.lower())}.cfg"
+
         try:
-            if source_id:
-                assert source_path is None, f"use either source_id or source_path"
-                source_path = f'{os.path.join(self.sources_cfg_path, source_id.lower(), f"{source_id.lower()}.cfg")}'
-                _, source_name = os.path.split(source_path)
-            else:
-                _, source_name = os.path.split(source_path)
-                source_id, ext = os.path.splitext(source_name)
-
-            # if 'wbentp1_wb' in indicator_path:raise Exception('forced')
             logger.debug(f"Checking if {source_path} exists")
-            assert await self.check_blob_exists(
-                source_path
-            ), f"Source {source_id} located at {source_path} does not exist"
-
+            if not await self.check_blob_exists(source_path):
+                raise ValueError(f"Source {source_id} at {source_path} does not exist")
             logger.info(f"Fetching source cfg  for {source_id} from  {source_path}")
-            # stream = await self.container_client.download_blob(
-            #     source_path, max_concurrency=8
-            # )
-            # content = await stream.readall()
             content = await self.cached_download(source_path=source_path)
             logger.debug(f"Downloaded {source_path}")
             content_str = content.decode("utf-8")
@@ -174,24 +168,15 @@ class StorageManager:
             raise
 
     async def get_sources_cfgs(self, source_ids: list[str] = None):
-        """
-        Download and parse source config file of indicators
-        :param source_ids:
-        :return:
-        """
-        tasks = []
         if source_ids is None:
-            async for blob_name in self.list_configs(kind="sources"):
-                source_id = os.path.split(blob_name)[-1].split(".")[0]
-                t = asyncio.create_task(self.get_source_cfg(source_id=source_id))
-                tasks.append(t)
+            sources = [name async for name in self.list_configs(kind="sources")]
         else:
-            if source_ids:
-                for source_id in source_ids:
-                    t = asyncio.create_task(self.get_source_cfg(source_id=source_id))
-                    tasks.append(t)
+            sources = source_ids
+        tasks = []
+        for source in sources:
+            t = asyncio.create_task(self.get_source_cfg(source_id_or_path=source))
+            tasks.append(t)
         results = await asyncio.gather(*tasks)
-
         return [e for e in results if e]
 
     async def close(self):
