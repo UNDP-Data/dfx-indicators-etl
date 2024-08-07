@@ -8,7 +8,7 @@ import math
 import os
 import tempfile
 from io import BytesIO
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
 import pandas as pd
 from azure.storage.blob import ContainerClient, ContentSettings
@@ -215,7 +215,7 @@ class StorageManager:
             raise
 
     async def get_indicators_cfg(
-        self, contain_filter: str = None, indicator_ids: List = None
+        self, contain_filter: str = None, indicator_ids: list[str] = None
     ):
 
         tasks = []
@@ -283,7 +283,7 @@ class StorageManager:
             logger.error(e)
             raise
 
-    async def get_sources_cfgs(self, source_ids: List[str] = None):
+    async def get_sources_cfgs(self, source_ids: list[str] = None):
         """
         Download and parse source config file of indicators
         :param source_ids:
@@ -313,7 +313,7 @@ class StorageManager:
                     logger.info(f"Removing cache {v} for source {k} ")
                     os.remove(v)
 
-    async def get_utility_file(self, utility_file: str) -> Dict[str, Dict[str, Any]]:
+    async def get_utility_file(self, utility_file: str) -> dict[str, dict[str, Any]]:
         """
         Asynchronously retrieves a specified utility configuration file from the Azure Blob Container,
         parses it, and returns its content as a dictionary.
@@ -472,7 +472,7 @@ class StorageManager:
         self,
         blob_name: str = None,
         dst_path: str = None,
-    ) -> Optional[bytes]:
+    ) -> bytes | None:
         """
         Downloads a file from Azure Blob Storage and returns its data or saves it to a local file.
 
