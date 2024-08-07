@@ -85,33 +85,26 @@ class StorageManager:
                 continue
             yield blob.name
 
-    async def get_indicator_cfg(self, indicator_id: str = None, indicator_path=None):
+    async def get_indicator_cfg(self, indicator_id_or_path: str):
+        if not isinstance(indicator_id_or_path, str):
+            raise ValueError("indicator_id_or_path must be a valid string")
+
+        if indicator_id_or_path.endswith(".cfg"):
+            *_, indicator_name = os.path.split(indicator_id_or_path)
+            indicator_id, _ = os.path.splitext(indicator_name)
+            indicator_path = indicator_id_or_path
+        else:
+            indicator_id = indicator_id_or_path
+            indicator_path = (
+                f"{os.path.join(self.indicators_cfg_path, indicator_id)}.cfg"
+            )
 
         try:
-            if indicator_id:
-                assert (
-                    indicator_path is None
-                ), f"use either indicator_id or indicator_path"
-                indicator_path = (
-                    f"{os.path.join(self.indicators_cfg_path, indicator_id)}.cfg"
-                )
-            else:
-                _, indicator_name = os.path.split(indicator_path)
-                indicator_id, ext = os.path.splitext(indicator_name)
-
-            assert await self.check_blob_exists(
-                indicator_path
-            ), f"Indicator {indicator_id} located at {indicator_path} does not exist"
-
-            # TODO caching
-
+            if not await self.check_blob_exists(indicator_path):
+                raise ValueError(f"Blob {indicator_path} does not exist.")
             logger.info(
                 f"Fetching indicator cfg for {indicator_id} from  {indicator_path}"
             )
-            # stream = await self.container_client.download_blob(
-            #     indicator_path, max_concurrency=8
-            # )
-            # content = await stream.readall()
 
             content = await self.cached_download(source_path=indicator_path)
             content_str = content.decode("utf-8")
@@ -119,9 +112,7 @@ class StorageManager:
             parser = configparser.ConfigParser(interpolation=None)
             parser.read_string(content_str)
             if "indicator" in parser:
-
                 return cfg2dict(parser)
-
             else:
                 raise Exception(
                     f"Indicator  {indicator_id} located at {indicator_path} does not contain an 'indicator' section"
@@ -133,33 +124,20 @@ class StorageManager:
     async def get_indicators_cfg(
         self, contain_filter: str = None, indicator_ids: list[str] = None
     ):
-
-        tasks = []
-
-        if contain_filter:
-            async for blob_name in self.list_configs(kind="indicators"):
-
-                if contain_filter and contain_filter not in blob_name:
-                    continue
-
-                t = asyncio.create_task(
-                    self.get_indicator_cfg(indicator_path=blob_name)
-                )
-                tasks.append(t)
+        if indicator_ids is None:
+            indicators = [
+                blob_name async for blob_name in self.list_configs(kind="indicators")
+            ]
         else:
-            if indicator_ids is None:
-                async for blob_name in self.list_configs(kind="indicators"):
-                    t = asyncio.create_task(
-                        self.get_indicator_cfg(indicator_path=blob_name)
-                    )
-                    tasks.append(t)
-            else:
-                if indicator_ids:
-                    for indicator_id in indicator_ids:
-                        t = asyncio.create_task(
-                            self.get_indicator_cfg(indicator_id=indicator_id)
-                        )
-                        tasks.append(t)
+            indicators = indicator_ids
+        tasks = []
+        for indicator in indicators:
+            if contain_filter is not None and contain_filter not in indicator:
+                continue
+            t = asyncio.create_task(
+                self.get_indicator_cfg(indicator_id_or_path=indicator)
+            )
+            tasks.append(t)
         results = await asyncio.gather(*tasks)
         return [e for e in results if e]
 
