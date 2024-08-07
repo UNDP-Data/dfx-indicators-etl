@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import CubicSpline, interp1d
 
-from .constants import COUNTRY_LOOKUP_CSV_PATH, CURRENT_YEAR, STANDARD_KEY_COLUMN
+from .constants import CURRENT_YEAR, STANDARD_KEY_COLUMN
 from .exceptions import TransformationError, TransformationWarning
 from .storage import StorageManager
 
@@ -34,12 +34,7 @@ async def add_country_code(source_df, country_name_column=None):
     """
 
     async with StorageManager() as storage_manager:
-        country_lookup_bytes = await storage_manager.cached_download(
-            source_path=COUNTRY_LOOKUP_CSV_PATH
-        )
-        country_df = pd.read_excel(
-            io.BytesIO(country_lookup_bytes), sheet_name="country_lookup"
-        )
+        country_df = await storage_manager.get_lookup_df(sheet="country")
         if country_name_column != country_df.index.name:
             country_df.set_index(country_name_column, inplace=True)
             country_df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
@@ -71,12 +66,7 @@ async def add_region_code(source_df=None, region_name_col=None, region_key_col=N
     """
     try:
         async with StorageManager() as storage_manager:
-            country_lookup_bytes = await storage_manager.cached_download(
-                source_path=COUNTRY_LOOKUP_CSV_PATH
-            )
-            region_df = pd.read_excel(
-                io.BytesIO(country_lookup_bytes), sheet_name="region_lookup"
-            )
+            region_df = await storage_manager.get_lookup_df(sheet="region")
             region_df = region_df.drop_duplicates(subset=["Region"], keep="last")
             region_df.dropna(subset=["Region"], inplace=True)
             if "Region" != region_df.index.name:
@@ -131,12 +121,7 @@ async def add_alpha_code_3_column(source_df, country_col):
 
     """
     async with StorageManager() as storage_manager:
-        country_lookup_bytes = await storage_manager.cached_download(
-            source_path=COUNTRY_LOOKUP_CSV_PATH
-        )
-        country_df = pd.read_excel(
-            io.BytesIO(country_lookup_bytes), sheet_name="country_lookup"
-        )
+        country_df = storage_manager.get_lookup_df(sheet="country")
         country_df = country_df.rename(columns={"Country": country_col})
         return pd.merge(
             source_df,
@@ -163,12 +148,7 @@ async def fix_iso_country_codes(
 
     """
     async with StorageManager() as storage_manager:
-        country_lookup_bytes = await storage_manager.cached_download(
-            source_path=COUNTRY_LOOKUP_CSV_PATH
-        )
-        country_code_df = pd.read_excel(
-            io.BytesIO(country_lookup_bytes), sheet_name="country_code_lookup"
-        )
+        country_code_df = await storage_manager.get_lookup_df(sheet="country_code")
         for index, row in country_code_df.iterrows():
             if source_id is None or source_id == row.get("Only For Source ID"):
                 df.loc[(df[col] == row["ISO 3 Code"]), col] = row["UNDP ISO 3 Code"]

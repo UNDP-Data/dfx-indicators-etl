@@ -7,8 +7,10 @@ import logging
 import math
 import os
 import tempfile
-from typing import Any, Dict, List, Optional
+from io import BytesIO
+from typing import Any, Dict, List, Literal, Optional
 
+import pandas as pd
 from azure.storage.blob import ContainerClient, ContentSettings
 from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import ContainerClient as AContainerClient
@@ -597,3 +599,11 @@ class StorageManager:
             cached.write(data)
             TMP_SOURCES[source_path] = cached.name
         return data
+
+    async def get_lookup_df(
+        self, sheet: Literal["country", "region", "country_code"]
+    ) -> pd.DataFrame:
+        path = f"{self.utilities_path}/country_lookup.xlsx"
+        data = await self.cached_download(source_path=path)
+        df = pd.read_excel(BytesIO(data), sheet_name=f"{sheet}_lookup")
+        return df
