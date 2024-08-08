@@ -402,20 +402,6 @@ class StorageManager:
         blobs = self.container_client.list_blobs(name_starts_with=pattern)
         return [blob.name async for blob in blobs]
 
-    async def upload_cfg(self, cfg_dict=None, cfg_path=None):
-        """
-        Upload a config file to azure storage
-        :param cfg_dict:
-        :param cfg_path:
-        :return:
-        """
-        parser = dict2cfg(cfg_dict=cfg_dict)
-        content = parser.write_string()
-        content_bytes = content.encode("utf-8")
-        await self.upload(
-            dst_path=cfg_path, data=content_bytes, content_type="text/plain"
-        )
-
     async def list_blobs(self, prefix=None):
         """
         List
