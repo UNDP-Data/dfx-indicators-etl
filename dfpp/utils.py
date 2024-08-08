@@ -262,17 +262,9 @@ async def country_group_dataframe():
     async with StorageManager() as storage_manager:
         try:
             # Read the country and territory group DataFrame from JSON in Azure Blob Storage
-            df = pd.read_json(
-                io.BytesIO(
-                    await storage_manager.cached_download(
-                        source_path=os.path.join(
-                            "config",
-                            "utilities",
-                            "country_territory_groups.json",
-                        )
-                    )
-                )
-            )
+            path = os.path.join("config", "utilities", "country_territory_groups.json")
+            data = await storage_manager.read_blob(path=path)
+            df = pd.read_json(io.BytesIO(data))
 
             # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
             df.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
@@ -286,18 +278,12 @@ async def country_group_dataframe():
 
             # TODO: Add the regions to the country group DataFrame
             # Read the aggregate territory group DataFrame from JSON in Azure Blob Storage
-            df_aggregates = pd.read_json(
-                io.BytesIO(
-                    await storage_manager.cached_download(
-                        source_path=os.path.join(
-                            "config",
-                            "utilities",
-                            "aggregate_territory_groups.json",
-                        )
-                    )
-                )
+            path = os.path.join(
+                "config", "utilities", "aggregate_territory_groups.json"
             )
-            #
+            data = await storage_manager.read_blob(path=path)
+            df_aggregates = pd.read_json(io.BytesIO(data))
+
             # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
             df_aggregates.rename(
                 columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True
@@ -335,17 +321,11 @@ async def region_group_dataframe():
     async with StorageManager() as storage_manager:
         try:
             # Read the region group DataFrame from JSON in Azure Blob Storage
-            df = pd.read_json(
-                io.BytesIO(
-                    await storage_manager.cached_download(
-                        source_path=os.path.join(
-                            "config",
-                            "utilities",
-                            "aggregate_territory_groups.json",
-                        )
-                    )
-                )
+            path = os.path.join(
+                "config", "utilities", "aggregate_territory_groups.json"
             )
+            data = await storage_manager.read_blob(path=path)
+            df = pd.read_json(io.BytesIO(data))
 
             # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
             df.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
@@ -487,15 +467,9 @@ async def update_base_file(
             if blob_exists:
                 logger.info(f"Base file {blob_name} exists. Updating...")
                 # Download the base file as bytes and read it as a DataFrame
-                base_file_bytes = await storage_manager.cached_download(
-                    source_path=os.path.join(
-                        "output",
-                        project,
-                        "base",
-                        blob_name,
-                    ),
-                )
-                base_file_df = pd.read_csv(io.BytesIO(base_file_bytes))
+                path = os.path.join("output", project, "base", blob_name)
+                data = await storage_manager.read_blob(path=path)
+                base_file_df = pd.read_csv(io.BytesIO(data))
                 # base_file_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
             else:
                 logger.info("Base file does not exist. Creating...")
@@ -551,13 +525,12 @@ async def update_base_file(
             # base_file_df.reset_index(inplace=True)
 
             # Define the destination path for the CSV file
-            destination_path = os.path.join("output", project, "base", blob_name)
-
-            await storage_manager.upload(
-                data=base_file_df.to_csv(encoding="utf-8"),
-                dst_path=destination_path,
-                overwrite=True,
+            path = os.path.join("output", project, "base", blob_name)
+            await storage_manager.upload_blob(
+                path_or_data_src=base_file_df.to_csv(encoding="utf-8"),
+                path_dst=path,
                 content_type="text/csv",
+                overwrite=True,
             )
 
             await validate_indicator_transformed(
@@ -710,9 +683,8 @@ async def base_df_for_indicator(
 
     logger.info(f"downloading base file {base_file_name}")
     # Read the base file as a pandas DataFrame
-    base_file_df = pd.read_csv(
-        io.BytesIO(await storage_manager.cached_download(source_path=base_file_path))
-    )
+    data = await storage_manager.read_blob(path=base_file_path)
+    base_file_df = pd.read_csv(io.BytesIO(data))
 
     return base_file_df
 

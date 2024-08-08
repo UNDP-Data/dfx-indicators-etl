@@ -1557,19 +1557,12 @@ async def mdp_transform_preprocessing(
     try:
         logger.info(f"Running preprocessing for indicator {kwargs.get('indicator_id')}")
 
-        async def mdp_metadata():
-            async with StorageManager() as storage:
-                country_df_bytes = await storage.download(
-                    blob_name=os.path.join(
-                        "config",
-                        "utilities",
-                        "MDP_META.json",
-                    )
-                )
-                return country_df_bytes
+        async with StorageManager() as storage_manager:
+            path = os.path.join("config", "utilities", "MDP_META.json")
+            data = await storage_manager.read_blob(path=path)
 
         # Read the country metadata JSON file into a DataFrame
-        country_df = pd.read_json(io.BytesIO(await mdp_metadata()))
+        country_df = pd.read_json(io.BytesIO(data))
 
         # Extract the required columns from the country DataFrame
         country_df = country_df[["id", "name"]]
@@ -3344,11 +3337,9 @@ async def il_fishing_transform_preprocessing(
     bytes_data: bytes, **kwargs
 ) -> pd.DataFrame:
     async with StorageManager() as storage_manager:
-        meta_bytes_data = await storage_manager.download(
-            blob_name=os.path.join("sources", "raw", "IL_FISH_META.json")
-        )
-        meta_data = meta_bytes_data.decode("utf-8")
-        meta_data_dict = json.loads(meta_data)
+        path = os.path.join("sources", "raw", "IL_FISH_META.json")
+        data = await storage_manager.read_blob(path=path)
+        meta_data_dict = json.loads(data.decode("utf-8"))
         meta_data_dict = meta_data_dict["dimensions"]["entities"]["values"]
         source_meta_df = pd.DataFrame(meta_data_dict)
         source_data_df = pd.read_json(io.BytesIO(bytes_data))
@@ -3409,11 +3400,10 @@ async def med_waste_transform_preprocessing(
     bytes_data: bytes, **kwargs
 ) -> pd.DataFrame:
     async with StorageManager() as storage_manager:
-        meta_bytes_data = await storage_manager.download(
-            blob_name=os.path.join("sources", "raw", "MED_WASTE_META.csv")
-        )
+        path = os.path.join("sources", "raw", "MED_WASTE_META.csv")
+        data = await storage_manager.read_blob(path=path)
         source_meta_df = pd.read_csv(
-            io.BytesIO(meta_bytes_data),
+            io.BytesIO(data),
             encoding="ISO-8859-1",
             usecols=["iso3c", "measurement", "year"],
         )

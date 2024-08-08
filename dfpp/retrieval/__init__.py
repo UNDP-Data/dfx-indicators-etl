@@ -119,13 +119,13 @@ async def download_for_indicator(
     if data is not None:
 
         dst_path = os.path.join(
-            storage_manager.SOURCES_PATH, source_cfg["source"]["save_as"]
+            storage_manager.sources_path, source_cfg["source"]["save_as"]
         )
         await asyncio.create_task(
-            storage_manager.upload(
-                data=data,
+            storage_manager.upload_blob(
+                path_or_data_src=data,
+                path_dst=dst_path,
                 content_type=content_type,
-                dst_path=dst_path,
                 overwrite=True,
             )
         )

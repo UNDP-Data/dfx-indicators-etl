@@ -62,9 +62,7 @@ async def read_source_file_for_indicator(indicator_source: str = None):
             )
 
             # Download the source file from Azure Storage
-            data = await storage_manager.cached_download(
-                source_path=source_file_name, chunked=True
-            )
+            data = await storage_manager.read_blob(path=source_file_name)
 
             logger.debug(f"Downloaded {source_file_name}")
             # Return the data along with the source configuration
@@ -301,7 +299,8 @@ async def transform_sources(
             return
         for chunk in chunker(indicators_cfgs, concurrent_chunk_size):
 
-            # await storage_manager.delete_blob(blob_path=os.path.join('DataFuturePlatform', 'pipeline', 'config', 'indicators', 'mmrlatest_gii.cfg'))
+            # path = os.path.join('DataFuturePlatform', 'pipeline', 'config', 'indicators', 'mmrlatest_gii.cfg')
+            # await storage_manager.delete_blob(path=path)
             tasks = []
             # List to store transformed indicator IDs
             chunk_transformed_indicators = []

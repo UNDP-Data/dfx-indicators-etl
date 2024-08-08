@@ -52,8 +52,8 @@ async def backup_raw_sources(indicator_ids: list = None):
                     os.path.join(storage_manager.BACKUP_PATH, "sources"),
                 )
                 await storage_manager.copy_blob(
-                    source_blob_name=raw_source_path,
-                    destination_blob_name=raw_backup_source_blob_name,
+                    path_src=raw_source_path,
+                    path_dst=raw_backup_source_blob_name,
                 )
                 logger.info(
                     f"Created a backup for {raw_source_path} to {raw_backup_source_blob_name}"
@@ -94,8 +94,8 @@ async def backup_base_files(indicator_ids: list = None):
                     )
 
                     await storage_manager.copy_blob(
-                        source_blob_name=base_file_path,
-                        destination_blob_name=base_backup_file_blob_name,
+                        path_src=base_file_path,
+                        path_dst=base_backup_file_blob_name,
                     )
 
                     logger.info(

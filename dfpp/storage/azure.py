@@ -3,7 +3,6 @@ import configparser
 import logging
 import math
 import os
-import tempfile
 from io import BytesIO
 from typing import Any, AsyncGenerator, Literal
 
@@ -16,7 +15,6 @@ from ..exceptions import ConfigError
 from .utils import *
 
 logger = logging.getLogger(__name__)
-TMP_SOURCES = {}
 
 
 class StorageManager:
@@ -102,7 +100,7 @@ class StorageManager:
                 f"Fetching indicator cfg for {indicator_id} from  {indicator_path}"
             )
 
-            content = await self.cached_download(source_path=indicator_path)
+            content = await self.read_blob(path=indicator_path)
             content_str = content.decode("utf-8")
 
             parser = configparser.ConfigParser(interpolation=None)
@@ -152,7 +150,7 @@ class StorageManager:
             if not await self.check_blob_exists(source_path):
                 raise ValueError(f"Source {source_id} at {source_path} does not exist")
             logger.info(f"Fetching source cfg  for {source_id} from  {source_path}")
-            content = await self.cached_download(source_path=source_path)
+            content = await self.read_blob(path=source_path)
             logger.debug(f"Downloaded {source_path}")
             content_str = content.decode("utf-8")
 
@@ -181,12 +179,6 @@ class StorageManager:
 
     async def close(self):
         await self.container_client.close()
-        if self.clear_cache:
-            for k, v in TMP_SOURCES.items():
-                exists = os.path.exists(v)
-                if exists:
-                    logger.info(f"Removing cache {v} for source {k} ")
-                    os.remove(v)
 
     async def get_utility_file(self, utility_file: str) -> dict[str, dict[str, Any]]:
         """
@@ -239,140 +231,176 @@ class StorageManager:
         blob_client = self.container_client.get_blob_client(blob=blob_name)
         return await blob_client.exists()
 
-    async def upload(
+    async def upload_blob(
         self,
-        dst_path: str = None,
-        src_path: str = None,
-        data: bytes = None,
-        content_type: str = None,
+        path_or_data_src: str | bytes,
+        path_dst: str,
+        content_type: str | None = None,
         overwrite: bool = True,
-    ) -> None:
+    ) -> str:
         """
-            Uploads a file or bytes data to Azure Blob Storage.
+        Uploads a file to Azure Blob Container.
 
-        async def upload(self, dst_path: str = None, src_path: str = None, content_type=None,
-                         overwrite: bool = True) -> None:
-            Args:
-                dst_path (str, optional): The path of the destination blob in Azure Blob Storage. Defaults to None.
-                src_path (str, optional): The local path of the file to upload. Either src_path or data must be provided. Defaults to None.
-                data (bytes, optional): The bytes data to upload. Either src_path or data must be provided. Defaults to None.
-                content_type (str, optional): The content type of the blob. Defaults to None.
-                overwrite (bool, optional): Whether to overwrite the destination blob if it already exists. Defaults to True.
+        Parameters
+        ----------
+        path_or_data_src : str | bytes
+            Source path or data to upload.
+        path_dst : str
+            Destination path to upload to.
+        content_type : str, optional
+            Content data type.
+        overwrite : bool, default=True
+            Flag to overwrite existing file if it exists.
 
-            Raises:
-                ValueError: If neither src_path nor data are provided.
-
-            Returns:
-                None
+        Returns
+        -------
+        path_dst : str
+            Destination path the blob was uploaded to.
         """
+        if isinstance(path_or_data_src, bytes):
+            data = path_or_data_src
+        elif isinstance(path_or_data_src, str):
+            with open(path_or_data_src, "rb") as file:
+                data = file.read()
+        else:
+            raise ValueError("src_path_data must be bytes or str")
+
+        async def _progress_(current: int, total: int) -> None:
+            print(total)
+            progress = current / total * 100
+            rounded_progress = int(math.floor(progress))
+            logger.info(f"{path_dst} was uploaded - {rounded_progress}%")
 
         try:
-
-            _, blob_name = os.path.split(dst_path)
-
-            async def _progress_(current, total) -> None:
-                print(total)
-                progress = current / total * 100
-                rounded_progress = int(math.floor(progress))
-                logger.info(f"{blob_name} was uploaded - {rounded_progress}%")
-
-            blob_client = self.container_client.get_blob_client(blob=dst_path)
-            if src_path:
-                with open(src_path, "rb") as f:
-                    logger.debug(f"Uploading {src_path} to {dst_path}")
-                    await blob_client.upload_blob(
-                        data=f,
-                        overwrite=overwrite,
-                        content_settings=ContentSettings(content_type=content_type),
-                        progress_hook=_progress_,
-                    )
-            elif data:
-                logger.debug(f"Uploading bytes/data to {dst_path}")
-                await blob_client.upload_blob(
-                    data=data,
-                    overwrite=overwrite,
-                    content_settings=ContentSettings(content_type=content_type),
-                    progress_hook=_progress_,
-                )
-            else:
-                raise ValueError("Either 'src_path' or 'data' must be provided.")
-        except Exception as e:
-            raise e
-
-    async def download(
-        self,
-        blob_name: str = None,
-        dst_path: str = None,
-    ) -> bytes | None:
-        """
-        Downloads a file from Azure Blob Storage and returns its data or saves it to a local file.
-
-        Args:
-            blob_name (str, optional): The name of the blob to download. Defaults to None.
-            dst_path (str, optional): The local path to save the downloaded file. If not provided, the file data is returned instead of being saved to a file. Defaults to None.
-
-        Returns:
-            bytes or None: The data of the downloaded file, or None if a dst_path argument is provided.
-        """
-        # _, b_name = os.path.split(blob_name)
-        #
-        # async def _progress_(current, total) -> None:
-        #     progress = current / total * 100
-        #     rounded_progress = int(math.floor(progress))
-        #     logger.info(f'{b_name} was downloaded - {rounded_progress}%')
-        try:
-            logger.debug(f"Downloading {blob_name}")
-            blob_client = self.container_client.get_blob_client(blob=blob_name)
-            chunk_list = []
-            stream = await blob_client.download_blob()
-            async for chunk in stream.chunks():
-                chunk_list.append(chunk)
-
-            data = b"".join(chunk_list)
-            logger.debug(f"Finished downloading {blob_name}")
-            if dst_path:
-                with open(dst_path, "wb") as f:
-                    f.write(data)
-                return None
-            else:
-                return data
-        except Exception as e:
-            print(e)
-
-    async def delete_blob(self, blob_path):
-        """
-        :param blob_path:
-        :return:
-        """
-        return await self.container_client.delete_blob(blob_path)
-
-    async def copy_blob(self, source_blob_name: str, destination_blob_name: str):
-        """
-        Copy a blob from a source to a destination
-        :param source_blob_name:
-        :param destination_blob_name:
-        :return:
-        """
-        source_blob = self.container_client.get_blob_client(blob=source_blob_name)
-        destination_blob = self.container_client.get_blob_client(
-            blob=destination_blob_name
-        )
-        return await destination_blob.start_copy_from_url(source_blob.url)
-
-    async def list_base_files(self, indicator_ids=None):
-        """
-        List
-        :param indicator_id:
-        :return:
-        """
-        return [
-            blob.name
-            async for blob in self.container_client.list_blobs(
-                name_starts_with=os.path.join(
-                    self.output_path, "access_all_data", "base/"
-                )
+            blob_client = self.container_client.get_blob_client(blob=path_dst)
+            await blob_client.upload_blob(
+                data=data,
+                overwrite=overwrite,
+                content_settings=ContentSettings(content_type=content_type),
+                progress_hook=_progress_,
             )
-        ]
+            logger.debug(f"Uploading bytes/data to {path_dst}")
+        except Exception as e:
+            logger.error(f"Failed to upload the blob to {path_dst}: {e}")
+        else:
+            return path_dst
+
+    async def read_blob(self, path: str) -> bytes:
+        """
+        Read a blob from Azure Blob Storage.
+
+        Parameters
+        ----------
+        path : str
+            Path to the blob to read.
+
+        Returns
+        -------
+        data : bytes
+            Blob data as bytes.
+        """
+        logger.debug(f"Checking in the blob at {path} exists")
+        blob_client = self.container_client.get_blob_client(blob=path)
+        if not await blob_client.exists():
+            raise ValueError(f"Blob at {path} does not exist")
+
+        try:
+            logger.debug(f"Reading the blob at {path}")
+            blob = await blob_client.download_blob()
+            data = await blob.readall()
+        except Exception as e:
+            logger.error(f"Failed to read the blob at {path}: {e}")
+        else:
+            return data
+
+    async def download_blob(self, path_src: str, path_dst: str | None = None) -> str:
+        """
+        Download a blob from Azure Blob Storage to a local storage.
+
+        Parameters
+        ----------
+        path_src : str
+            Source path to download the blob from.
+        path_dst : str, optional
+            Destination path to save the blob to. If not provided, saves to the blob using its original name
+            to the current directory.
+
+        Returns
+        -------
+        path_dst : str
+            Destination path the blob was downloaded to.
+        """
+        logger.debug(f"Checking in the blob at {path_src} exists")
+        blob_client = self.container_client.get_blob_client(blob=path_src)
+        if not await blob_client.exists():
+            raise ValueError(f"Blob at {path_src} does not exist")
+
+        if isinstance(path_dst, str):
+            pass
+        elif path_dst is None:
+            path_dst = blob_client.blob_name
+        else:
+            raise ValueError(
+                f"path_dst must be either None or a valid string, not {type(path_dst)}"
+            )
+
+        try:
+            logger.debug(f"Downloading the blob from {path_dst}")
+            blob = await blob_client.download_blob()
+            async for chunk in blob.chunks():
+                with open(path_dst, "wb") as f:
+                    f.write(chunk)
+        except Exception as e:
+            logger.error(f"Failed to download the blob from {path_src}: {e}")
+        else:
+            logger.debug(f"Downloaded blob {path_src} to {path_dst}")
+            return path_dst
+
+    async def delete_blob(self, path: str) -> None:
+        """
+        Delete a blob from Azure Blob Storage.
+
+        Parameters
+        ----------
+        path : str
+            Path to the blob to delete.
+
+        Returns
+        -------
+        None.
+        """
+        try:
+            await self.container_client.delete_blob(blob=path, timeout=10)
+        except Exception as e:
+            logger.error(f"Failed to delete the blob from {path}: {e}")
+
+    async def copy_blob(self, path_src: str, path_dst: str) -> bool:
+        """
+        Copy a blob within Azure Blob Storage.
+
+        Parameters
+        ----------
+        path_src : str
+            Source path to copy the blob from.
+        path_dst : str, optional
+            Destination path to copy the blob to.
+
+        Returns
+        -------
+        bool
+            True, if the blob was copied successfully. False, otherwise.
+        """
+        blob_client_src = self.container_client.get_blob_client(blob=path_src)
+        if not await blob_client_src.exists():
+            raise ValueError(f"Blob at {path_src} does not exist")
+        blob_client_dst = self.container_client.get_blob_client(blob=path_dst)
+        await blob_client_dst.start_copy_from_url(blob_client_src.url)
+        return await blob_client_dst.exists()
+
+    async def list_base_files(self) -> list[str]:
+        pattern = os.path.join(self.output_path, "access_all_data", "base/")
+        blobs = self.container_client.list_blobs(name_starts_with=pattern)
+        return [blob.name async for blob in blobs]
 
     async def upload_cfg(self, cfg_dict=None, cfg_path=None):
         """
@@ -399,42 +427,10 @@ class StorageManager:
             async for blob in self.container_client.list_blobs(name_starts_with=prefix)
         ]
 
-    async def cached_download(self, source_path=None, chunked=False):
-        logger.debug(f"Downloading {source_path}")
-        if source_path in TMP_SOURCES:
-            cached_src_path = TMP_SOURCES[source_path]
-            logger.info(f"Rereading cached {source_path} from {cached_src_path} ")
-            data = open(cached_src_path, "rb").read()
-        else:
-
-            # check the blob exists in azure storage
-            source_path_exists = await self.check_blob_exists(blob_name=source_path)
-            logger.debug(f"Checking if {source_path} exists {source_path_exists}")
-            if not source_path_exists:
-                raise Exception(f"Source {source_path} does not exist")
-            stream = await self.container_client.download_blob(
-                source_path, max_concurrency=1
-            )
-            logger.debug(f"Downloaded {source_path}")
-            if chunked:
-                chunk_list = []
-                async for chunk in stream.chunks():
-                    logger.debug(f"Downloaded {len(chunk)}")
-                    chunk_list.append(chunk)
-                data = b"".join(chunk_list)
-            else:
-                data = await stream.readall()
-
-            cached = tempfile.NamedTemporaryFile(mode="wb", delete=False)
-            logger.debug(f"Going to cache {source_path} to {cached.name}")
-            cached.write(data)
-            TMP_SOURCES[source_path] = cached.name
-        return data
-
     async def get_lookup_df(
         self, sheet: Literal["country", "region", "country_code"]
     ) -> pd.DataFrame:
         path = f"{self.utilities_path}/country_lookup.xlsx"
-        data = await self.cached_download(source_path=path)
+        data = await self.read_blob(path=path)
         df = pd.read_excel(BytesIO(data), sheet_name=f"{sheet}_lookup")
         return df
