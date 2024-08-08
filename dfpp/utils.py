@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import CubicSpline, interp1d
 
-from .constants import COUNTRY_LOOKUP_CSV_PATH, CURRENT_YEAR, STANDARD_KEY_COLUMN
+from .constants import CURRENT_YEAR, STANDARD_KEY_COLUMN
 from .exceptions import TransformationError, TransformationWarning
 from .storage import StorageManager
 
@@ -34,12 +34,7 @@ async def add_country_code(source_df, country_name_column=None):
     """
 
     async with StorageManager() as storage_manager:
-        country_lookup_bytes = await storage_manager.cached_download(
-            source_path=COUNTRY_LOOKUP_CSV_PATH
-        )
-        country_df = pd.read_excel(
-            io.BytesIO(country_lookup_bytes), sheet_name="country_lookup"
-        )
+        country_df = await storage_manager.get_lookup_df(sheet="country")
         if country_name_column != country_df.index.name:
             country_df.set_index(country_name_column, inplace=True)
             country_df.dropna(subset=[STANDARD_KEY_COLUMN], inplace=True)
@@ -71,12 +66,7 @@ async def add_region_code(source_df=None, region_name_col=None, region_key_col=N
     """
     try:
         async with StorageManager() as storage_manager:
-            country_lookup_bytes = await storage_manager.cached_download(
-                source_path=COUNTRY_LOOKUP_CSV_PATH
-            )
-            region_df = pd.read_excel(
-                io.BytesIO(country_lookup_bytes), sheet_name="region_lookup"
-            )
+            region_df = await storage_manager.get_lookup_df(sheet="region")
             region_df = region_df.drop_duplicates(subset=["Region"], keep="last")
             region_df.dropna(subset=["Region"], inplace=True)
             if "Region" != region_df.index.name:
@@ -131,12 +121,7 @@ async def add_alpha_code_3_column(source_df, country_col):
 
     """
     async with StorageManager() as storage_manager:
-        country_lookup_bytes = await storage_manager.cached_download(
-            source_path=COUNTRY_LOOKUP_CSV_PATH
-        )
-        country_df = pd.read_excel(
-            io.BytesIO(country_lookup_bytes), sheet_name="country_lookup"
-        )
+        country_df = storage_manager.get_lookup_df(sheet="country")
         country_df = country_df.rename(columns={"Country": country_col})
         return pd.merge(
             source_df,
@@ -163,12 +148,7 @@ async def fix_iso_country_codes(
 
     """
     async with StorageManager() as storage_manager:
-        country_lookup_bytes = await storage_manager.cached_download(
-            source_path=COUNTRY_LOOKUP_CSV_PATH
-        )
-        country_code_df = pd.read_excel(
-            io.BytesIO(country_lookup_bytes), sheet_name="country_code_lookup"
-        )
+        country_code_df = await storage_manager.get_lookup_df(sheet="country_code")
         for index, row in country_code_df.iterrows():
             if source_id is None or source_id == row.get("Only For Source ID"):
                 df.loc[(df[col] == row["ISO 3 Code"]), col] = row["UNDP ISO 3 Code"]
@@ -282,18 +262,9 @@ async def country_group_dataframe():
     async with StorageManager() as storage_manager:
         try:
             # Read the country and territory group DataFrame from JSON in Azure Blob Storage
-            df = pd.read_json(
-                io.BytesIO(
-                    await storage_manager.cached_download(
-                        source_path=os.path.join(
-                            storage_manager.ROOT_FOLDER,
-                            "config",
-                            "utilities",
-                            "country_territory_groups.json",
-                        )
-                    )
-                )
-            )
+            path = os.path.join("config", "utilities", "country_territory_groups.json")
+            data = await storage_manager.read_blob(path=path)
+            df = pd.read_json(io.BytesIO(data))
 
             # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
             df.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
@@ -307,19 +278,12 @@ async def country_group_dataframe():
 
             # TODO: Add the regions to the country group DataFrame
             # Read the aggregate territory group DataFrame from JSON in Azure Blob Storage
-            df_aggregates = pd.read_json(
-                io.BytesIO(
-                    await storage_manager.cached_download(
-                        source_path=os.path.join(
-                            storage_manager.ROOT_FOLDER,
-                            "config",
-                            "utilities",
-                            "aggregate_territory_groups.json",
-                        )
-                    )
-                )
+            path = os.path.join(
+                "config", "utilities", "aggregate_territory_groups.json"
             )
-            #
+            data = await storage_manager.read_blob(path=path)
+            df_aggregates = pd.read_json(io.BytesIO(data))
+
             # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
             df_aggregates.rename(
                 columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True
@@ -357,18 +321,11 @@ async def region_group_dataframe():
     async with StorageManager() as storage_manager:
         try:
             # Read the region group DataFrame from JSON in Azure Blob Storage
-            df = pd.read_json(
-                io.BytesIO(
-                    await storage_manager.cached_download(
-                        source_path=os.path.join(
-                            storage_manager.ROOT_FOLDER,
-                            "config",
-                            "utilities",
-                            "aggregate_territory_groups.json",
-                        )
-                    )
-                )
+            path = os.path.join(
+                "config", "utilities", "aggregate_territory_groups.json"
             )
+            data = await storage_manager.read_blob(path=path)
+            df = pd.read_json(io.BytesIO(data))
 
             # Rename the 'Alpha-3 code-1' column to 'Alpha-3 code'
             df.rename(columns={"Alpha-3 code-1": "Alpha-3 code"}, inplace=True)
@@ -398,7 +355,7 @@ def chunker(iterable, size):
 async def validate_indicator_transformed(
     storage_manager: StorageManager,
     indicator_id: str = None,
-    pre_update_checksum: str = None,
+    pre_update_checksum: str | None = None,
     df: pd.DataFrame = None,
 ):
     """
@@ -417,7 +374,6 @@ async def validate_indicator_transformed(
     assert indicator_id is not None, "Indicator ID is required"
     assert df is not None, "DataFrame is required"
     assert isinstance(df, pd.DataFrame), "DataFrame must be a pandas DataFrame"
-    assert pre_update_checksum is not None, "Base DataFrame checksum is required"
     try:
         indicator_configuration = await storage_manager.get_indicator_cfg(
             indicator_id=indicator_id
@@ -450,16 +406,14 @@ async def validate_indicator_transformed(
             )
 
         # Compare previous md5 checksum with current md5 checksum
-        md5_checksum = await storage_manager.get_md5_checksum(
-            blob_name=os.path.join(
-                storage_manager.ROOT_FOLDER,
-                "output",
-                "access_all_data",
-                "base",
-                base_file_name,
+        path = os.path.join("output", "access_all_data", "base", base_file_name)
+        md5_checksum = await storage_manager.get_md5(path=path)
+        if pre_update_checksum is None:
+            warnings.warn(
+                f"pre_update_checksum is None, indicating that the base file did not exist and was created after the transformation for indicator {indicator_id}.",
+                TransformationWarning,
             )
-        )
-        if md5_checksum == pre_update_checksum:
+        elif md5_checksum == pre_update_checksum:
             warnings.warn(
                 f"Base file {base_file_name} has not changed since the last transformation. This could be because of no new data since previous transformation, or that transformation failed for indicator {indicator_id}.",
                 TransformationWarning,
@@ -488,12 +442,8 @@ async def update_base_file(
     """
 
     async with StorageManager() as storage_manager:
-        pre_update_md5_checksum = await storage_manager.get_md5_checksum(
-            blob_name=os.path.join(
-                storage_manager.ROOT_FOLDER, "output", project, "base", blob_name
-            ),
-            data=df.to_csv().encode("utf-8"),
-        )
+        path = os.path.join("output", project, "base", blob_name)
+        pre_update_md5_checksum = await storage_manager.get_md5(path=path)
         try:
             # Reset the index of the DataFrame
             df.reset_index(inplace=True)
@@ -503,9 +453,7 @@ async def update_base_file(
 
             # Check if the blob file already exists in Azure Blob Storage
             blob_exists = await storage_manager.check_blob_exists(
-                blob_name=os.path.join(
-                    storage_manager.ROOT_FOLDER, "output", project, "base", blob_name
-                )
+                blob_name=os.path.join("output", project, "base", blob_name)
             )
 
             # Create an empty DataFrame for the keys
@@ -517,16 +465,9 @@ async def update_base_file(
             if blob_exists:
                 logger.info(f"Base file {blob_name} exists. Updating...")
                 # Download the base file as bytes and read it as a DataFrame
-                base_file_bytes = await storage_manager.cached_download(
-                    source_path=os.path.join(
-                        storage_manager.ROOT_FOLDER,
-                        "output",
-                        project,
-                        "base",
-                        blob_name,
-                    ),
-                )
-                base_file_df = pd.read_csv(io.BytesIO(base_file_bytes))
+                path = os.path.join("output", project, "base", blob_name)
+                data = await storage_manager.read_blob(path=path)
+                base_file_df = pd.read_csv(io.BytesIO(data))
                 # base_file_df = pd.DataFrame(columns=[STANDARD_KEY_COLUMN])
             else:
                 logger.info("Base file does not exist. Creating...")
@@ -582,15 +523,12 @@ async def update_base_file(
             # base_file_df.reset_index(inplace=True)
 
             # Define the destination path for the CSV file
-            destination_path = os.path.join(
-                storage_manager.ROOT_FOLDER, "output", project, "base", blob_name
-            )
-
-            await storage_manager.upload(
-                data=base_file_df.to_csv(encoding="utf-8"),
-                dst_path=destination_path,
-                overwrite=True,
+            path = os.path.join("output", project, "base", blob_name)
+            await storage_manager.upload_blob(
+                path_or_data_src=base_file_df.to_csv(encoding="utf-8"),
+                path_dst=path,
                 content_type="text/csv",
+                overwrite=True,
             )
 
             await validate_indicator_transformed(
@@ -611,54 +549,24 @@ async def list_command(
 ):
     async with StorageManager() as storage_manager:
         logger.debug("Connected to Azure blob")
-        if sources:
-            source_files = await storage_manager.list_sources_cfgs()
-            source_ids = [
-                os.path.split(sf)[-1].split(".cfg")[0].upper() for sf in source_files
-            ]
-
         if indicators:
-            indicator_files = [
-                indicator_blob.name
-                async for indicator_blob in storage_manager.list_indicators()
-            ]
+            indicator_files = await storage_manager.list_configs(kind="indicators")
             indicator_ids = [
                 os.path.split(sf)[-1].split(".cfg")[0] for sf in indicator_files
             ]
-        """
-            the code below could be sued if we decide to validate the configs and list only those that are valid
-        """
-        # if sources:
-        #     source_configs = await storage_manager.get_sources_cfgs()
-        #     source_ids = [scfg['source']['id'] for scfg in source_configs]
-        #
-        # if indicators:
-        #     indicator_configs = await storage_manager.get_indicators_cfg()
-        #     indicator_ids = [icfg['indicator']['indicator_id'] for icfg in indicator_configs]
-        if config:
-            keys = [
-                "ROOT_FOLDER",
-                "INDICATORS_CFG_PATH",
-                "SOURCES_CFG_PATH",
-                "UTILITIES_PATH",
-                "SOURCES_PATH",
-                "OUTPUT_PATH",
-                "container_name",
-                "conn_str",
-            ]
-            pipeline_cfg = {}
-            for k in keys:
-                pipeline_cfg[k] = getattr(storage_manager, k, None)
-
-        if indicators:
             logger.info(
                 f"{len(indicator_ids)} indicators were detected: {json.dumps(indicator_ids, indent=4)}"
             )
         if sources:
+            source_files = await storage_manager.list_configs(kind="sources")
+            source_ids = [
+                os.path.split(sf)[-1].split(".cfg")[0].upper() for sf in source_files
+            ]
             logger.info(
                 f"{len(source_ids)} indicator sources were detected: {json.dumps(source_ids, indent=4)}"
             )
         if config:
+            pipeline_cfg = {"container_name": storage_manager.container_name}
             logger.info(
                 f"Pipeline configuration: {json.dumps([pipeline_cfg], indent=4)}"
             )
@@ -762,14 +670,13 @@ async def base_df_for_indicator(
 
     # Create the base file path
     base_file_path = os.path.join(
-        storage_manager.OUTPUT_PATH, project, "base", base_file_name
+        storage_manager.output_path, project, "base", base_file_name
     )
 
     logger.info(f"downloading base file {base_file_name}")
     # Read the base file as a pandas DataFrame
-    base_file_df = pd.read_csv(
-        io.BytesIO(await storage_manager.cached_download(source_path=base_file_path))
-    )
+    data = await storage_manager.read_blob(path=base_file_path)
+    base_file_df = pd.read_csv(io.BytesIO(data))
 
     return base_file_df
 

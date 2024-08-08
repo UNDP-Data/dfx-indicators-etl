@@ -13,7 +13,7 @@ from typing import List
 import numpy as np
 import pandas as pd
 
-from ..constants import OUTPUT_FOLDER, STANDARD_KEY_COLUMN
+from ..constants import STANDARD_KEY_COLUMN
 from ..storage import StorageManager
 from ..utils import country_group_dataframe, region_group_dataframe
 
@@ -37,7 +37,7 @@ async def update_and_get_output_csv(
     Update the output csv file with the latest data
     """
     output_csv_file_path = os.path.join(
-        OUTPUT_FOLDER, project, f"output_{area_type}.csv"
+        storage_manager.output_path, project, f"output_{area_type}.csv"
     )
     logger.info(f"Reading current stored {output_csv_file_path} file...")
     if not await storage_manager.check_blob_exists(output_csv_file_path):
@@ -45,14 +45,14 @@ async def update_and_get_output_csv(
         output_df = output_df[[STANDARD_KEY_COLUMN]]
         output_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
         logger.info(f"Creating {output_csv_file_path}")
-        await storage_manager.upload(
-            dst_path=output_csv_file_path, data=output_df.to_csv(encoding="utf-8")
+        await storage_manager.upload_blob(
+            path_or_data_src=output_df.to_csv(encoding="utf-8"),
+            path_dst=output_csv_file_path,
         )
         output_df.reset_index(STANDARD_KEY_COLUMN, inplace=True)
     else:
-        output_df = pd.read_csv(
-            io.BytesIO(await storage_manager.download(blob_name=output_csv_file_path))
-        )
+        data = await storage_manager.read_blob(path=output_csv_file_path)
+        output_df = pd.read_csv(io.BytesIO(data))
 
     logger.info("Starting reading base files...")
     if indicator_cfgs is None:
@@ -61,7 +61,7 @@ async def update_and_get_output_csv(
         base_files_list = []
         for indicator_cfg in indicator_cfgs:
             base_file_path = os.path.join(
-                storage_manager.OUTPUT_PATH,
+                storage_manager.output_path,
                 project,
                 "base",
                 f"{indicator_cfg['indicator']['source_id']}.csv",
@@ -73,9 +73,8 @@ async def update_and_get_output_csv(
 
     async def read_base_df(base_file):
         logger.info(f"Reading base file {base_file.split('/')[-1]} to a dataframe...")
-        base_file_df = pd.read_csv(
-            io.BytesIO(await storage_manager.download(blob_name=base_file))
-        )
+        data = await storage_manager.read_blob(path=base_file)
+        base_file_df = pd.read_csv(io.BytesIO(data))
 
         return base_file_df, base_file
 
@@ -116,11 +115,11 @@ async def update_and_get_output_csv(
 
         # update indicator metadata in the indicator config with the information on when the data was last updated
     logger.info(f"Uploading {output_csv_file_path} to Azure Blob Storage...")
-    await storage_manager.upload(
-        data=output_df.to_csv(index=False).encode("utf-8"),
-        dst_path=output_csv_file_path,
-        overwrite=True,
+    await storage_manager.upload_blob(
+        path_or_data_src=output_df.to_csv(index=False).encode("utf-8"),
+        path_dst=output_csv_file_path,
         content_type="text/csv",
+        overwrite=True,
     )
 
     return output_df  # , base_df.columns.to_list()
@@ -265,33 +264,40 @@ async def generate_indicator_data(
     dataframe.reset_index(inplace=True)
     # dataframe = dataframe[[STANDARD_KEY_COLUMN] + country_dataframe.columns.to_list() + columns_list]
     # Upload json file to blob
-    await storage_manager.upload(
-        dst_path=os.path.join(OUTPUT_FOLDER, project, f"output_{area_type}.json"),
-        data=dataframe.to_json(orient="records").encode("utf-8"),
+    path = os.path.join(
+        storage_manager.output_path, project, f"output_{area_type}.json"
+    )
+    await storage_manager.upload_blob(
+        path_or_data_src=dataframe.to_json(orient="records").encode("utf-8"),
+        path_dst=path,
         content_type="application/json",
         overwrite=True,
     )
     # upload minified json file to blob
-    await storage_manager.upload(
-        dst_path=os.path.join(
-            OUTPUT_FOLDER, project, f"output_{area_type}_minified.json"
+    path = os.path.join(
+        storage_manager.output_path, project, f"output_{area_type}_minified.json"
+    )
+    await storage_manager.upload_blob(
+        path_or_data_src=dataframe.to_json(orient="records", indent=False).encode(
+            "utf-8"
         ),
-        data=dataframe.to_json(orient="records", indent=False).encode("utf-8"),
+        path_dst=path,
         content_type="application/json",
         overwrite=True,
     )
     upload_per_country_task = []
     for index in dataframe.index:
         row = dataframe.loc[index]
+        path = os.path.join(
+            storage_manager.output_path,
+            project,
+            f"Output{area_type.capitalize()}",
+            row[STANDARD_KEY_COLUMN] + ".json",
+        )
         task = asyncio.create_task(
-            storage_manager.upload(
-                dst_path=os.path.join(
-                    OUTPUT_FOLDER,
-                    project,
-                    f"Output{area_type.capitalize()}",
-                    row[STANDARD_KEY_COLUMN] + ".json",
-                ),
-                data=json.dumps(row.to_dict()).encode("utf-8"),
+            storage_manager.upload_blob(
+                path_or_data_src=json.dumps(row.to_dict()).encode("utf-8"),
+                path_dst=path,
                 content_type="application/json",
                 overwrite=True,
             )
@@ -462,18 +468,24 @@ async def process_latest_data(
     dataframe = dataframe.merge(country_dataframe)
 
     # Upload json file to blob
-    await storage_manager.upload(
-        dst_path=os.path.join(OUTPUT_FOLDER, project, f"output_{area_type}.json"),
-        data=dataframe.to_json(orient="records").encode("utf-8"),
+    path = os.path.join(
+        storage_manager.output_path, project, f"output_{area_type}.json"
+    )
+    await storage_manager.upload_blob(
+        path_or_data_src=dataframe.to_json(orient="records").encode("utf-8"),
+        path_dst=path,
         content_type="application/json",
         overwrite=True,
     )
     # upload minified json file to blob
-    await storage_manager.upload(
-        dst_path=os.path.join(
-            OUTPUT_FOLDER, project, f"output_{area_type}_minified.json"
+    path = os.path.join(
+        storage_manager.output_path, project, f"output_{area_type}_minified.json"
+    )
+    await storage_manager.upload_blob(
+        path_or_data_src=dataframe.to_json(orient="records", indent=False).encode(
+            "utf-8"
         ),
-        data=dataframe.to_json(orient="records", indent=False).encode("utf-8"),
+        path_dst=path,
         content_type="application/json",
         overwrite=True,
     )
@@ -481,16 +493,17 @@ async def process_latest_data(
 
     for index in dataframe.index:
         row = dataframe.iloc[index]
+        path = os.path.join(
+            storage_manager.output_path,
+            project,
+            f"Output{area_type.capitalize()}",
+            f"{row['Alpha-3 code']}.json",
+        )
         upload_tasks.append(
             asyncio.create_task(
-                storage_manager.upload(
-                    dst_path=os.path.join(
-                        OUTPUT_FOLDER,
-                        project,
-                        f"Output{area_type.capitalize()}",
-                        f"{row['Alpha-3 code']}.json",
-                    ),
-                    data=json.dumps(row.to_dict()).encode("utf-8"),
+                storage_manager.upload_blob(
+                    path_or_data_src=json.dumps(row.to_dict()).encode("utf-8"),
+                    path_dst=path,
                     content_type="application/json",
                     overwrite=True,
                 )
@@ -607,16 +620,17 @@ async def generate_output_per_indicator(
             }
 
             # Create an upload task for the indicator data
+            path = os.path.join(
+                storage_manager.output_path,
+                project,
+                "OutputIndicators",
+                f"{indicator}.json",
+            )
             upload_tasks.append(
                 asyncio.create_task(
-                    storage_manager.upload(
-                        dst_path=os.path.join(
-                            OUTPUT_FOLDER,
-                            project,
-                            "OutputIndicators",
-                            f"{indicator}.json",
-                        ),
-                        data=json.dumps(indicator_data).encode("utf-8"),
+                    storage_manager.upload_blob(
+                        path_or_data_src=json.dumps(indicator_data).encode("utf-8"),
+                        path_dst=path,
                         content_type="application/json",
                         overwrite=True,
                     )

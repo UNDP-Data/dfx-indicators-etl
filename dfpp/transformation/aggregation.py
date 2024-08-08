@@ -410,30 +410,19 @@ async def aggregate_indicator(project: str = None, indicator_id: str = None):
             logger.info(
                 f"Reading UNDP region lookup data for indicator_id {indicator_id}"
             )
+            path = os.path.join(storage_manager.UTILITIES_PATH, "country_lookup.xlsx")
+            data = await storage_manager.read_blob(path=path)
             undp_region_df = pd.read_excel(
-                io.BytesIO(
-                    await storage_manager.cached_download(
-                        source_path=os.path.join(
-                            storage_manager.UTILITIES_PATH, "country_lookup.xlsx"
-                        )
-                    )
-                ),
-                sheet_name="undp_region_taxonomy",
+                io.BytesIO(data), sheet_name="undp_region_taxonomy"
             )
             undp_region_df.dropna(subset=["region_old"], inplace=True)
             grouped_region = undp_region_df.groupby("region")
 
             logger.info(f"Reading population data for indicator_id {indicator_id}")
             # Read population data
-            population_df = pd.read_csv(
-                io.BytesIO(
-                    await storage_manager.cached_download(
-                        source_path=os.path.join(
-                            storage_manager.UTILITIES_PATH, "population.csv"
-                        )
-                    )
-                )
-            )
+            path = os.path.join(storage_manager.UTILITIES_PATH, "population.csv")
+            data = await storage_manager.read_blob(path=path)
+            population_df = pd.read_csv(io.BytesIO(data))
             population_df = population_df.reindex(sorted(population_df.columns), axis=1)
             population_df.set_index(STANDARD_KEY_COLUMN, inplace=True)
 

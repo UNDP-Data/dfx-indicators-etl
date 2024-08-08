@@ -66,14 +66,12 @@ async def download_for_indicator(
     indicator_cfg: dict[str, Any],
     source_cfg: dict[str, Any],
     storage_manager: StorageManager,
-    sync_upload=True,
 ):
     """
 
     :param indicator_cfg:
     :param source_cfg:
     :param storage_manager:
-    :param sync_upload: default=False, use sync blob client to upload
     :return: number of downloaded/uploaded bytes
     """
     source_id = indicator_cfg["indicator"]["source_id"]
@@ -121,21 +119,16 @@ async def download_for_indicator(
     if data is not None:
 
         dst_path = os.path.join(
-            storage_manager.SOURCES_PATH, source_cfg["source"]["save_as"]
+            storage_manager.sources_path, source_cfg["source"]["save_as"]
         )
-        if sync_upload is False:
-            await asyncio.create_task(
-                storage_manager.upload(
-                    data=data,
-                    content_type=content_type,
-                    dst_path=dst_path,
-                    overwrite=True,
-                )
+        await asyncio.create_task(
+            storage_manager.upload_blob(
+                path_or_data_src=data,
+                path_dst=dst_path,
+                content_type=content_type,
+                overwrite=True,
             )
-        else:
-            await storage_manager.upload(
-                data=data, content_type=content_type, dst_path=dst_path, overwrite=True
-            )
+        )
 
         return len(data)
     else:
