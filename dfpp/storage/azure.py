@@ -397,21 +397,18 @@ class StorageManager:
         await blob_client_dst.start_copy_from_url(blob_client_src.url)
         return await blob_client_dst.exists()
 
-    async def list_base_files(self) -> list[str]:
-        pattern = os.path.join(self.output_path, "access_all_data", "base/")
-        blobs = self.container_client.list_blobs(name_starts_with=pattern)
-        return [blob.name async for blob in blobs]
-
-    async def list_blobs(self, prefix=None):
+    async def list_blobs(self, prefix: str | None = None):
         """
         List
         :param prefix:
         :return:
         """
-        return [
-            blob.name
-            async for blob in self.container_client.list_blobs(name_starts_with=prefix)
-        ]
+        blobs = self.container_client.list_blobs(name_starts_with=prefix)
+        return [blob.name async for blob in blobs]
+
+    async def list_base_files(self) -> list[str]:
+        prefix = os.path.join(self.output_path, "access_all_data", "base/")
+        return await self.list_blobs(prefix)
 
     async def get_lookup_df(
         self, sheet: Literal["country", "region", "country_code"]
