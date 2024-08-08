@@ -51,17 +51,25 @@ class StorageManager:
             f"\t OUTPUT_PATH: {self.output_path}\n"
         )
 
-    async def get_md5(self, blob_name: str) -> str:
+    async def get_md5(self, path: str) -> str:
         """
-        :param blob_name:
-        :return:
-        """
-        if not isinstance(blob_name, str):
-            raise ValueError("blob_name must be a valid string None")
-        elif not await self.check_blob_exists(blob_name):
-            raise ValueError(f"Blob {blob_name} does not exist.")
+        Get MD5 hash of a blob.
 
-        blob_client = self.container_client.get_blob_client(blob=blob_name)
+        Parameters
+        ----------
+        path : str
+            Path to a blob.
+
+        Returns
+        -------
+        str
+            MD5 hash of the blob.
+        """
+        if not isinstance(path, str):
+            raise ValueError("blob_name must be a valid string None")
+        blob_client = self.container_client.get_blob_client(blob=path)
+        if not await blob_client.exists():
+            raise ValueError(f"Blob at {path} does not exist.")
         properties = await blob_client.get_blob_properties()
         return properties["content_settings"]["content_md5"]
 

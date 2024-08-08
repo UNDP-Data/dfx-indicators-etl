@@ -406,9 +406,8 @@ async def validate_indicator_transformed(
             )
 
         # Compare previous md5 checksum with current md5 checksum
-        md5_checksum = await storage_manager.get_md5(
-            blob_name=os.path.join("output", "access_all_data", "base", base_file_name)
-        )
+        path = os.path.join("output", "access_all_data", "base", base_file_name)
+        md5_checksum = await storage_manager.get_md5(path=path)
         if pre_update_checksum is None:
             warnings.warn(
                 f"pre_update_checksum is None, indicating that the base file did not exist and was created after the transformation for indicator {indicator_id}.",
@@ -443,9 +442,8 @@ async def update_base_file(
     """
 
     async with StorageManager() as storage_manager:
-        pre_update_md5_checksum = await storage_manager.get_md5(
-            blob_name=os.path.join("output", project, "base", blob_name),
-        )
+        path = os.path.join("output", project, "base", blob_name)
+        pre_update_md5_checksum = await storage_manager.get_md5(path=path)
         try:
             # Reset the index of the DataFrame
             df.reset_index(inplace=True)
