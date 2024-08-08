@@ -550,10 +550,7 @@ async def list_command(
     async with StorageManager() as storage_manager:
         logger.debug("Connected to Azure blob")
         if indicators:
-            indicator_files = [
-                blob_name
-                async for blob_name in storage_manager.list_configs(kind="indicators")
-            ]
+            indicator_files = await storage_manager.list_configs(kind="indicators")
             indicator_ids = [
                 os.path.split(sf)[-1].split(".cfg")[0] for sf in indicator_files
             ]
@@ -561,10 +558,7 @@ async def list_command(
                 f"{len(indicator_ids)} indicators were detected: {json.dumps(indicator_ids, indent=4)}"
             )
         if sources:
-            source_files = [
-                blob_name
-                async for blob_name in storage_manager.list_configs(kind="sources")
-            ]
+            source_files = await storage_manager.list_configs(kind="sources")
             source_ids = [
                 os.path.split(sf)[-1].split(".cfg")[0].upper() for sf in source_files
             ]

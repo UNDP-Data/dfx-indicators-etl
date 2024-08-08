@@ -4,13 +4,13 @@ import logging
 import math
 import os
 from io import BytesIO
-from typing import Any, AsyncGenerator, Literal
+from typing import Any, Literal
 
 import pandas as pd
 from azure.storage.blob import ContentSettings
 from azure.storage.blob.aio import BlobPrefix, ContainerClient
 
-from ..common import cfg2dict, dict2cfg
+from ..common import cfg2dict
 from ..exceptions import ConfigError
 from .utils import *
 
@@ -73,19 +73,17 @@ class StorageManager:
         properties = await blob_client.get_blob_properties()
         return properties["content_settings"]["content_md5"]
 
-    async def list_configs(
-        self, kind: Literal["indicators", "sources"]
-    ) -> AsyncGenerator[str, None]:
+    async def list_configs(self, kind: Literal["indicators", "sources"]) -> list[str]:
         path = getattr(self, f"{kind}_cfg_path")
         logger.info(f"Listing {kind} configs at {path}")
+        blob_names = []
         async for blob in self.container_client.list_blobs(name_starts_with=path):
             if isinstance(blob, BlobPrefix):
                 continue
             elif not blob.name.endswith(".cfg"):
                 continue
-            elif kind not in blob.name:
-                continue
-            yield blob.name
+            blob_names.append(blob.name)
+        return blob_names
 
     async def get_indicator_cfg(self, indicator_id_or_path: str):
         if not isinstance(indicator_id_or_path, str):
@@ -127,7 +125,7 @@ class StorageManager:
         self, contain_filter: str = None, indicator_ids: list[str] = None
     ):
         if indicator_ids is None:
-            indicators = [name async for name in self.list_configs(kind="indicators")]
+            indicators = await self.list_configs(kind="indicators")
         else:
             indicators = indicator_ids
         tasks = []
@@ -175,7 +173,7 @@ class StorageManager:
 
     async def get_sources_cfgs(self, source_ids: list[str] = None):
         if source_ids is None:
-            sources = [name async for name in self.list_configs(kind="sources")]
+            sources = await self.list_configs(kind="sources")
         else:
             sources = source_ids
         tasks = []
