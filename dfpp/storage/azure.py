@@ -1,123 +1,39 @@
-import ast
 import asyncio
 import configparser
-import hashlib
-import itertools
 import logging
 import math
 import os
-import tempfile
-from typing import Any, Dict, List, Optional
+from io import BytesIO
+from typing import Any, Literal
 
-from azure.storage.blob import ContainerClient, ContentSettings
-from azure.storage.blob.aio import BlobPrefix
-from azure.storage.blob.aio import ContainerClient as AContainerClient
+import pandas as pd
+from azure.storage.blob import ContentSettings
+from azure.storage.blob.aio import BlobPrefix, ContainerClient
 
-from ..common import cfg2dict, dict2cfg
+from ..common import cfg2dict
 from ..exceptions import ConfigError
+from .utils import *
 
 logger = logging.getLogger(__name__)
-ROOT_FOLDER = os.environ.get("ROOT_FOLDER")
-AZURE_STORAGE_CONNECTION_STRING = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
-AZURE_STORAGE_CONTAINER_NAME = os.environ.get("AZURE_STORAGE_CONTAINER_NAME")
-MANDATORY_SOURCE_COLUMNS = "id", "url", "save_as"
-TMP_SOURCES = {}
-
-
-class UnescapedConfigParser(configparser.RawConfigParser):
-    """
-    An extension of the RawConfigParser that does not escape values when reading from a file.
-    """
-
-    def get(self, section, option, **kwargs):
-        """
-        Get the value of an option.
-        :param section: The section of the config file.
-        :param option: The option to get the value of.
-        :param kwargs: The keyword arguments.
-        :return:
-        """
-        value = super().get(section, option, **kwargs)
-        try:
-            return value.encode().decode("unicode_escape")
-        except AttributeError:
-            return value
-
-
-def chunker(iterable, size):
-    it = iter(iterable)
-    while True:
-        chunk = tuple(itertools.islice(it, size))
-        if not chunk:
-            break
-        yield chunk
-
-
-def validate_src_cfg(cfg_dict=None, cfg_file_path=None):
-    """
-    Validate a source config file
-    :param cfg_dict:
-    :param cfg_file_path:
-    :return:
-    """
-    assert cfg_dict is not None, f"Invalid source config {cfg_dict}"
-    assert cfg_dict != {}, f"Invalid source config {cfg_dict}"
-
-    for k in MANDATORY_SOURCE_COLUMNS:
-        v = cfg_dict[k]
-        try:
-            v_parsed = ast.literal_eval(v)
-            assert (
-                v_parsed is not None
-            ), f"{k} key {cfg_file_path} needs to be a valid string. Current value is {v}"
-        except AssertionError:
-            raise
-        except Exception as e:
-            pass
-
-        assert k in cfg_dict, f"{cfg_file_path} needs to contain {k} key"
-        assert isinstance(
-            v, str
-        ), f"{cfg_file_path}'s {k} key needs to be a string. Current value is {type(v)}"
-        assert (
-            v
-        ), f"{cfg_file_path}'s {k} key needs to be a valid string. Current value is {v}"
 
 
 class StorageManager:
-    REL_INDICATORS_CFG_PATH = "config/indicators"
-    REL_SOURCES_CFG_PATH = "config/sources"
-    REL_UTILITIES_PATH = "config/utilities"
-    REL_SOURCES_PATH = "sources/raw"
-    REL_OUTPUT_PATH = "output"
 
-    def __init__(
-        self,
-        connection_string: str = AZURE_STORAGE_CONNECTION_STRING,
-        container_name: str = AZURE_STORAGE_CONTAINER_NAME,
-        root_folder=ROOT_FOLDER,
-        clear_cache: bool = False,
-    ):
-        self.conn_str = connection_string
-        self.container_name = container_name
-        self.container_client = AContainerClient.from_connection_string(
-            conn_str=self.conn_str, container_name=self.container_name
-        )
-        self.sync_container_client = ContainerClient.from_connection_string(
-            conn_str=self.conn_str, container_name=self.container_name
+    def __init__(self, clear_cache: bool = False):
+        self.container_client = ContainerClient.from_container_url(
+            container_url=os.environ["AZURE_STORAGE_SAS_URL"]
         )
         self.clear_cache = clear_cache
-        self.ROOT_FOLDER = root_folder
-        self.INDICATORS_CFG_PATH = os.path.join(
-            self.ROOT_FOLDER, self.REL_INDICATORS_CFG_PATH
-        )
-        self.SOURCES_CFG_PATH = os.path.join(
-            self.ROOT_FOLDER, self.REL_SOURCES_CFG_PATH
-        )
-        self.UTILITIES_PATH = os.path.join(self.ROOT_FOLDER, self.REL_UTILITIES_PATH)
-        self.SOURCES_PATH = os.path.join(self.ROOT_FOLDER, self.REL_SOURCES_PATH)
-        self.OUTPUT_PATH = os.path.join(self.ROOT_FOLDER, self.REL_OUTPUT_PATH)
-        self.BACKUP_PATH = os.path.join(self.ROOT_FOLDER, "backup")
+        self.indicators_cfg_path = "config/indicators"
+        self.sources_cfg_path = "config/sources"
+        self.utilities_path = "config/utilities"
+        self.sources_path = "sources/raw"
+        self.output_path = "output"
+        self.backup_path = "backup"
+
+    @property
+    def container_name(self) -> str:
+        return self.container_client.container_name
 
     async def __aenter__(self):
         return self
@@ -128,101 +44,75 @@ class StorageManager:
     def __str__(self):
         return (
             f"{self.__class__.__name__}\n"
-            f'\t connected to container "{self.container_name}"\n'
-            f"\t ROOT_FOLDER: {self.ROOT_FOLDER}\n"
-            f"\t INDICATORS_CFG_PATH: {self.INDICATORS_CFG_PATH}\n"
-            f"\t SOURCES_CFG_PATH: {self.SOURCES_CFG_PATH}\n"
-            f"\t UTILITIES_PATH: {self.UTILITIES_PATH}\n"
-            f"\t SOURCES_PATH: {self.SOURCES_PATH}\n"
-            f"\t OUTPUT_PATH: {self.OUTPUT_PATH}\n"
+            f"\t INDICATORS_CFG_PATH: {self.indicators_cfg_path}\n"
+            f"\t SOURCES_CFG_PATH: {self.sources_cfg_path}\n"
+            f"\t UTILITIES_PATH: {self.utilities_path}\n"
+            f"\t SOURCES_PATH: {self.sources_path}\n"
+            f"\t OUTPUT_PATH: {self.output_path}\n"
         )
 
-    async def get_md5_checksum(self, blob_name: str = None, data: bytes = None):
+    async def get_md5(self, path: str) -> str:
         """
-        :param blob_name:
-        :param data:
-        :return:
+        Get MD5 hash of a blob.
+
+        Parameters
+        ----------
+        path : str
+            Path to a blob.
+
+        Returns
+        -------
+        str
+            MD5 hash of the blob.
         """
-        assert blob_name is not None, f"blob_name is None"
-        # assert await self.check_blob_exists(blob_name), f'Blob {blob_name} does not exist'
-        if await self.check_blob_exists(blob_name):
-            blob_client = self.container_client.get_blob_client(blob=blob_name)
-            properties = await blob_client.get_blob_properties()
-            return properties["content_settings"]["content_md5"]
+        if not isinstance(path, str):
+            raise ValueError("blob_name must be a valid string None")
+        blob_client = self.container_client.get_blob_client(blob=path)
+        if not await blob_client.exists():
+            raise ValueError(f"Blob at {path} does not exist.")
+        properties = await blob_client.get_blob_properties()
+        return properties["content_settings"]["content_md5"]
+
+    async def list_configs(self, kind: Literal["indicators", "sources"]) -> list[str]:
+        path = getattr(self, f"{kind}_cfg_path")
+        logger.info(f"Listing {kind} configs at {path}")
+        blob_names = []
+        async for blob in self.container_client.list_blobs(name_starts_with=path):
+            if isinstance(blob, BlobPrefix):
+                continue
+            elif not blob.name.endswith(".cfg"):
+                continue
+            blob_names.append(blob.name)
+        return blob_names
+
+    async def get_indicator_cfg(self, indicator_id_or_path: str):
+        if not isinstance(indicator_id_or_path, str):
+            raise ValueError("indicator_id_or_path must be a valid string")
+
+        if indicator_id_or_path.endswith(".cfg"):
+            *_, indicator_name = os.path.split(indicator_id_or_path)
+            indicator_id, _ = os.path.splitext(indicator_name)
+            indicator_path = indicator_id_or_path
         else:
-            if data is not None:
-                md5_hash = hashlib.md5(data).hexdigest()
-                return md5_hash
-            else:
-                raise ValueError("Data is None and the blob does not exist.")
-
-    async def list_indicators(self):
-        logger.info(f"Listing {self.INDICATORS_CFG_PATH}")
-        async for blob in self.container_client.list_blobs(
-            name_starts_with=self.INDICATORS_CFG_PATH
-        ):
-            if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and "indicators" in blob.name
-            ):
-                yield blob
-
-    async def list_sources_cfgs(self):
-        """
-        List all the source cfgs in the container
-        :return:
-        """
-        logger.info(f"Listing {self.SOURCES_CFG_PATH}")
-        cfgs = []
-        async for blob in self.container_client.list_blobs(
-            name_starts_with=self.SOURCES_CFG_PATH
-        ):
-            if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and "sources" in blob.name
-            ):
-                cfgs.append(blob.name)
-        return cfgs
-
-    async def get_indicator_cfg(self, indicator_id: str = None, indicator_path=None):
+            indicator_id = indicator_id_or_path
+            indicator_path = (
+                f"{os.path.join(self.indicators_cfg_path, indicator_id)}.cfg"
+            )
 
         try:
-            if indicator_id:
-                assert (
-                    indicator_path is None
-                ), f"use either indicator_id or indicator_path"
-                indicator_path = (
-                    f"{os.path.join(self.INDICATORS_CFG_PATH, indicator_id)}.cfg"
-                )
-            else:
-                _, indicator_name = os.path.split(indicator_path)
-                indicator_id, ext = os.path.splitext(indicator_name)
-
-            assert await self.check_blob_exists(
-                indicator_path
-            ), f"Indicator {indicator_id} located at {indicator_path} does not exist"
-
-            # TODO caching
-
+            if not await self.check_blob_exists(indicator_path):
+                raise ValueError(f"Blob {indicator_path} does not exist.")
             logger.info(
                 f"Fetching indicator cfg for {indicator_id} from  {indicator_path}"
             )
-            # stream = await self.container_client.download_blob(
-            #     indicator_path, max_concurrency=8
-            # )
-            # content = await stream.readall()
 
-            content = await self.cached_download(source_path=indicator_path)
+            content = await self.read_blob(path=indicator_path)
             content_str = content.decode("utf-8")
 
             parser = configparser.ConfigParser(interpolation=None)
             parser.read_string(content_str)
             if "indicator" in parser:
-
                 return cfg2dict(parser)
-
             else:
                 raise Exception(
                     f"Indicator  {indicator_id} located at {indicator_path} does not contain an 'indicator' section"
@@ -232,60 +122,41 @@ class StorageManager:
             raise
 
     async def get_indicators_cfg(
-        self, contain_filter: str = None, indicator_ids: List = None
+        self, contain_filter: str = None, indicator_ids: list[str] = None
     ):
-
-        tasks = []
-
-        if contain_filter:
-            async for indicator_blob in self.list_indicators():
-
-                if contain_filter and contain_filter not in indicator_blob.name:
-                    continue
-
-                t = asyncio.create_task(
-                    self.get_indicator_cfg(indicator_path=indicator_blob.name)
-                )
-                tasks.append(t)
+        if indicator_ids is None:
+            indicators = await self.list_configs(kind="indicators")
         else:
-            if indicator_ids is None:
-                async for indicator_blob in self.list_indicators():
-                    t = asyncio.create_task(
-                        self.get_indicator_cfg(indicator_path=indicator_blob.name)
-                    )
-                    tasks.append(t)
-            else:
-                if indicator_ids:
-                    for indicator_id in indicator_ids:
-                        t = asyncio.create_task(
-                            self.get_indicator_cfg(indicator_id=indicator_id)
-                        )
-                        tasks.append(t)
+            indicators = indicator_ids
+        tasks = []
+        for indicator in indicators:
+            if contain_filter is not None and contain_filter not in indicator:
+                continue
+            t = asyncio.create_task(
+                self.get_indicator_cfg(indicator_id_or_path=indicator)
+            )
+            tasks.append(t)
         results = await asyncio.gather(*tasks)
         return [e for e in results if e]
 
-    async def get_source_cfg(self, source_id=None, source_path=None):
+    async def get_source_cfg(self, source_id_or_path: str):
+        if not isinstance(source_id_or_path, str):
+            raise ValueError("source_id_or_path must be a valid string")
+
+        if source_id_or_path.endswith(".cfg"):
+            *_, source_name = os.path.split(source_id_or_path)
+            source_id, _ = os.path.splitext(source_name)
+            source_path = source_id_or_path
+        else:
+            source_id = source_id_or_path
+            source_path = f"{os.path.join(self.sources_cfg_path, source_id.lower(), source_id.lower())}.cfg"
+
         try:
-            if source_id:
-                assert source_path is None, f"use either source_id or source_path"
-                source_path = f'{os.path.join(self.SOURCES_CFG_PATH, source_id.lower(), f"{source_id.lower()}.cfg")}'
-                _, source_name = os.path.split(source_path)
-            else:
-                _, source_name = os.path.split(source_path)
-                source_id, ext = os.path.splitext(source_name)
-
-            # if 'wbentp1_wb' in indicator_path:raise Exception('forced')
             logger.debug(f"Checking if {source_path} exists")
-            assert await self.check_blob_exists(
-                source_path
-            ), f"Source {source_id} located at {source_path} does not exist"
-
+            if not await self.check_blob_exists(source_path):
+                raise ValueError(f"Source {source_id} at {source_path} does not exist")
             logger.info(f"Fetching source cfg  for {source_id} from  {source_path}")
-            # stream = await self.container_client.download_blob(
-            #     source_path, max_concurrency=8
-            # )
-            # content = await stream.readall()
-            content = await self.cached_download(source_path=source_path)
+            content = await self.read_blob(path=source_path)
             logger.debug(f"Downloaded {source_path}")
             content_str = content.decode("utf-8")
 
@@ -300,37 +171,22 @@ class StorageManager:
             logger.error(e)
             raise
 
-    async def get_sources_cfgs(self, source_ids: List[str] = None):
-        """
-        Download and parse source config file of indicators
-        :param source_ids:
-        :return:
-        """
-        tasks = []
+    async def get_sources_cfgs(self, source_ids: list[str] = None):
         if source_ids is None:
-            for source_cfg_path in await self.list_sources_cfgs():
-                source_id = os.path.split(source_cfg_path)[1].split(".")[0]
-                t = asyncio.create_task(self.get_source_cfg(source_id=source_id))
-                tasks.append(t)
+            sources = await self.list_configs(kind="sources")
         else:
-            if source_ids:
-                for source_id in source_ids:
-                    t = asyncio.create_task(self.get_source_cfg(source_id=source_id))
-                    tasks.append(t)
+            sources = source_ids
+        tasks = []
+        for source in sources:
+            t = asyncio.create_task(self.get_source_cfg(source_id_or_path=source))
+            tasks.append(t)
         results = await asyncio.gather(*tasks)
-
         return [e for e in results if e]
 
     async def close(self):
         await self.container_client.close()
-        if self.clear_cache:
-            for k, v in TMP_SOURCES.items():
-                exists = os.path.exists(v)
-                if exists:
-                    logger.info(f"Removing cache {v} for source {k} ")
-                    os.remove(v)
 
-    async def get_utility_file(self, utility_file: str) -> Dict[str, Dict[str, Any]]:
+    async def get_utility_file(self, utility_file: str) -> dict[str, dict[str, Any]]:
         """
         Asynchronously retrieves a specified utility configuration file from the Azure Blob Container,
         parses it, and returns its content as a dictionary.
@@ -347,8 +203,9 @@ class StorageManager:
 
         """
         # os.path.join doesn't work for filtering returned Azure blob paths
-        prefix = f"{self.UTILITIES_PATH}"
-        async for blob in self.container_client.list_blobs(name_starts_with=prefix):
+        async for blob in self.container_client.list_blobs(
+            name_starts_with=self.utilities_path
+        ):
             if (
                 not isinstance(blob, BlobPrefix)
                 and blob.name.endswith(".cfg")
@@ -380,238 +237,189 @@ class StorageManager:
         blob_client = self.container_client.get_blob_client(blob=blob_name)
         return await blob_client.exists()
 
-    async def upload(
+    async def upload_blob(
         self,
-        dst_path: str = None,
-        src_path: str = None,
-        data: bytes = None,
-        content_type: str = None,
+        path_or_data_src: str | bytes,
+        path_dst: str,
+        content_type: str | None = None,
         overwrite: bool = True,
-    ) -> None:
+    ) -> str:
         """
-            Uploads a file or bytes data to Azure Blob Storage.
+        Uploads a file to Azure Blob Container.
 
-        async def upload(self, dst_path: str = None, src_path: str = None, content_type=None,
-                         overwrite: bool = True) -> None:
-            Args:
-                dst_path (str, optional): The path of the destination blob in Azure Blob Storage. Defaults to None.
-                src_path (str, optional): The local path of the file to upload. Either src_path or data must be provided. Defaults to None.
-                data (bytes, optional): The bytes data to upload. Either src_path or data must be provided. Defaults to None.
-                content_type (str, optional): The content type of the blob. Defaults to None.
-                overwrite (bool, optional): Whether to overwrite the destination blob if it already exists. Defaults to True.
+        Parameters
+        ----------
+        path_or_data_src : str | bytes
+            Source path or data to upload.
+        path_dst : str
+            Destination path to upload to.
+        content_type : str, optional
+            Content data type.
+        overwrite : bool, default=True
+            Flag to overwrite existing file if it exists.
 
-            Raises:
-                ValueError: If neither src_path nor data are provided.
-
-            Returns:
-                None
+        Returns
+        -------
+        path_dst : str
+            Destination path the blob was uploaded to.
         """
+        if isinstance(path_or_data_src, bytes):
+            data = path_or_data_src
+        elif isinstance(path_or_data_src, str):
+            with open(path_or_data_src, "rb") as file:
+                data = file.read()
+        else:
+            raise ValueError("src_path_data must be bytes or str")
+
+        async def _progress_(current: int, total: int) -> None:
+            print(total)
+            progress = current / total * 100
+            rounded_progress = int(math.floor(progress))
+            logger.info(f"{path_dst} was uploaded - {rounded_progress}%")
 
         try:
-
-            _, blob_name = os.path.split(dst_path)
-
-            async def _progress_(current, total) -> None:
-                print(total)
-                progress = current / total * 100
-                rounded_progress = int(math.floor(progress))
-                logger.info(f"{blob_name} was uploaded - {rounded_progress}%")
-
-            blob_client = self.container_client.get_blob_client(blob=dst_path)
-            if src_path:
-                with open(src_path, "rb") as f:
-                    logger.debug(f"Uploading {src_path} to {dst_path}")
-                    await blob_client.upload_blob(
-                        data=f,
-                        overwrite=overwrite,
-                        content_settings=ContentSettings(content_type=content_type),
-                        progress_hook=_progress_,
-                    )
-            elif data:
-                logger.debug(f"Uploading bytes/data to {dst_path}")
-                await blob_client.upload_blob(
-                    data=data,
-                    overwrite=overwrite,
-                    content_settings=ContentSettings(content_type=content_type),
-                    progress_hook=_progress_,
-                )
-            else:
-                raise ValueError("Either 'src_path' or 'data' must be provided.")
-        except Exception as e:
-            raise e
-
-    def sync_upload(
-        self,
-        dst_path: str = None,
-        src_path: str = None,
-        data: bytes = None,
-        content_type: str = None,
-        overwrite: bool = True,
-        max_concurrency: int = 8,
-    ):
-
-        try:
-
-            _, blob_name = os.path.split(dst_path)
-
-            def _progress_(current, total) -> None:
-                progress = current / total * 100
-                rounded_progress = int(math.floor(progress))
-                logger.info(f"{blob_name} was uploaded - {rounded_progress}%")
-
-            blob_client = self.sync_container_client.get_blob_client(blob=dst_path)
-            if src_path:
-                with open(src_path, "rb") as f:
-                    logger.debug(f"Uploading {src_path} to {dst_path}")
-                    blob_client.upload_blob(
-                        data=f,
-                        overwrite=overwrite,
-                        content_settings=ContentSettings(content_type=content_type),
-                        progress_hook=_progress_,
-                        max_concurrency=max_concurrency,
-                    )
-            elif data:
-                logger.debug(f"Uploading bytes/data to {dst_path}")
-                blob_client.upload_blob(
-                    data=data,
-                    overwrite=overwrite,
-                    content_settings=ContentSettings(content_type=content_type),
-                    progress_hook=_progress_,
-                    max_concurrency=max_concurrency,
-                )
-            else:
-                raise ValueError("Either 'src_path' or 'data' must be provided.")
-        except Exception as e:
-            raise e
-
-    async def download(
-        self,
-        blob_name: str = None,
-        dst_path: str = None,
-    ) -> Optional[bytes]:
-        """
-        Downloads a file from Azure Blob Storage and returns its data or saves it to a local file.
-
-        Args:
-            blob_name (str, optional): The name of the blob to download. Defaults to None.
-            dst_path (str, optional): The local path to save the downloaded file. If not provided, the file data is returned instead of being saved to a file. Defaults to None.
-
-        Returns:
-            bytes or None: The data of the downloaded file, or None if a dst_path argument is provided.
-        """
-        # _, b_name = os.path.split(blob_name)
-        #
-        # async def _progress_(current, total) -> None:
-        #     progress = current / total * 100
-        #     rounded_progress = int(math.floor(progress))
-        #     logger.info(f'{b_name} was downloaded - {rounded_progress}%')
-        try:
-            logger.debug(f"Downloading {blob_name}")
-            blob_client = self.container_client.get_blob_client(blob=blob_name)
-            chunk_list = []
-            stream = await blob_client.download_blob()
-            async for chunk in stream.chunks():
-                chunk_list.append(chunk)
-
-            data = b"".join(chunk_list)
-            logger.debug(f"Finished downloading {blob_name}")
-            if dst_path:
-                with open(dst_path, "wb") as f:
-                    f.write(data)
-                return None
-            else:
-                return data
-        except Exception as e:
-            print(e)
-
-    async def delete_blob(self, blob_path):
-        """
-        :param blob_path:
-        :return:
-        """
-        return await self.container_client.delete_blob(blob_path)
-
-    async def copy_blob(self, source_blob_name: str, destination_blob_name: str):
-        """
-        Copy a blob from a source to a destination
-        :param source_blob_name:
-        :param destination_blob_name:
-        :return:
-        """
-        source_blob = self.container_client.get_blob_client(blob=source_blob_name)
-        destination_blob = self.container_client.get_blob_client(
-            blob=destination_blob_name
-        )
-        return await destination_blob.start_copy_from_url(source_blob.url)
-
-    async def list_base_files(self, indicator_ids=None):
-        """
-        List
-        :param indicator_id:
-        :return:
-        """
-        return [
-            blob.name
-            async for blob in self.container_client.list_blobs(
-                name_starts_with=os.path.join(
-                    self.OUTPUT_PATH, "access_all_data", "base/"
-                )
+            blob_client = self.container_client.get_blob_client(blob=path_dst)
+            await blob_client.upload_blob(
+                data=data,
+                overwrite=overwrite,
+                content_settings=ContentSettings(content_type=content_type),
+                progress_hook=_progress_,
             )
-        ]
+            logger.debug(f"Uploading bytes/data to {path_dst}")
+        except Exception as e:
+            logger.error(f"Failed to upload the blob to {path_dst}: {e}")
+        else:
+            return path_dst
 
-    async def upload_cfg(self, cfg_dict=None, cfg_path=None):
+    async def read_blob(self, path: str) -> bytes:
         """
-        Upload a config file to azure storage
-        :param cfg_dict:
-        :param cfg_path:
-        :return:
-        """
-        parser = dict2cfg(cfg_dict=cfg_dict)
-        content = parser.write_string()
-        content_bytes = content.encode("utf-8")
-        await self.upload(
-            dst_path=cfg_path, data=content_bytes, content_type="text/plain"
-        )
+        Read a blob from Azure Blob Storage.
 
-    async def list_blobs(self, prefix=None):
+        Parameters
+        ----------
+        path : str
+            Path to the blob to read.
+
+        Returns
+        -------
+        data : bytes
+            Blob data as bytes.
+        """
+        logger.debug(f"Checking in the blob at {path} exists")
+        blob_client = self.container_client.get_blob_client(blob=path)
+        if not await blob_client.exists():
+            raise ValueError(f"Blob at {path} does not exist")
+
+        try:
+            logger.debug(f"Reading the blob at {path}")
+            blob = await blob_client.download_blob()
+            data = await blob.readall()
+        except Exception as e:
+            logger.error(f"Failed to read the blob at {path}: {e}")
+        else:
+            return data
+
+    async def download_blob(self, path_src: str, path_dst: str | None = None) -> str:
+        """
+        Download a blob from Azure Blob Storage to a local storage.
+
+        Parameters
+        ----------
+        path_src : str
+            Source path to download the blob from.
+        path_dst : str, optional
+            Destination path to save the blob to. If not provided, saves to the blob using its original name
+            to the current directory.
+
+        Returns
+        -------
+        path_dst : str
+            Destination path the blob was downloaded to.
+        """
+        logger.debug(f"Checking in the blob at {path_src} exists")
+        blob_client = self.container_client.get_blob_client(blob=path_src)
+        if not await blob_client.exists():
+            raise ValueError(f"Blob at {path_src} does not exist")
+
+        if isinstance(path_dst, str):
+            pass
+        elif path_dst is None:
+            path_dst = blob_client.blob_name
+        else:
+            raise ValueError(
+                f"path_dst must be either None or a valid string, not {type(path_dst)}"
+            )
+
+        try:
+            logger.debug(f"Downloading the blob from {path_dst}")
+            blob = await blob_client.download_blob()
+            async for chunk in blob.chunks():
+                with open(path_dst, "wb") as f:
+                    f.write(chunk)
+        except Exception as e:
+            logger.error(f"Failed to download the blob from {path_src}: {e}")
+        else:
+            logger.debug(f"Downloaded blob {path_src} to {path_dst}")
+            return path_dst
+
+    async def delete_blob(self, path: str) -> None:
+        """
+        Delete a blob from Azure Blob Storage.
+
+        Parameters
+        ----------
+        path : str
+            Path to the blob to delete.
+
+        Returns
+        -------
+        None.
+        """
+        try:
+            await self.container_client.delete_blob(blob=path, timeout=10)
+        except Exception as e:
+            logger.error(f"Failed to delete the blob from {path}: {e}")
+
+    async def copy_blob(self, path_src: str, path_dst: str) -> bool:
+        """
+        Copy a blob within Azure Blob Storage.
+
+        Parameters
+        ----------
+        path_src : str
+            Source path to copy the blob from.
+        path_dst : str, optional
+            Destination path to copy the blob to.
+
+        Returns
+        -------
+        bool
+            True, if the blob was copied successfully. False, otherwise.
+        """
+        blob_client_src = self.container_client.get_blob_client(blob=path_src)
+        if not await blob_client_src.exists():
+            raise ValueError(f"Blob at {path_src} does not exist")
+        blob_client_dst = self.container_client.get_blob_client(blob=path_dst)
+        await blob_client_dst.start_copy_from_url(blob_client_src.url)
+        return await blob_client_dst.exists()
+
+    async def list_blobs(self, prefix: str | None = None):
         """
         List
         :param prefix:
         :return:
         """
-        return [
-            blob.name
-            async for blob in self.container_client.list_blobs(name_starts_with=prefix)
-        ]
+        blobs = self.container_client.list_blobs(name_starts_with=prefix)
+        return [blob.name async for blob in blobs]
 
-    async def cached_download(self, source_path=None, chunked=False):
-        logger.debug(f"Downloading {source_path}")
-        if source_path in TMP_SOURCES:
-            cached_src_path = TMP_SOURCES[source_path]
-            logger.info(f"Rereading cached {source_path} from {cached_src_path} ")
-            data = open(cached_src_path, "rb").read()
-        else:
+    async def list_base_files(self) -> list[str]:
+        prefix = os.path.join(self.output_path, "access_all_data", "base/")
+        return await self.list_blobs(prefix)
 
-            # check the blob exists in azure storage
-            source_path_exists = await self.check_blob_exists(blob_name=source_path)
-            logger.debug(f"Checking if {source_path} exists {source_path_exists}")
-            if not source_path_exists:
-                raise Exception(f"Source {source_path} does not exist")
-            stream = await self.container_client.download_blob(
-                source_path, max_concurrency=1
-            )
-            logger.debug(f"Downloaded {source_path}")
-            if chunked:
-                chunk_list = []
-                async for chunk in stream.chunks():
-                    logger.debug(f"Downloaded {len(chunk)}")
-                    chunk_list.append(chunk)
-                data = b"".join(chunk_list)
-            else:
-                data = await stream.readall()
-
-            cached = tempfile.NamedTemporaryFile(mode="wb", delete=False)
-            logger.debug(f"Going to cache {source_path} to {cached.name}")
-            cached.write(data)
-            TMP_SOURCES[source_path] = cached.name
-        return data
+    async def get_lookup_df(
+        self, sheet: Literal["country", "region", "country_code"]
+    ) -> pd.DataFrame:
+        path = f"{self.utilities_path}/country_lookup.xlsx"
+        data = await self.read_blob(path=path)
+        df = pd.read_excel(BytesIO(data), sheet_name=f"{sheet}_lookup")
+        return df

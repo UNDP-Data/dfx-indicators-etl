@@ -47,14 +47,13 @@ async def base_df_for_indicator(
 
     # Create the base file path
     base_file_path = os.path.join(
-        storage_manager.OUTPUT_PATH, project, "base", base_file_name
+        storage_manager.output_path, project, "base", base_file_name
     )
 
     logger.info(f"downloading base file {base_file_name}")
     # Read the base file as a pandas DataFrame
-    base_file_df = pd.read_csv(
-        io.BytesIO(await storage_manager.cached_download(source_path=base_file_path))
-    )
+    data = await storage_manager.read_blob(path=base_file_path)
+    base_file_df = pd.read_csv(io.BytesIO(data))
 
     return base_file_df
 
@@ -186,11 +185,10 @@ async def publish(
 
             # Upload the output DataFrame to the specified project folder
             logger.info(f"Uploading output file to project {project}")
-            await storage_manager.upload(
-                data=output_dataframe.to_csv(index=False).encode("utf-8"),
-                dst_path=os.path.join(
-                    storage_manager.OUTPUT_PATH, project, "output_test.csv"
-                ),
+            path = os.path.join(storage_manager.output_path, project, "output_test.csv")
+            await storage_manager.upload_blob(
+                path_or_data_src=output_dataframe.to_csv(index=False).encode("utf-8"),
+                path_dst=path,
                 content_type="text/csv",
                 overwrite=True,
             )

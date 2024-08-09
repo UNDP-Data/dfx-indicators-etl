@@ -53,7 +53,7 @@ async def read_indicator(storage_manager=None, indicator_blob_rel_path=None):
         raise FileNotFoundError(
             f"Indicator configuration file {indicator_blob_rel_path} does not exist"
         )
-    file_in_bytes = await storage_manager.download(blob_name=indicator_blob_rel_path)
+    file_in_bytes = await storage_manager.read_blob(path=indicator_blob_rel_path)
 
     indicator_parser = ConfigParser(interpolation=None)
     indicator_parser.read_string(file_in_bytes.decode("utf-8"))

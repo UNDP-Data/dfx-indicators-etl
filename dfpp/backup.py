@@ -13,11 +13,7 @@ logger.setLevel(logging.INFO)
 async def backup_raw_sources(indicator_ids: list = None):
     try:
         logger.info("Backing up raw sources")
-        async with StorageManager(
-            connection_string=os.getenv("AZURE_STORAGE_CONNECTION_STRING"),
-            container_name=os.getenv("AZURE_STORAGE_CONTAINER_NAME"),
-            root_folder=os.getenv("ROOT_FOLDER"),
-        ) as storage_manager:
+        async with StorageManager() as storage_manager:
             if indicator_ids and len(indicator_ids) > 0:
                 source_ids = list(
                     set(
@@ -56,8 +52,8 @@ async def backup_raw_sources(indicator_ids: list = None):
                     os.path.join(storage_manager.BACKUP_PATH, "sources"),
                 )
                 await storage_manager.copy_blob(
-                    source_blob_name=raw_source_path,
-                    destination_blob_name=raw_backup_source_blob_name,
+                    path_src=raw_source_path,
+                    path_dst=raw_backup_source_blob_name,
                 )
                 logger.info(
                     f"Created a backup for {raw_source_path} to {raw_backup_source_blob_name}"
@@ -70,11 +66,7 @@ async def backup_base_files(indicator_ids: list = None):
     try:
         logger.info("Backing up base files")
 
-        async with StorageManager(
-            connection_string=os.getenv("AZURE_STORAGE_CONNECTION_STRING"),
-            container_name=os.getenv("AZURE_STORAGE_CONTAINER_NAME"),
-            root_folder=os.getenv("ROOT_FOLDER"),
-        ) as storage_manager:
+        async with StorageManager() as storage_manager:
 
             # Function to fetch source_ids and base file paths
             async def get_base_files_list(indicator_ids=None):
@@ -85,7 +77,7 @@ async def backup_base_files(indicator_ids: list = None):
                     set(cfg.get("indicator").get("source_id") for cfg in indicator_cfgs)
                 )
                 base_files = [
-                    f"{storage_manager.OUTPUT_PATH}/access_all_data/base/{source_id}.csv"
+                    f"{storage_manager.output_path}/access_all_data/base/{source_id}.csv"
                     for source_id in source_ids
                 ]
                 return base_files
@@ -98,12 +90,12 @@ async def backup_base_files(indicator_ids: list = None):
                 try:
                     logger.info(f"Backing up {base_file_path}")
                     base_backup_file_blob_name = base_file_path.replace(
-                        storage_manager.OUTPUT_PATH, storage_manager.BACKUP_PATH
+                        storage_manager.output_path, storage_manager.BACKUP_PATH
                     )
 
                     await storage_manager.copy_blob(
-                        source_blob_name=base_file_path,
-                        destination_blob_name=base_backup_file_blob_name,
+                        path_src=base_file_path,
+                        path_dst=base_backup_file_blob_name,
                     )
 
                     logger.info(
