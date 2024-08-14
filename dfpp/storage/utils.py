@@ -3,10 +3,8 @@ import configparser
 
 __all__ = [
     "UnescapedConfigParser",
-    "validate_src_cfg",
+    "flatten_dict_config",
 ]
-
-MANDATORY_SOURCE_COLUMNS = "id", "url", "save_as"
 
 
 class UnescapedConfigParser(configparser.RawConfigParser):
@@ -29,32 +27,12 @@ class UnescapedConfigParser(configparser.RawConfigParser):
             return value
 
 
-def validate_src_cfg(cfg_dict=None, cfg_file_path=None):
-    """
-    Validate a source config file
-    :param cfg_dict:
-    :param cfg_file_path:
-    :return:
-    """
-    assert cfg_dict is not None, f"Invalid source config {cfg_dict}"
-    assert cfg_dict != {}, f"Invalid source config {cfg_dict}"
-
-    for k in MANDATORY_SOURCE_COLUMNS:
-        v = cfg_dict[k]
-        try:
-            v_parsed = ast.literal_eval(v)
-            message = f"{k} key {cfg_file_path} needs to be a valid string. Current value is {v}"
-            assert v_parsed is not None, message
-        except AssertionError:
-            raise
-        except Exception as e:
-            pass
-
-        message = f"{cfg_file_path} needs to contain {k} key"
-        assert k in cfg_dict, message
-
-        message = f"{cfg_file_path}'s {k} key needs to be a string. Current value is {type(v)}"
-        assert isinstance(v, str), message
-
-        message = f"{cfg_file_path}'s {k} key needs to be a valid string. Current value is {v}"
-        assert v, message
+def flatten_dict_config(config_dict: dict) -> dict:
+    """unnest section from config is section is source or indicator"""
+    config = {}
+    for k, v in config_dict.items():
+        if k not in ["source", "indicator"]:
+            config[k] = v
+        else:
+            config.update(v)
+    return config

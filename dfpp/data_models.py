@@ -1,11 +1,13 @@
 from typing import Optional, Literal, Union, Any
 from pydantic import (
     BaseModel,
+    ValidationInfo,
     ConfigDict,
     Field,
     HttpUrl,
     field_validator,
-    root_validator,
+    model_validator,
+
 )
 import ast
 
@@ -23,13 +25,37 @@ class BaseModelWithConfig(BaseModel):
 
 
 class Source(BaseModelWithConfig):
-    id: str = Field(..., description="Source Id.")
-    name: Optional[str] = Field(None, desciption="Few manual sources have no name")
-    url: HttpUrl | str = Field(..., description="URL or file name.")
-    frequency: Optional[Literal["Daily", "daily"]]
-    source_type: Literal["Auto", "Manual"]
-    save_as: str = Field(..., description="Store file as defined string name.")
-    file_format: Literal["csv", "xlsx", "json", "xls"]
+    id: str = Field(
+        ...,
+        description="The unique identifier for the source.\
+              This ID will be used to identify the source in the pipeline and should be unique.",
+    )
+    name: Optional[str] = Field(
+        None,
+        description="The name of the source.\
+              This name will be used to identify the source in the pipeline.\
+                Note that some manual sources may not have a name.",
+    )
+    url: HttpUrl | str = Field(
+        ...,
+        description="The URL of the source or the file name if the source is local.",
+    )
+    frequency: Optional[Literal["Daily", "daily"]] = Field(
+        None,
+        description="The frequency at which the source data is updated, such as Daily or daily.",
+    )
+    source_type: Literal["Manual", "Auto"] = Field(
+        ...,
+        description="The type of the source.\
+              This indicates the type of source data: csv, excel, json, or xml.",
+    )
+    save_as: str = Field(
+        ..., description="The name of the file in which the source data will be saved."
+    )
+    file_format: Literal["csv", "excel", "json", "xml", "xlsx", "xls"] = Field(
+        ...,
+        description="The format of the file in which the source data will be saved, such as csv, excel, json, or xml.",
+    )
     downloader_function: Optional[
         Literal[
             "default_http_downloader",
@@ -42,17 +68,38 @@ class Source(BaseModelWithConfig):
             "country_downloader",
             "get_downloader",
         ]
-    ]
-    country_iso3_column: Optional[str]
-    country_name_column: Optional[str]
-    datetime_column: Optional[str]
-    year: Optional[int | str | None] = Field(..., description="Year, unused variable")
+    ] = Field(
+        None,
+        description="The downloader function used to fetch the source data. \
+            This function should be defined in the dfpp.retrieval module.",
+    )
+    country_iso3_column: Optional[str] = Field(
+        None, description="The name of the column that contains the ISO3 country codes."
+    )
+    country_name_column: Optional[str] = Field(
+        None,
+        description="The name of the column that contains the names of the countries.",
+    )
+    datetime_column: Optional[str] = Field(
+        None,
+        description="The name of the column that contains the date and time values.",
+    )
+    year: Optional[int | str | None] = Field(
+        ...,
+        description="The name of the column that contains the year values.",
+    )
     group_column: Optional[str | list] = Field(
-        ..., description="One or multiple columns to group by during transformation."
+        ...,
+        description="The name of the column or columns used to group data during transformation.\
+              This can be a single column or in rare cases a list of columns.",
     )
     downloader_params: Optional[dict] = Field(
         {},
-        description="Additional parameters to use during download of the raw source data.",
+        description="Additional parameters required by the downloader function for retrieving the source data.",
+    )
+    file_name: Optional[str] = Field(
+        None,
+        description="The name of the file within a zip archive, if the source file is downloaded as a zip file.",
     )
 
     @field_validator("frequency")
@@ -61,71 +108,100 @@ class Source(BaseModelWithConfig):
             return value.capitalize()
         return None
 
-    @root_validator(pre=False, skip_on_failure=True)
-    def validate_url(cls, values):
-        source_type = values.get("source_type")
+    @model_validator(mode="after")
+    def validate_url(self):
+        source_type = self.source_type
         if not source_type:
-            return values
+            return self
         if source_type != "Manual":
-            if not values["url"]:
+            if not self.url:
                 raise ValueError("URL must be of type HttpUrl if source is not Manual")
-        return values
+        return self
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
     def literal_eval_fields(cls, values: dict[str, Any]) -> dict[str, Any]:
         for field, value in values.items():
             try:
                 values[field] = ast.literal_eval(value)
-            except Exception as e:
+            except Exception:
                 values[field] = value
         return values
 
 
 class Indicator(BaseModelWithConfig):
-    indicator_id: str = Field(..., description="A unique identifier for the indicator.")
-    indicator_name: str = Field(..., description="The full name of the indicator.")
-    display_name: str = Field(
-        ..., description="The name to be displayed for the indicator."
+    indicator_id: str = Field(
+        ...,
+        description="The unique identifier for the indicator.\
+                               This ID will be used to identify the indicator in the pipeline.",
     )
-    source_id: str = Field(..., description="The identifier of the data source.")
+    indicator_name: str = Field(
+        ...,
+        description="The full name of the indicator.\
+                                 This name will be used to identify the indicator in the pipeline.",
+    )
+    display_name: str = Field(
+        ...,
+        description="The display name of the indicator.\
+              This name will be used to display the indicator in the Data Futures Platform.",
+    )
+    source_id: str = Field(
+        ...,
+        description="The unique identifier of the data source.\
+              This ID must be unique and will be used to identify the source in the pipeline.",
+    )
     data_type: Literal["float", "text", "string"] = Field(
-        ..., description="The data type of the indicator."
+        ...,
+        description="The data type of the indicator.\
+              Can be 'float', 'text', or 'string' depending on the column(s) data type in the source file.",
     )
     frequency: Optional[Literal["Daily"]] = Field(
-        None, description="The frequency at which the data is updated."
+        None,
+        description="The frequency at which the indicator data is updated, such as 'Daily'.",
     )
-    # TBD: Only one config has non-empty field, modify and remove the field
-    # aggregatetype: Optional[str] = Field(
-    #    None, description="Type of aggregation applied, if any.")
+    aggregate_type: Optional[Literal["PositiveSum", "Sum"]] = Field(
+        None,
+        description="The type of aggregation applied to the indicator data.\
+              Possible values include 'PositiveSum' and 'Sum'.",
+    )
     preprocessing: Optional[str] = Field(
-        None, description="Preprocessing function applied to the data."
+        None,
+        description="The preprocessing function applied to the data before transformation.\
+              This function should be defined in the dfpp.preprocessing module.",
     )
-
     source_field_name: Optional[str | tuple] = Field(
         None,
-        description="Original name of the field in the source data. #Currently unused",
+        description="The original name of the field in the source data.\
+          Note: Currently unused, apart from one indicator preprocessing function.",
     )
     transform_function: Literal[
         "type1_transform", "type2_transform", "type3_transform", "sme_transform"
-    ] = Field(..., description="Transformation function applied to the data.")
+    ] = Field(
+        ...,
+        description="The transformation function applied to the data.\
+               This function should be defined in the dfpp.transform_functions module.",
+    )
     group_name: Optional[str | tuple] = Field(
-        None, description="Group name associated with the data."
+        None,
+        description="The group name associated with the indicator data. \
+            Should be validated against group column from indicators.",
     )
     year: Optional[Union[int, str]] = Field(
-        None, description="The year for which the data is relevant."
+        None,
+        description="The year for which the indicator data is relevant.\
+              If the indicator covers multiple years, this field should be set to None.",
     )
     value_column: Optional[str] = Field(
-        None, description="Name of the value column in the source data."
+        None,
+        description="The name of the column that contains the values of the indicator.",
     )
     column_substring: Optional[str] = Field(
-        None, description="Substring to identify specific columns."
+        None,
+        description="The substring used to identify specific columns that contain values related to the indicator.",
     )
     sheet_name: Optional[str] = Field(
         None,
-        description="Sheet name in the data file, if applicable. Only used in mpi_transform_preprocessing preprocessing",
-    )
-    aggregate_type: Optional[Literal["PositiveSum", "Sum"]] = Field(
-        None, description="Type of aggregation if applied."
+        description="The name of the sheet in the data file where the indicator data is located.\
+             Note: this is only used when 'mpi_transform_preprocessing' preprocessing is applied.",
     )
     denominator_indicator_id: Optional[
         Literal[
@@ -134,11 +210,18 @@ class Indicator(BaseModelWithConfig):
             "totalurbanpopulation_cpiatup",
             "cumulativecases_whoglobal",
         ]
-    ] = Field(None, description="ID of the indicator used as a denominator.")
-    per_capita: Optional[float] = Field(None, description="Per capita multiplier.")
-    min_year: Optional[float] = Field(None, description="Minimum year for the data.")
+    ] = Field(
+        None,
+        description="The ID of the indicator used as a denominator in calculations.",
+    )
+    per_capita: Optional[float] = Field(
+        None, description="Multiplier for per capita calculations."
+    )
+    min_year: Optional[float] = Field(
+        None, description="Minimum year for which the indicator data is relevant."
+    )
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
     def literal_eval_fields(cls, values: dict[str, Any]) -> dict[str, Any]:
         for field, value in values.items():
             try:
@@ -150,32 +233,7 @@ class Indicator(BaseModelWithConfig):
                     values[field] = value
                 else:
                     values[field] = new_value
-            except Exception as e:
+            except Exception:
                 values[field] = value
         return values
 
-    @root_validator(pre=False, skip_on_failure=True)
-    def validate_group_name_to_group_column(cls, values):
-        group_name = values.get("group_name")
-        group_column = values.get("group_column")
-        if (
-            isinstance(group_name, str) and isinstance(group_column, (tuple, list))
-        ) or (isinstance(group_name, (tuple, list)) and isinstance(group_column, str)):
-            raise ValueError(
-                "If 'group_name' or 'group_column' is a string, the other cannot be a tuple."
-            )
-        if isinstance(
-            group_name,
-            (
-                list,
-                tuple,
-            ),
-        ) and isinstance(group_column, (list, tuple)):
-            if len(group_name) != len(group_column):
-                raise ValueError(
-                    "The length of 'group_name' must match the length of 'group_column',\
-                                 check that length of the group_name index is equal to the group_column length."
-                )
-
-
-        return values
