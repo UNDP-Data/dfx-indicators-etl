@@ -34,13 +34,13 @@ logger = logging.getLogger(__name__)
 # submodules namespaces
 
 
-async def call_function(function_name, *args, **kwargs) -> Any:
+async def call_function(**kwargs) -> Any:
     """
     Asynchronously call a function by name, passing in any arguments specified.
 
     Parameters:
-    - function_name (str): the name of the function to call
-    - *args: any arguments to pass to the function
+
+    - **kwargs: any arguments to pass to the function
 
     Returns:
     - the result of the function call, or None if the function name is None
@@ -54,85 +54,72 @@ async def call_function(function_name, *args, **kwargs) -> Any:
     result = await call_function('my_function', arg1, arg2)
     ```
     """
-    function = globals().get(function_name)
-    assert function is not None, f"Function {function_name} is not defined"
+    function = globals().get(kwargs["downloader_function"])
     if function is not None:
-        return await function(*args, **kwargs)
-    else:
-        raise ValueError(f"Function {function} is not defined or not callable")
+        return await function(**kwargs)
+    raise ValueError(f"Function {function} is not defined or not callable")
 
 
 async def download_for_indicator(
-    indicator_cfg: dict[str, Any],
     source_cfg: dict[str, Any],
     storage_manager: StorageManager,
 ):
     """
-
-    :param indicator_cfg:
     :param source_cfg:
     :param storage_manager:
     :return: number of downloaded/uploaded bytes
     """
-    source_id = indicator_cfg["indicator"]["source_id"]
-    assert source_id is not None, "Source ID must be specified in indicator config"
-    # try:
     logger.info(
-        f"Starting to download source {source_id} from {source_cfg['source']['url']} using {source_cfg['source']['downloader_function']}."
+        f"Starting to download source {source_id} from {source_cfg['url']} \
+              using {source_cfg['downloader_function']}."
     )
-
+    
     downloader_params = source_cfg["downloader_params"]
+
+    request_params = downloader_params.get("request_params")
+    params = {
+        "downloader_function": source_cfg["downloader_function"],
+        "source_id": source_cfg["id"],
+        "source_url": source_cfg.get("url"),
+        "source_save_as": source_cfg.get("save_as"),
+        "storage_manager": storage_manager,
+        "params_file": downloader_params.get("file"),
+    }
+
+    if request_params:
+        request_params_dict = json.loads(request_params)
+        params.update({
+            "params_type": request_params_dict.get("type"),
+            "params_url": json.loads(request_params_dict.get("value").replace("'", '"')).get("url"),
+            "params_codes": downloader_params.get("codes"),
+            "request_params": request_params,
+        })
+
+    
+    data, content_type = await call_function(**params)
     # requests_cache.install_cache("cache_name",
     #                              expire_after=3600)  # Cache data for one hour (in seconds)
-    if downloader_params.get("request_params") is None:
-        data, content_type = await call_function(
-            source_cfg["source"]["downloader_function"],
-            source_id=source_id,
-            source_url=source_cfg["source"].get("url"),
-            source_save_as=source_cfg["source"].get("save_as"),
-            storage_manager=storage_manager,
-            params_file=downloader_params.get("file"),
-        )
-    else:
-        request_params = json.loads(downloader_params.get("request_params"))
-        params_file = downloader_params.get("file")
-        params_type = (request_params.get("type"),)
-        params_url = (
-            json.loads(request_params.get("value").replace("'", '"')).get("url"),
-        )
-        params_codes = (downloader_params.get("codes"),)
-        data, content_type = await call_function(
-            source_cfg["source"]["downloader_function"],
-            source_id=source_id,
-            source_url=source_cfg["source"].get("url"),
-            source_save_as=source_cfg["source"].get("save_as"),
-            params_type=params_type,
-            params_url=params_url,
-            params_codes=params_codes,
-            params_file=params_file,
-            request_params=downloader_params.get("request_params"),
-            storage_manager=storage_manager,
-        )
-    logger.info(f"Downloaded {source_id} from {source_cfg['source']['url']}.")
-    # it makes sense to combine the download and upload here because  an indicatpr has been downloaded
-    # if the source data have been downloaded and the result uploaded to azure
-    if data is not None:
 
-        dst_path = os.path.join(
-            storage_manager.sources_path, source_cfg["source"]["save_as"]
-        )
-        await asyncio.create_task(
-            storage_manager.upload_blob(
-                path_or_data_src=data,
-                path_dst=dst_path,
-                content_type=content_type,
-                overwrite=True,
-            )
-        )
+    logger.info(f"Downloaded {source_id} from {source_cfg['url']}.")
 
-        return len(data)
-    else:
+    # refactor into a separate function
+
+    if data is None:
         return 0
+
+    dst_path = os.path.join(
+        storage_manager.sources_path, source_cfg["save_as"]
+    )
+    await asyncio.create_task(
+        storage_manager.upload_blob(
+            path_or_data_src=data,
+            path_dst=dst_path,
+            content_type=content_type,
+            overwrite=True,
+        )
+    )
+
+    return len(data)
 
 
 async def download_indicator_sources(
@@ -152,21 +139,27 @@ async def download_indicator_sources(
         indicator_configs = await storage_manager.get_indicators_cfg(
             indicator_ids=indicator_ids, contain_filter=indicator_id_contain_filter
         )
-        sources = [
-            indicator_cfg["indicator"]["source_id"]
+        unique_source_ids = set([
+            indicator_cfg["source_id"]
             for indicator_cfg in indicator_configs
-        ]
-        unique_source_ids = set(sources)
-        for c in indicator_configs:
-            src = c["indicator"]["source_id"]
-            ind = c["indicator"]["indicator_id"]
+        ])
+       
+        sources_cfgs = await storage_manager.get_sources_cfgs(source_ids = unique_source_ids)
+
+        
+        for indicator_config in indicator_configs:
+            src = indicator_config["source_id"]
+            ind = indicator_config["indicator_id"]
             if not src in source_indicator_map_tod:
                 source_indicator_map_tod[src] = [ind]
             else:
                 source_indicator_map_tod[src].append(ind)
 
+
         logger.info(
-            f" {len(unique_source_ids)} sources defining {len(indicator_configs)} indicators have been detected in the config folder {storage_manager.INDICATORS_CFG_PATH}"
+            f" {len(unique_source_ids)} sources for \
+                {len(indicator_configs)} indicators have been detected \
+                      in the config folder {storage_manager.INDICATORS_CFG_PATH}"
         )
 
         for chunk in chunker(unique_source_ids, size=concurrent_chunk_size):
@@ -175,33 +168,28 @@ async def download_indicator_sources(
 
                 indicator_cfg = list(
                     filter(
-                        lambda x: x["indicator"]["source_id"] == source_id,
+                        lambda x: x["source_id"] == source_id,
                         indicator_configs,
                     )
                 )[0]
 
-                source_id = indicator_cfg["indicator"].get("source_id")
-                # get source config is checking for existence as well
+                source_id = indicator_cfg.get("source_id")
+
                 try:
                     source_cfg = await storage_manager.get_source_cfg(
                         source_id=source_id
                     )
-                    if source_cfg["source"]["source_type"] == "Manual":
+                    if source_cfg["source_type"] == "Manual":
                         logger.info(f"Skipping manual source {source_id}")
-                        # skipped_source_ids.append(source_id)
+                        
                         source_indicator_map[source_id] = source_indicator_map_tod[
                             source_id
                         ]
                         continue
-                    if source_cfg["source"].get("save_as") is None:  # compute missing
-                        save_as = f"{source_id}.{source_cfg['url'].split('.')[-1]}"
-                        logger.warning(
-                            f"Source data for {source_id} wil be saved  to  {save_as}"
-                        )
-                        source_cfg["source"]["save_as"] = save_as
+
+        
                     download_task = asyncio.create_task(
                         download_for_indicator(
-                            indicator_cfg=indicator_cfg,
                             source_cfg=source_cfg,
                             storage_manager=storage_manager,
                         ),
@@ -214,7 +202,7 @@ async def download_indicator_sources(
                     logger.error(e)
                     error_reports.append(
                         {
-                            "indicator_id": indicator_cfg["indicator"]["indicator_id"],
+                            "indicator_id": indicator_cfg["indicator_id"],
                             "source_id": source_id,
                             "error": e,
                         }

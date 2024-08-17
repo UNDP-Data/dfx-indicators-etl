@@ -114,7 +114,7 @@ class StorageManager:
             parser.read_string(content_str)
             if "indicator" in parser:
                  indicator_cfg_dict = flatten_dict_config(cfg2dict(parser))
-                 return Indicator(**indicator_cfg_dict)
+                 return dict(Indicator(**indicator_cfg_dict))
             else:
                 raise Exception(
                     f"Indicator  {indicator_id} located at {indicator_path} does not contain an 'indicator' section"
@@ -165,7 +165,7 @@ class StorageManager:
             logger.debug("Source config read by parser")
             cfg_dict = cfg2dict(parser)
             source_cfg_dict = flatten_dict_config(cfg_dict)
-            return Source(**source_cfg_dict)
+            return dict(Source(**source_cfg_dict))
         except Exception as e:
             logger.error(f"Failed to download {source_id}")
             logger.error(e)

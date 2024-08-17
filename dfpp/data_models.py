@@ -116,6 +116,8 @@ class Source(BaseModelWithConfig):
         if source_type != "Manual":
             if not self.url:
                 raise ValueError("URL must be of type HttpUrl if source is not Manual")
+            if not self.downloader_function:
+                raise ValueError("Auto source requires download function to be defined")
         return self
 
     @model_validator(mode="before")
