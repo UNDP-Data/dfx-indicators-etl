@@ -167,8 +167,8 @@ class Indicator(BaseModelWithConfig):
         description="The type of aggregation applied to the indicator data.\
               Possible values include 'PositiveSum' and 'Sum'.",
     )
-    preprocessing: Optional[str] = Field(
-        None,
+    preprocessing: str = Field(
+        ...,
         description="The preprocessing function applied to the data before transformation.\
               This function should be defined in the dfpp.preprocessing module.",
     )
@@ -243,8 +243,6 @@ class Indicator(BaseModelWithConfig):
 
     @field_validator("preprocessing")
     def is_preprocessing_implemented(cls, value):
-        if not isinstance(value, str):
-            return value
         if hasattr(preprocessing, value):
             return value
         raise NotImplementedError(f"The preprocessing function {value} \
