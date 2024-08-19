@@ -11,8 +11,6 @@ from pydantic import (
 )
 import ast
 
-from dfpp.transformation import preprocessing
-
 __all__ = ["Source", "Indicator"]
 
 common_model_config = ConfigDict(
@@ -243,6 +241,7 @@ class Indicator(BaseModelWithConfig):
 
     @field_validator("preprocessing")
     def is_preprocessing_implemented(cls, value):
+        from dfpp.transformation import preprocessing
         if hasattr(preprocessing, value):
             return value
         raise NotImplementedError(f"The preprocessing function {value} \

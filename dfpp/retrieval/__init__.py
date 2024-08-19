@@ -105,7 +105,7 @@ async def download_for_indicator(
     logger.info(f"Downloaded {source_cfg['id']} from {source_cfg['url']}.")
 
     if data is None:
-        return 0
+        return 0, source_cfg["id"]
 
     dst_path = os.path.join(storage_manager.sources_path, source_cfg["save_as"])
     await asyncio.create_task(
@@ -117,7 +117,7 @@ async def download_for_indicator(
         )
     )
 
-    return len(data)
+    return len(data), source_cfg["id"]
 
 
 async def download_indicator_sources(
@@ -184,9 +184,8 @@ def create_download_task(source_cfg, storage_manager, semaphore, task_timeout):
 
 async def process_tasks(tasks, source_indicator_map):
     for task in asyncio.as_completed(tasks):
-        source_id = task.get_name()
         try:
-            data_size_bytes = await task
+            data_size_bytes, source_id = await task
             source_indicator_map[source_id]["downloaded"] = data_size_bytes >= 100
             if not source_indicator_map[source_id]["downloaded"]:
                 logger.warning(f"No data downloaded for source {source_id}")
@@ -204,7 +203,7 @@ def log_task_exception(source_id, exception, source_indicator_map):
 
 
 def log_task_timeout(source_id, source_indicator_map):
-    error_message = f"Timeout while downloading source {source_id}"
+    error_message = f"Async task timeout while downloading source {source_id}"
     logger.error(error_message)
     source_indicator_map[source_id]["downloaded"] = False
     source_indicator_map[source_id]["error"] = error_message
