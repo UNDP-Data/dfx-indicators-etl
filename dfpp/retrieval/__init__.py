@@ -2,10 +2,10 @@ import asyncio
 import json
 import logging
 import os
-
+from datetime import datetime
 from typing import Any, List
 
-import aiohttp
+
 import pandas as pd
 
 from ..storage import StorageManager
@@ -22,10 +22,8 @@ __all__ = [
     "download_for_indicator",
     "download_indicator_sources",
 ]
-
-DEFAULT_TIMEOUT = aiohttp.ClientTimeout(
-    total=120, connect=20, sock_connect=20, sock_read=20
-)
+ASYNC_TASK_TIMEOUT = 720
+MAX_DOWNLOAD_CONCURRENCY = 4
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +103,7 @@ async def download_for_indicator(
     logger.info(f"Downloaded {source_cfg['id']} from {source_cfg['url']}.")
 
     if data is None:
-        return 0, source_cfg["id"]
+        return 0
 
     dst_path = os.path.join(storage_manager.sources_path, source_cfg["save_as"])
     await asyncio.create_task(
@@ -117,78 +115,88 @@ async def download_for_indicator(
         )
     )
 
-    return len(data), source_cfg["id"]
+    return len(data)
 
 
 async def download_indicator_sources(
     indicator_ids: list[str] | str = None,
     indicator_id_contain_filter: str = None,
-    concurrent_chunk_size: int = 5,
-    task_timeout: int = 120,
 ) -> List[str]:
 
-    semaphore = asyncio.Semaphore(concurrent_chunk_size)
+    semaphore = asyncio.Semaphore(MAX_DOWNLOAD_CONCURRENCY)
 
     async with StorageManager() as storage_manager:
         indicator_configs = await storage_manager.get_indicators_cfg(
             indicator_ids=indicator_ids, contain_filter=indicator_id_contain_filter
         )
+        unique_source_ids = set([cfg["source_id"] for cfg in indicator_configs])
 
-        source_indicator_map = build_source_indicator_map(indicator_configs)
-        unique_source_ids = set(source_indicator_map.keys())
         sources_cfgs = await storage_manager.get_sources_cfgs(
             source_ids=list(unique_source_ids)
         )
+        source_indicator_map = build_source_indicator_map(
+            indicator_configs, sources_cfgs
+        )
 
         logger.info(
-            f"Detected {len(unique_source_ids)} sources for {len(indicator_configs)} indicators"
+            f"Detected {len(unique_source_ids)} sources for \
+                {len(indicator_configs)} indicators"
         )
 
         download_tasks = [
-            create_download_task(source_cfg, storage_manager, semaphore, task_timeout)
+            create_download_task(source_cfg, storage_manager, semaphore)
             for source_cfg in sources_cfgs
             if source_cfg["source_type"] != "Manual"
-        ]
-        skipped_source_ids = [
-            source_cfg["id"]
-            for source_cfg in sources_cfgs
-            if source_cfg["source_type"] == "Manual"
         ]
 
         await process_tasks(download_tasks, source_indicator_map)
 
-    return finalize_report(source_indicator_map, skipped_source_ids)
+    return finalize_report(source_indicator_map)
 
 
-def build_source_indicator_map(indicator_configs):
+def build_source_indicator_map(indicator_configs, source_configs):
+
     source_indicator_map = {}
-    for config in indicator_configs:
-        source_id = config["source_id"]
-        source_indicator_map.setdefault(
-            source_id, {"indicators": [], "downloaded": False}
+
+    for source_cfg in source_configs:
+        source_id = source_cfg["id"]
+        if source_id not in source_indicator_map:
+            source_indicator_map[source_id] = {
+                "indicators": [],
+                "downloaded": False,
+            }
+        source_indicator_map[source_id].update(**source_cfg)
+
+    for indicator_cfg in indicator_configs:
+        source_id = indicator_cfg["source_id"]
+        source_indicator_map[source_id]["indicators"].append(
+            indicator_cfg["indicator_id"]
         )
-        source_indicator_map[source_id]["indicators"].append(config["indicator_id"])
+
     return source_indicator_map
 
 
-def create_download_task(source_cfg, storage_manager, semaphore, task_timeout):
+def create_download_task(source_cfg, storage_manager, semaphore):
     async def task_wrapper(semaphore):
         async with semaphore:
             return await asyncio.wait_for(
                 download_for_indicator(source_cfg, storage_manager),
-                timeout=task_timeout,
+                timeout=ASYNC_TASK_TIMEOUT,
             )
 
     return asyncio.create_task(task_wrapper(semaphore), name=source_cfg["id"])
 
 
 async def process_tasks(tasks, source_indicator_map):
-    for task in asyncio.as_completed(tasks):
+    done, _ = await asyncio.wait(tasks)
+
+    for task in done:
         try:
-            data_size_bytes, source_id = await task
+            source_id = task.get_name()
+            data_size_bytes = await task
             source_indicator_map[source_id]["downloaded"] = data_size_bytes >= 100
             if not source_indicator_map[source_id]["downloaded"]:
-                logger.warning(f"No data downloaded for source {source_id}")
+                raise ValueError("File size is below 100 bytes")
         except (asyncio.TimeoutError, TimeoutError):
             log_task_timeout(source_id, source_indicator_map)
         except Exception as e:
@@ -203,42 +211,54 @@ def log_task_exception(source_id, exception, source_indicator_map):
 
 
 def log_task_timeout(source_id, source_indicator_map):
-    error_message = f"Async task timeout while downloading source {source_id}"
+    error_message = f"Async task timeout {ASYNC_TASK_TIMEOUT} seconds \
+        reached while downloading source {source_id}"
     logger.error(error_message)
     source_indicator_map[source_id]["downloaded"] = False
     source_indicator_map[source_id]["error"] = error_message
 
 
-def finalize_report(source_indicator_map, skipped_source_ids):
-    downloaded_indicators = sorted(
-        indicator
-        for source_id, details in source_indicator_map.items()
-        if details["downloaded"]
-        for indicator in details["indicators"]
-    )
-
-    log_report_summary(source_indicator_map, downloaded_indicators, skipped_source_ids)
+def finalize_report(source_indicator_map):
+    log_report_summary(source_indicator_map)
     generate_error_report(source_indicator_map)
 
-    return downloaded_indicators
 
-
-def log_report_summary(source_indicator_map, downloaded_indicators, skipped_source_ids):
+def log_report_summary(source_indicator_map):
     total_sources = len(source_indicator_map)
-    downloaded_count = len(downloaded_indicators)
+    downloaded_sources = len(
+        [
+            source_id
+            for source_id, details in source_indicator_map.items()
+            if details["downloaded"] == True
+        ]
+    )
+    downloaded_indicators = sum(
+        [
+            len(details["indicators"])
+            for source_id, details in source_indicator_map.items()
+            if details["downloaded"] == True
+        ]
+    )
     failed_sources = [
         source_id
         for source_id, details in source_indicator_map.items()
         if not details["downloaded"]
     ]
 
+    skipped_sources = [
+        source_id
+        for source_id, details in source_indicator_map.items()
+        if details["source_type"] == "Manual"
+    ]
+
     logger.info("#" * 200)
     logger.info(f"TASKED: {total_sources} sources")
-    logger.info(f"DOWNLOADED: {downloaded_count} indicators")
-    if failed_sources:
-        logger.info(f"FAILED: {len(failed_sources)} sources")
-    if skipped_source_ids:
-        logger.info(f"SKIPPED: {len(skipped_source_ids)} sources")
+
+    logger.info(
+        f"DOWNLOADED: {downloaded_sources} sources for {downloaded_indicators} indicators"
+    )
+    logger.info(f"FAILED: {len(failed_sources)} sources")
+    logger.info(f"SKIPPED: {len(skipped_sources)} sources")
     logger.info("#" * 200)
 
 
@@ -251,17 +271,29 @@ def generate_error_report(source_indicator_map):
     if not failed_sources:
         return
 
-    error_reports = [
-        {
+    error_reports = []
+    for source_id, details in failed_sources:
+        if details["source_type"] == "Manual":
+            continue
+
+        flat_report = {
             "source_id": source_id,
-            "indicators": details["indicators"],
+            "indicators": json.dumps(details["indicators"]),
+            "downloaded": details["downloaded"],
             "error": details.get("error"),
         }
-        for source_id, details in failed_sources
-    ]
+
+        for key, value in details.items():
+            if key not in {"indicators", "downloaded", "error"}:
+                flat_report[key] = (
+                    json.dumps(value) if isinstance(value, (dict, list)) else value
+                )
+
+        error_reports.append(flat_report)
+
     df_errors = pd.DataFrame(error_reports)
     df_errors.to_csv(
-        "error_report_v01.csv",
-        mode="a" if os.path.exists("error_report_v01.csv") else "w",
+        f"download_errors_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+        mode="a" if os.path.exists("download_errors.csv") else "w",
         index=False,
     )
