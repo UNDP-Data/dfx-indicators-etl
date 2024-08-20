@@ -242,7 +242,7 @@ def log_report_summary(source_indicator_map):
     failed_sources = [
         source_id
         for source_id, details in source_indicator_map.items()
-        if not details["downloaded"]
+        if not details["downloaded"] and details["source_type"] != "Manual"
     ]
 
     skipped_sources = [
