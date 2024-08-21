@@ -7,7 +7,6 @@ from pydantic import (
     HttpUrl,
     field_validator,
     model_validator,
-
 )
 import ast
 
@@ -222,6 +221,15 @@ class Indicator(BaseModelWithConfig):
     min_year: Optional[float] = Field(
         None, description="Minimum year for which the indicator data is relevant."
     )
+    filter_sex_column: Optional[str] = Field(None)
+    filter_frequency_column: Optional[str] = Field(None)
+    filter_age_column: Optional[str] = Field(None)
+    filter_ste_column: Optional[str] = Field(None)
+    filter_eco_column: Optional[str] = Field(None)
+    filter_value_column: Optional[str] = Field(None)
+    value_col: Optional[str] = Field(None)
+    divisor: Optional[str | list] = Field(None)
+    dividend: Optional[str] = Field(None)
 
     @model_validator(mode="before")
     def literal_eval_fields(cls, values: dict[str, Any]) -> dict[str, Any]:
@@ -242,7 +250,10 @@ class Indicator(BaseModelWithConfig):
     @field_validator("preprocessing")
     def is_preprocessing_implemented(cls, value):
         from dfpp.transformation import preprocessing
+
         if hasattr(preprocessing, value):
             return value
-        raise NotImplementedError(f"The preprocessing function {value} \
-                                  is not found or has not been not implemented")
+        raise NotImplementedError(
+            f"The preprocessing function {value} \
+                                  is not found or has not been not implemented"
+        )
