@@ -9,6 +9,8 @@ from dfpp.transformation import preprocessing, transform_functions
 
 logger = logging.getLogger(__name__)
 
+MAX_TRANSFORM_CONCURRENCY = 4
+
 
 def log_exceptions(func):
     async def wrapper(*args, **kwargs):
@@ -82,6 +84,10 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None):
     group_name = indicator_cfg["group_name"]
     sheet_name = indicator_cfg["sheet_name"]
 
+    filter_kwargs = {
+        key: value for key, value in indicator_cfg.items() if key.startswswith("filter_")
+    }
+
     source_df = await preprocessing_function(
         bytes_data=source_data_bytes,
         sheet_name=sheet_name,
@@ -91,6 +97,7 @@ async def run_transformation_for_indicator(indicator_cfg: dict = None):
         datetime_column=datetime_column,
         key_column=key_column,
         indicator_id=indicator_id,
+        **filter_kwargs,
     )
 
     # Replace '..' with NaN and drop columns with all NaN values
@@ -146,14 +153,13 @@ async def process_indicator(
 async def transform_sources(
     indicator_ids: list = None,
     indicator_id_contain_filter: str = None,
-    concurrent_chunk_size: int = 5,
 ) -> list[str] | None:
     """
     Perform transformations for a list of indicators.
     """
     processing_statuses = {"failed_indicators": [], "transformed_indicators": []}
 
-    semaphore = asyncio.Semaphore(concurrent_chunk_size)
+    semaphore = asyncio.Semaphore(MAX_TRANSFORM_CONCURRENCY)
 
     async with StorageManager() as storage_manager:
         indicators_cfgs = await storage_manager.get_indicators_cfg(
@@ -210,4 +216,4 @@ if __name__ == "__main__":
     logger.name = __name__
 
     transformed_sources = asyncio.run(transform_sources())
-    print(transformed_sources)
+    logger.info(transformed_sources)
