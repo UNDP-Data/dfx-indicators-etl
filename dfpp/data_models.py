@@ -40,7 +40,8 @@ class Source(BaseModelWithConfig):
     )
     frequency: Literal["Daily", "daily"] | None = Field(
         None,
-        description="The frequency at which the source data is updated, such as Daily or daily.",
+        description="The frequency at which the source data is updated, such as Daily or daily.\
+            Unused.",
     )
     source_type: Literal["Manual", "Auto"] = Field(
         ...,
@@ -100,12 +101,6 @@ class Source(BaseModelWithConfig):
         None,
         description="The name of the file within a zip archive, if the source file is downloaded as a zip file.",
     )
-
-    @field_validator("frequency")
-    def normalize_frequency(cls, value):
-        if value:
-            return value.capitalize()
-        return None
 
     @model_validator(mode="after")
     def validate_url(self):
