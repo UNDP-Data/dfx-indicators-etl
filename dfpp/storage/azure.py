@@ -113,7 +113,7 @@ class StorageManager:
             parser = UnescapedConfigParser(interpolation=None)
             parser.read_string(content_str)
             if "indicator" in parser:
-                 indicator_cfg_dict = flatten_dict_config(cfg2dict(parser))
+                 indicator_cfg_dict = Indicator.flatten_dict_config(cfg2dict(parser))
                  return dict(Indicator(**indicator_cfg_dict))
             else:
                 raise Exception(
@@ -164,7 +164,7 @@ class StorageManager:
             parser.read_string(content_str)
             logger.debug("Source config read by parser")
             cfg_dict = cfg2dict(parser)
-            source_cfg_dict = flatten_dict_config(cfg_dict)
+            source_cfg_dict = Source.flatten_dict_config(cfg_dict)
             return dict(Source(**source_cfg_dict))
         except Exception as e:
             logger.error(f"Failed to download {source_id}")

@@ -2,8 +2,7 @@ import ast
 import configparser
 
 __all__ = [
-    "UnescapedConfigParser",
-    "flatten_dict_config",
+    "UnescapedConfigParser"
 ]
 
 
@@ -25,14 +24,3 @@ class UnescapedConfigParser(configparser.RawConfigParser):
             return value.encode().decode("unicode_escape")
         except AttributeError:
             return value
-
-
-def flatten_dict_config(config_dict: dict) -> dict:
-    """unnest section from config is section is source or indicator"""
-    config = {}
-    for k, v in config_dict.items():
-        if k not in ["source", "indicator"]:
-            config[k] = v
-        else:
-            config.update(v)
-    return config

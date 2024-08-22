@@ -21,6 +21,20 @@ common_model_config = ConfigDict(
 class BaseModelWithConfig(BaseModel):
     model_config = common_model_config
 
+    @classmethod
+    def flatten_dict_config(
+        cls: BaseModel, config_dict: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Unnest sections from config
+          if the section is 'source' or 'indicator'."""
+        config = {}
+        for k, v in config_dict.items():
+            if k not in ["source", "indicator"]:
+                config[k] = v
+            else:
+                config.update(v)
+        return config
+
 
 class Source(BaseModelWithConfig):
     id: str = Field(

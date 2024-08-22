@@ -77,7 +77,7 @@ async def download_for_indicator(
     params = {
         "downloader_function": source_cfg["downloader_function"],
         "source_id": source_cfg["id"],
-        "source_url": source_cfg.get("url"),
+        "source_url": source_cfg["url"],
         "source_save_as": source_cfg.get("save_as"),
         "storage_manager": storage_manager,
         "params_file": downloader_params.get("file"),
