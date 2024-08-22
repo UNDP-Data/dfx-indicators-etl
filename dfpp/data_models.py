@@ -1,7 +1,6 @@
-from typing import Optional, Literal, Union, Any
+from typing import Literal, Any
 from pydantic import (
     BaseModel,
-    ValidationInfo,
     ConfigDict,
     Field,
     HttpUrl,
@@ -29,7 +28,7 @@ class Source(BaseModelWithConfig):
         description="The unique identifier for the source.\
               This ID will be used to identify the source in the pipeline and should be unique.",
     )
-    name: Optional[str] = Field(
+    name: str | None = Field(
         None,
         description="The name of the source.\
               This name will be used to identify the source in the pipeline.\
@@ -39,7 +38,7 @@ class Source(BaseModelWithConfig):
         ...,
         description="The URL of the source or the file name if the source is local.",
     )
-    frequency: Optional[Literal["Daily", "daily"]] = Field(
+    frequency: Literal["Daily", "daily"] | None = Field(
         None,
         description="The frequency at which the source data is updated, such as Daily or daily.",
     )
@@ -55,7 +54,7 @@ class Source(BaseModelWithConfig):
         ...,
         description="The format of the file in which the source data will be saved, such as csv, excel, json, or xml.",
     )
-    downloader_function: Optional[
+    downloader_function: (
         Literal[
             "default_http_downloader",
             "cpia_downloader",
@@ -67,36 +66,37 @@ class Source(BaseModelWithConfig):
             "country_downloader",
             "get_downloader",
         ]
-    ] = Field(
+        | None
+    ) = Field(
         None,
         description="The downloader function used to fetch the source data. \
             This function should be defined in the dfpp.retrieval module.",
     )
-    country_iso3_column: Optional[str] = Field(
+    country_iso3_column: str | None = Field(
         None, description="The name of the column that contains the ISO3 country codes."
     )
-    country_name_column: Optional[str] = Field(
+    country_name_column: str | None = Field(
         None,
         description="The name of the column that contains the names of the countries.",
     )
-    datetime_column: Optional[str] = Field(
+    datetime_column: str | None = Field(
         None,
         description="The name of the column that contains the date and time values.",
     )
-    year: Optional[int | str | None] = Field(
+    year: int | str | None = Field(
         ...,
         description="The name of the column that contains the year values.",
     )
-    group_column: Optional[str | list] = Field(
+    group_column: str | list | None = Field(
         ...,
         description="The name of the column or columns used to group data during transformation.\
               This can be a single column or in rare cases a list of columns.",
     )
-    downloader_params: Optional[dict] = Field(
+    downloader_params: dict | None = Field(
         {},
         description="Additional parameters required by the downloader function for retrieving the source data.",
     )
-    file_name: Optional[str] = Field(
+    file_name: str | None = Field(
         None,
         description="The name of the file within a zip archive, if the source file is downloaded as a zip file.",
     )
@@ -155,11 +155,11 @@ class Indicator(BaseModelWithConfig):
         description="The data type of the indicator.\
               Can be 'float', 'text', or 'string' depending on the column(s) data type in the source file.",
     )
-    frequency: Optional[Literal["Daily"]] = Field(
+    frequency: Literal["Daily"] | None = Field(
         None,
         description="The frequency at which the indicator data is updated, such as 'Daily'.",
     )
-    aggregate_type: Optional[Literal["PositiveSum", "Sum"]] = Field(
+    aggregate_type: Literal["PositiveSum", "Sum"] | None = Field(
         None,
         description="The type of aggregation applied to the indicator data.\
               Possible values include 'PositiveSum' and 'Sum'.",
@@ -169,7 +169,7 @@ class Indicator(BaseModelWithConfig):
         description="The preprocessing function applied to the data before transformation.\
               This function should be defined in the dfpp.preprocessing module.",
     )
-    source_field_name: Optional[str | tuple] = Field(
+    source_field_name: str | tuple | None = Field(
         None,
         description="The original name of the field in the source data.\
           Note: Currently unused, apart from one indicator preprocessing function.",
@@ -181,55 +181,56 @@ class Indicator(BaseModelWithConfig):
         description="The transformation function applied to the data.\
                This function should be defined in the dfpp.transform_functions module.",
     )
-    group_name: Optional[str | tuple] = Field(
+    group_name: str | tuple | None = Field(
         None,
         description="The group name associated with the indicator data. \
             Should be validated against group column from indicators.",
     )
-    year: Optional[Union[int, str]] = Field(
+    year: int | str | None = Field(
         None,
         description="The year for which the indicator data is relevant.\
               If the indicator covers multiple years, this field should be set to None.",
     )
-    value_column: Optional[str] = Field(
+    value_column: str | None = Field(
         None,
         description="The name of the column that contains the values of the indicator.",
     )
-    column_substring: Optional[str] = Field(
+    column_substring: str | None = Field(
         None,
         description="The substring used to identify specific columns that contain values related to the indicator.",
     )
-    sheet_name: Optional[str] = Field(
+    sheet_name: str | None = Field(
         None,
         description="The name of the sheet in the data file where the indicator data is located.\
              Note: this is only used when 'mpi_transform_preprocessing' preprocessing is applied.",
     )
-    denominator_indicator_id: Optional[
+    denominator_indicator_id: (
         Literal[
             "totalpopulation_untp",
             "totalruralpopulation_cpiatrp",
             "totalurbanpopulation_cpiatup",
             "cumulativecases_whoglobal",
         ]
-    ] = Field(
+        | None
+    ) = Field(
         None,
         description="The ID of the indicator used as a denominator in calculations.",
     )
-    per_capita: Optional[float] = Field(
+    per_capita: float | None = Field(
         None, description="Multiplier for per capita calculations."
     )
-    min_year: Optional[float] = Field(
+    min_year: float | None = Field(
         None, description="Minimum year for which the indicator data is relevant."
     )
-    filter_sex_column: Optional[str] = Field(None)
-    filter_frequency_column: Optional[str] = Field(None)
-    filter_age_column: Optional[str] = Field(None)
-    filter_ste_column: Optional[str] = Field(None)
-    filter_eco_column: Optional[str] = Field(None)
-    filter_value_column: Optional[str] = Field(None)
-    value_col: Optional[str] = Field(None)
-    divisor: Optional[str | list] = Field(None)
-    dividend: Optional[str] = Field(None)
+    filter_sex_column: str | None = Field(None)
+    filter_frequency_column: str | None = Field(None)
+    filter_age_column: str | None = Field(None)
+    filter_ste_column: str | None = Field(None)
+    filter_eco_column: str | None = Field(None)
+    filter_value_column: str | None = Field(None)
+    value_col: str | None = Field(None)
+    divisor: str | list | None = Field(None)
+    dividend: str | None = Field(None)
 
     @model_validator(mode="before")
     def literal_eval_fields(cls, values: dict[str, Any]) -> dict[str, Any]:
