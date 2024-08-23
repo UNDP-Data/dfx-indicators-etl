@@ -1,385 +1,203 @@
 import asyncio
 import logging
 import os
-from io import StringIO
-from traceback import print_exc
-from typing import List
 
 import numpy as np
 
-from ..storage import StorageManager
-from ..utils import chunker
-from . import preprocessing, transform_functions
+from dfpp.storage import StorageManager
+from dfpp.transformation import preprocessing, transform_functions
 
 logger = logging.getLogger(__name__)
 
+MAX_TRANSFORM_CONCURRENCY = 4
 
+
+def log_exceptions(func):
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error in {func.__name__}: {e}")
+            raise
+
+    return wrapper
+
+
+@log_exceptions
 async def read_source_file_for_indicator(indicator_source: str = None):
     """
     Read the source file for a specific indicator asynchronously.
-
-    :param indicator_source: The name of the indicator source.
-    :type indicator_source: str
-    :return: A tuple containing the data from the source file and its configuration.
-    :rtype: tuple
-    :raises Exception: If the indicator source is not specified or the source config file is not found.
-
-    The function reads the source file associated with a specific indicator from Azure Storage asynchronously.
-    It first checks if the indicator source is specified. Then, it reads the configuration file for the indicator
-    from the storage and determines the file format of the source file. It proceeds to download the source file
-    from the storage and returns the data along with the source configuration.
-
-    Note: The function assumes the presence of a StorageManager class for interacting with Azure Storage.
     """
-
-    # Ensure the indicator source is provided
-    assert indicator_source is not None, "Indicator source must be specified"
-
-    # Instantiate the StorageManager
     async with StorageManager() as storage_manager:
-        try:
-            # Compose the path to the source config file
-            source_config_path = f"{storage_manager.SOURCES_CFG_PATH}/{indicator_source.lower()}/{indicator_source.lower()}.cfg"
+        source_config_path = os.path.join(
+            storage_manager.sources_cfg_path,
+            indicator_source.lower(),
+            f"{indicator_source.lower()}.cfg",
+        )
 
-            # Check if the blob exists in Azure Storage
-            source_cfg_file_exists = await storage_manager.check_blob_exists(
-                blob_name=source_config_path
-            )
-            if not source_cfg_file_exists:
-                raise Exception(
-                    f"Source config file {source_config_path} not found for {indicator_source}"
-                )
-
-            # Get the source configuration from the config file
-            source_cfg = await storage_manager.get_source_cfg(
-                source_path=source_config_path
+        source_cfg_file_exists = await storage_manager.check_blob_exists(
+            blob_name=source_config_path
+        )
+        if not source_cfg_file_exists:
+            raise FileNotFoundError(
+                f"Source config file {source_config_path} not found for {indicator_source}"
             )
 
-            # Compose the path to the source file
-            source_file_name = os.path.join(
-                storage_manager.SOURCES_PATH,
-                f"{indicator_source.upper()}.{source_cfg['source']['file_format']}",
-            )
+        source_cfg = await storage_manager.get_source_cfg(
+            source_id_or_path=source_config_path
+        )
 
-            # Download the source file from Azure Storage
-            data = await storage_manager.read_blob(path=source_file_name)
+        source_file_name = os.path.join(
+            storage_manager.sources_path,
+            f"{indicator_source.upper()}.{source_cfg['file_format']}",
+        )
 
-            logger.debug(f"Downloaded {source_file_name}")
-            # Return the data along with the source configuration
-            return data, source_cfg
+        data = await storage_manager.read_blob(path=source_file_name)
 
-        except Exception as e:
-            # Log the error raise the exception
-            logger.error(e)
-            raise
+        logger.debug(f"Downloaded {source_file_name}")
+        return data, source_cfg
 
 
-async def run_transformation_for_indicator(
-    indicator_cfg: dict = None, project: str = None
-):
+@log_exceptions
+async def run_transformation_for_indicator(indicator_cfg: dict = None):
     """
     Run transformation for a specific indicator.
 
     :param indicator_cfg: Configuration section for the indicator.
     :type indicator_cfg: dict
-    :param project: The project to run the transformation for
     :return: The transformed data based on the indicator.
     :rtype: str
     """
-    # Ensure the indicator configuration is provided
-    assert indicator_cfg is not None, "Indicator config must be specified"
-    try:
-        # Get the indicator ID from the configuration
-        indicator_id = indicator_cfg["indicator_id"]
+    indicator_id = indicator_cfg["indicator_id"]
+    source_data_bytes, source_cfg = await read_source_file_for_indicator(
+        indicator_source=indicator_cfg["source_id"]
+    )
+    preprocessing_function_name = indicator_cfg["preprocessing"]
+    preprocessing_function = getattr(preprocessing, preprocessing_function_name)
 
-        # Read the source file for the indicator asynchronously
-        source_data_bytes, source_cfg = await read_source_file_for_indicator(
-            indicator_source=indicator_cfg["source_id"]
-        )
+    # Retrieve necessary columns for transformation from the source configuration
+    country_column = source_cfg["country_name_column"]
+    key_column = source_cfg["country_iso3_column"]
+    datetime_column = source_cfg["datetime_column"]
+    year = source_cfg["year"]
 
-        # Get the preprocessing function for the indicator from the 'preprocessing' field in the configuration
-        preprocessing_function_name = indicator_cfg.get("preprocessing")
-        assert hasattr(preprocessing, preprocessing_function_name), (
-            f"The preprocessing function {preprocessing_function_name} specified in "
-            f'indicator config "{indicator_id}" was not implemented'
-        )
-        preprocessing_function = getattr(preprocessing, preprocessing_function_name)
+    group_name = indicator_cfg["group_name"]
+    sheet_name = indicator_cfg["sheet_name"]
 
-        # Retrieve necessary columns for transformation from the source configuration
-        country_column = r"{}".format(
-            source_cfg["source"].get("country_name_column", None)
-        )
-        group_name = indicator_cfg.get("group_name")
-        key_column = source_cfg["source"].get("country_iso3_column", None)
-        datetime_column = source_cfg["source"].get("datetime_column", None)
-        sheet_name = indicator_cfg.get("sheet_name", None)
-        year = source_cfg["source"].get("year", None)
+    filter_kwargs = {
+        key: value for key, value in indicator_cfg.items() if key.startswswith("filter_")
+    }
 
-        # TODO: Temporary fix for missing columns in the configuration
-        # get the filter columns. These are the keys that start with 'filter_'
-        indicator_cfg_keys = indicator_cfg.keys()
-        filter_columns = [
-            key for key in indicator_cfg_keys if key.startswith("filter_")
-        ]
-        # get the values of the available filter columns from the indicator configuration
-        filter_kwargs = {key: indicator_cfg[key] for key in filter_columns}
+    source_df = await preprocessing_function(
+        bytes_data=source_data_bytes,
+        sheet_name=sheet_name,
+        year=year,
+        group_name=group_name,
+        country_column=country_column,
+        datetime_column=datetime_column,
+        key_column=key_column,
+        indicator_id=indicator_id,
+        **filter_kwargs,
+    )
 
-        # try:
-        #     filter_value_column = indicator_cfg.get('filter_value_column', None)
-        #     filter_sex_column = indicator_cfg.get('filter_sex_column', None)
-        #     filter_frequency_column = indicator_cfg.get('filter_frequency_column', None)
-        #     filter_age_column = indicator_cfg.get('filter_age_column', None)
-        # except Exception as e:
-        #     filter_value_column = None
-        #     filter_sex_column = None
-        #     filter_frequency_column = None
-        #     filter_age_column = None
-        # # TODO: End of temporary fix
-        # print(filter_kwargs)
-        # exit()
-        # Preprocess the source data using the preprocessing function
-        source_df = await preprocessing_function(
-            bytes_data=source_data_bytes,
-            sheet_name=sheet_name,
-            year=year,
-            group_name=group_name,
-            country_column=country_column,
-            datetime_column=datetime_column,
-            key_column=key_column,
-            indicator_id=indicator_id,
-            **filter_kwargs,
-        )
+    # Replace '..' with NaN and drop columns with all NaN values
+    source_df.replace("..", np.NaN, inplace=True)
+    source_df.dropna(inplace=True, axis=1, how="all")
 
-        # Replace '..' with NaN and drop columns with all NaN values
-        source_df.replace("..", np.NaN, inplace=True)
-        source_df.dropna(inplace=True, axis=1, how="all")
-        # Get the transform function for the indicator from the 'transform_function' field in the configuration
-        transform_function_name = indicator_cfg.get("transform_function")
+    run_transform = getattr(transform_functions, indicator_cfg["transform_function"])
 
-        if transform_function_name is not None:
-            # If a transform function is specified, run it
+    # Modify column names if needed based on the source information
+    rename_columns = {country_column: "Country", key_column: "Alpha-3 code"}
+    source_df.rename(columns=rename_columns, inplace=True)
+    logger.info(
+        f"Running transform function {indicator_cfg['transform_function']} for indicator {indicator_id}"
+    )
 
-            # Get the transform function from the 'transform_functions' module
-            run_transform = getattr(transform_functions, transform_function_name)
+    # TBD: Run transformation and return dataframe, upload then
+    await run_transform(
+        source_df=source_df,
+        indicator_id=indicator_id,
+        value_column=indicator_cfg["value_column"],
+        base_filename=source_cfg["id"],
+        country_column="Country",
+        key_column="Alpha-3 code",
+        datetime_column=datetime_column,
+    )
 
-            # Modify column names if needed based on the source information
-            source_info = source_cfg["source"]
-            country_column = source_info.get("country_name_column", None)
+    return indicator_id
 
-            key_column = source_info.get("country_iso3_column", None)
 
-            if country_column == "None":
-                country_column = None
-            else:
-                country_column = source_info.get("country_name_column", None)
-
-                source_df.rename(columns={country_column: "Country"}, inplace=True)
-                country_column = "Country"
-
-            if key_column == "None":
-                key_column = None
-            else:
-                key_column = source_info.get("country_iso3_column", key_column)
-                source_df.rename(columns={key_column: "Alpha-3 code"}, inplace=True)
-                key_column = "Alpha-3 code"
-
-            # Log the transform function being executed
-            logger.info(
-                f"Running transform function {transform_function_name} for indicator {indicator_id}"
+async def process_indicator(
+    indicator_cfg: dict,
+    semaphore: asyncio.Semaphore,
+    processing_statuses: dict[str, list],
+):
+    """
+    Process a single indicator, applying transformations and updating processing statuses.
+    """
+    indicator_id = indicator_cfg["indicator_id"]
+    async with semaphore:
+        try:
+            await asyncio.wait_for(
+                run_transformation_for_indicator(indicator_cfg=indicator_cfg),
+                timeout=300,
             )
-            # Execute the transform function with specified parameters
-
-            await run_transform(
-                source_df=source_df,
-                indicator_id=indicator_id,
-                value_column=indicator_cfg.get("value_column", None),
-                base_filename=(
-                    None
-                    if source_info.get("id", None) == "None"
-                    else source_info.get("id", None)
-                ),
-                country_column=country_column,
-                key_column=key_column,
-                datetime_column=(
-                    None
-                    if source_info.get("datetime_column", None) == "None"
-                    else source_info.get("datetime_column", None)
-                ),
-                group_column=(
-                    None
-                    if source_info.get("group_column", None) == "None"
-                    else source_info.get("group_column", None)
-                ),
-                group_name=(
-                    None
-                    if source_info.get("group_name", None) == "None"
-                    else source_info.get("group_name", None)
-                ),
-                aggregate=(
-                    False if source_info.get("aggregate", None) != "True" else True
-                ),
-                aggregate_type="sum",
-                keep="last",
-                country_code_aggregate=(
-                    False
-                    if source_info.get("country_code_aggregate", None) != "True"
-                    else True
-                ),
-                return_dataframe=False,
-                region_column=(
-                    None
-                    if source_info.get("region_column", None) == "None"
-                    else source_info.get("region_column", None)
-                ),
-                year=indicator_cfg.get("year", None),
-                column_prefix=(
-                    None
-                    if indicator_cfg.get("column_prefix", None) == "None"
-                    else indicator_cfg.get("column_prefix", None)
-                ),
-                column_suffix=(
-                    None
-                    if indicator_cfg.get("column_suffix", None) == "None"
-                    else indicator_cfg.get("column_suffix", None)
-                ),
-                column_substring=(
-                    None
-                    if indicator_cfg.get("column_substring", None) == "None"
-                    else indicator_cfg.get("column_substring", None)
-                ),
-                project=project,
-                #     The following arguments are used only in the sme_transform function
-                dividend=(
-                    None
-                    if indicator_cfg.get("dividend", None) == "None"
-                    else indicator_cfg.get("dividend", None)
-                ),
-                divisor=(
-                    None
-                    if indicator_cfg.get("divisor", None) == "None"
-                    else indicator_cfg.get("divisor", None)
-                ),
-            )
-
-        else:
-            # If no transform function is specified, log the information
-            logger.info(f"No transform function specified for indicator {indicator_id}")
-
-        return indicator_id
-    except Exception as e:
-        raise e
+            logger.info(f"Transformation succeeded for {indicator_id}")
+            processing_statuses["transformed_indicators"].append(indicator_id)
+        except (TimeoutError, asyncio.TimeoutError, Exception):
+            logger.error(f"Timeout while processing {indicator_id}")
+            processing_statuses["failed_indicators"].append(indicator_id)
 
 
+@log_exceptions
 async def transform_sources(
-    concurrent=True,
-    indicator_ids: List = None,
+    indicator_ids: list = None,
     indicator_id_contain_filter: str = None,
-    project: str = "access_all_data",
-    concurrent_chunk_size: int = 50,
-) -> List[str] or None:
+) -> list[str] | None:
     """
     Perform transformations for a list of indicators.
     """
-    assert project not in ["", None], f"Invalid project={project}."
+    processing_statuses = {"failed_indicators": [], "transformed_indicators": []}
 
-    failed_indicators_ids = []
-    skipped_indicators_id = []
-    transformed_indicators = []
-    # Initialize the StorageManager
+    semaphore = asyncio.Semaphore(MAX_TRANSFORM_CONCURRENCY)
+
     async with StorageManager() as storage_manager:
         indicators_cfgs = await storage_manager.get_indicators_cfg(
             indicator_ids=indicator_ids, contain_filter=indicator_id_contain_filter
         )
 
-        logger.debug(f"got {len(indicators_cfgs)}")
+        logger.debug(f"Retrieved {len(indicators_cfgs)} indicators")
         if not indicators_cfgs:
             logger.info(
-                f"No indicators were retrieved  using indicator_ids={indicator_ids} and indicator_id_contain_filter={indicator_id_contain_filter}"
+                f"No indicators retrieved using indicator_ids={indicator_ids} "
+                f"and indicator_id_contain_filter={indicator_id_contain_filter}"
             )
-            return
-        for chunk in chunker(indicators_cfgs, concurrent_chunk_size):
+            return None
 
-            # path = os.path.join('DataFuturePlatform', 'pipeline', 'config', 'indicators', 'mmrlatest_gii.cfg')
-            # await storage_manager.delete_blob(path=path)
-            tasks = []
-            # List to store transformed indicator IDs
-            chunk_transformed_indicators = []
-            # Loop through each indicator configuration and perform transformations
-            for indicator_cfg in chunk:
-                indicator_section = indicator_cfg["indicator"]
-                indicator_id = indicator_section["indicator_id"]
-                if indicator_section.get("preprocessing") is None:
-                    # Skip if no preprocessing function is specified
-                    logger.info(
-                        f"Skipping preprocessing for indicator {indicator_id} as no preprocessing function is specified"
-                    )
-                    skipped_indicators_id.append(indicator_id)
-                    continue
-
-                if not concurrent:
-                    # Perform transformation sequentially
-                    transformed_indicator_id = await run_transformation_for_indicator(
-                        indicator_cfg=indicator_section, project=project
-                    )
-                    chunk_transformed_indicators.append(transformed_indicator_id)
-                else:
-                    # Create a task for running the transformation for the indicator
-                    # Perform transformation concurrently using asyncio tasks
-                    transformation_task = asyncio.create_task(
-                        run_transformation_for_indicator(
-                            indicator_cfg=indicator_section, project=project
-                        ),
-                        name=indicator_id,
-                    )
-                    tasks.append(transformation_task)
-
-            if concurrent:
-                done, pending = await asyncio.wait(
-                    tasks, timeout=3600 * 3, return_when=asyncio.ALL_COMPLETED
-                )
-
-                for task in done:
-                    indicator_id = task.get_name()
-                    try:
-                        await task
-                        logger.info(
-                            f"Transform for {indicator_id} was executed successfully"
-                        )
-                        chunk_transformed_indicators.append(indicator_id)
-                    except Exception as e:
-                        failed_indicators_ids.append(indicator_id)
-                        with StringIO() as m:
-                            print_exc(file=m)
-                            em = m.getvalue()
-                            logger.error(
-                                f"Error {em} was encountered while processing  {indicator_id}"
-                            )
-
-                # # Handle timed out tasks
-                for task in pending:
-                    # Cancel task and wait for cancellation to complete
-                    indicator_id = task.get_name()
-                    failed_indicators_ids.append(indicator_id)
-                    task.cancel()
-                    await task
-            transformed_indicators += chunk_transformed_indicators
+        tasks = [
+            process_indicator(cfg, semaphore, processing_statuses)
+            for cfg in indicators_cfgs
+        ]
+        await asyncio.gather(*tasks)
 
         logger.info("#" * 100)
         logger.info(f"TASKED: {len(indicators_cfgs)} indicators")
-        logger.info(f"TRANSFORMED:   {len(transformed_indicators)} indicators")
-        if failed_indicators_ids:
-
-            logger.info(f"FAILED: {len(failed_indicators_ids)} indicators")
-        if skipped_indicators_id:
-
-            logger.info(f"SKIPPED: {len(skipped_indicators_id)} indicators")
+        logger.info(
+            f"TRANSFORMED: {len(processing_statuses['transformed_indicators'])} indicators"
+        )
+        logger.info(
+            f"FAILED: {len(processing_statuses['failed_indicators'])} indicators"
+        )
         logger.info("#" * 100)
 
-        return transformed_indicators
+        return (
+            processing_statuses["transformed_indicators"]
+            if processing_statuses["transformed_indicators"]
+            else None
+        )
 
 
 if __name__ == "__main__":
-
     from dotenv import load_dotenv
 
     load_dotenv()
@@ -396,5 +214,6 @@ if __name__ == "__main__":
     logger.handlers.clear()
     logger.addHandler(logging_stream_handler)
     logger.name = __name__
+
     transformed_sources = asyncio.run(transform_sources())
-    print(transformed_sources)
+    logger.info(transformed_sources)

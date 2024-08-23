@@ -13,6 +13,7 @@ from azure.storage.blob.aio import BlobPrefix, ContainerClient
 from ..common import cfg2dict
 from ..exceptions import ConfigError
 from .utils import *
+from dfpp.data_models import Source, Indicator
 
 logger = logging.getLogger(__name__)
 
@@ -109,10 +110,11 @@ class StorageManager:
             content = await self.read_blob(path=indicator_path)
             content_str = content.decode("utf-8")
 
-            parser = configparser.ConfigParser(interpolation=None)
+            parser = UnescapedConfigParser(interpolation=None)
             parser.read_string(content_str)
             if "indicator" in parser:
-                return cfg2dict(parser)
+                 indicator_cfg_dict = Indicator.flatten_dict_config(cfg2dict(parser))
+                 return dict(Indicator(**indicator_cfg_dict))
             else:
                 raise Exception(
                     f"Indicator  {indicator_id} located at {indicator_path} does not contain an 'indicator' section"
@@ -125,11 +127,9 @@ class StorageManager:
         self, contain_filter: str = None, indicator_ids: list[str] = None
     ):
         if indicator_ids is None:
-            indicators = await self.list_configs(kind="indicators")
-        else:
-            indicators = indicator_ids
+            indicator_ids = await self.list_configs(kind="indicators")
         tasks = []
-        for indicator in indicators:
+        for indicator in indicator_ids:
             if contain_filter is not None and contain_filter not in indicator:
                 continue
             t = asyncio.create_task(
@@ -164,8 +164,8 @@ class StorageManager:
             parser.read_string(content_str)
             logger.debug("Source config read by parser")
             cfg_dict = cfg2dict(parser)
-            validate_src_cfg(cfg_dict=cfg_dict["source"])
-            return cfg_dict
+            source_cfg_dict = Source.flatten_dict_config(cfg_dict)
+            return dict(Source(**source_cfg_dict))
         except Exception as e:
             logger.error(f"Failed to download {source_id}")
             logger.error(e)

@@ -3356,9 +3356,9 @@ async def ihr_spar_transform_preprocessing(bytes_data: bytes, **kwargs) -> pd.Da
         indicator_cfg = await storage_manager.get_indicator_cfg(
             indicator_id=indicator_id
         )
-        source_id = indicator_cfg["indicator"]["source_id"]
+        source_id = indicator_cfg["source_id"]
         source_cfg = await storage_manager.get_source_cfg(source_id=source_id)
-        file_format = source_cfg["source"]["file_format"]
+        file_format = source_cfg["file_format"]
         if file_format == "csv":
             source_df = pd.read_csv(io.BytesIO(bytes_data))
         elif file_format == "json":

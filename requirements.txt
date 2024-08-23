@@ -10,3 +10,4 @@ tqdm ~= 4.66.1
 numpy == 1.26.4
 asyncpg == 0.29.0
 click ~= 8.1.7
+pydantic ~= 2.8
