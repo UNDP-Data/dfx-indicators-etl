@@ -1,29 +1,20 @@
 import asyncio
 import logging
 import os
-
+from tqdm import tqdm
+import papermill
 import numpy as np
 
 from dfpp.storage import StorageManager
 from dfpp.transformation import preprocessing, transform_functions
+from dfpp.exceptions_logger import handle_exceptions
 
 logger = logging.getLogger(__name__)
 
 MAX_TRANSFORM_CONCURRENCY = 4
 
 
-def log_exceptions(func):
-    async def wrapper(*args, **kwargs):
-        try:
-            return await func(*args, **kwargs)
-        except Exception as e:
-            logger.error(f"Error in {func.__name__}: {e}")
-            raise
-
-    return wrapper
-
-
-@log_exceptions
+@handle_exceptions(logger=logger)
 async def read_source_file_for_indicator(indicator_source: str = None):
     """
     Read the source file for a specific indicator asynchronously.
@@ -58,7 +49,7 @@ async def read_source_file_for_indicator(indicator_source: str = None):
         return data, source_cfg
 
 
-@log_exceptions
+@handle_exceptions(logger=logger)
 async def run_transformation_for_indicator(indicator_cfg: dict = None):
     """
     Run transformation for a specific indicator.
@@ -149,52 +140,50 @@ async def process_indicator(
             processing_statuses["failed_indicators"].append(indicator_id)
 
 
-@log_exceptions
-async def transform_sources(
-    indicator_ids: list = None,
-    indicator_id_contain_filter: str = None,
-) -> list[str] | None:
+async def run_notebooks(indicator_ids: list = None, indicator_id_contain_filter: str = None):
     """
-    Perform transformations for a list of indicators.
+    Run a list of parameterized notebooks from dfpp.transformation.notebooks.
+    To each notebook, I also parse the parameters consisting of indicator configs and one source config.
+
+    :param indicator_ids: List of indicator ids to run.
+    :type indicator_ids: list
+    :param indicator_id_contain_filter: Filter for indicator ids.
+    :type indicator_id_contain_filter: str
     """
-    processing_statuses = {"failed_indicators": [], "transformed_indicators": []}
-
-    semaphore = asyncio.Semaphore(MAX_TRANSFORM_CONCURRENCY)
-
     async with StorageManager() as storage_manager:
-        indicators_cfgs = await storage_manager.get_indicators_cfg(
+        indicator_cfgs = await storage_manager.get_indicators_cfg(
             indicator_ids=indicator_ids, contain_filter=indicator_id_contain_filter
         )
-
-        logger.debug(f"Retrieved {len(indicators_cfgs)} indicators")
-        if not indicators_cfgs:
+        logger.debug(f"Retrieved {len(indicator_cfgs)} indicators")
+        if not indicator_cfgs:
+        
             logger.info(
                 f"No indicators retrieved using indicator_ids={indicator_ids} "
                 f"and indicator_id_contain_filter={indicator_id_contain_filter}"
             )
             return None
 
-        tasks = [
-            process_indicator(cfg, semaphore, processing_statuses)
-            for cfg in indicators_cfgs
-        ]
-        await asyncio.gather(*tasks)
+        unique_source_ids = set([cfg["source_id"] for cfg in indicator_cfgs])
 
-        logger.info("#" * 100)
-        logger.info(f"TASKED: {len(indicators_cfgs)} indicators")
-        logger.info(
-            f"TRANSFORMED: {len(processing_statuses['transformed_indicators'])} indicators"
+        sources_configs = await storage_manager.get_sources_cfgs(
+            source_ids=list(unique_source_ids)
         )
-        logger.info(
-            f"FAILED: {len(processing_statuses['failed_indicators'])} indicators"
-        )
-        logger.info("#" * 100)
 
-        return (
-            processing_statuses["transformed_indicators"]
-            if processing_statuses["transformed_indicators"]
-            else None
-        )
+    for source_cfg in sources_configs:
+
+        notebook_path = os.path.join("dfpp", "transformation",
+                                      "source_notebooks", f"{source_cfg['id']}.ipynb")
+        if not os.path.exists(notebook_path):
+            continue
+        params = {
+            "source_cfg": source_cfg,
+            "indicator_cfgs": [
+                indicator_cfg
+                for indicator_cfg in indicator_cfgs
+                if indicator_cfg["source_id"] == source_cfg["id"]
+            ],
+        }
+        papermill.execute_notebook(notebook_path, notebook_path, parameters=params)
 
 
 if __name__ == "__main__":
@@ -215,5 +204,6 @@ if __name__ == "__main__":
     logger.addHandler(logging_stream_handler)
     logger.name = __name__
 
-    transformed_sources = asyncio.run(transform_sources())
-    logger.info(transformed_sources)
+
+
+    asyncio.run(run_notebooks(indicator_ids = None, indicator_id_contain_filter = None))
