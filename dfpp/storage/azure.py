@@ -429,5 +429,5 @@ class StorageManager:
         async def wrapper(*args, **kwargs):
             async with StorageManager() as storage_manager:
                 logger.debug("Connected to Azure blob")
-                return await func(storage_manager, *args, **kwargs)
+                return await func(*args, storage_manager=storage_manager, **kwargs)
         return wrapper
