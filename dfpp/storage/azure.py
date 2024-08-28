@@ -423,3 +423,11 @@ class StorageManager:
         data = await self.read_blob(path=path)
         df = pd.read_excel(BytesIO(data), sheet_name=f"{sheet}_lookup")
         return df
+    
+    @staticmethod
+    def with_storage_manager(func):
+        async def wrapper(*args, **kwargs):
+            async with StorageManager() as storage_manager:
+                logger.debug("Connected to Azure blob")
+                return await func(storage_manager, *args, **kwargs)
+        return wrapper
