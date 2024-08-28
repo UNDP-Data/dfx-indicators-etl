@@ -158,7 +158,6 @@ data/
 
 # Misc
 config
-*.ipynb
 *.csv
 *.json
 .vscode
