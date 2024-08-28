@@ -155,3 +155,10 @@ cython_debug/
 data/
 **/*.DS_Store
 **/*.sqlite
+
+# Misc
+config
+*.ipynb
+*.csv
+*.json
+.vscode
