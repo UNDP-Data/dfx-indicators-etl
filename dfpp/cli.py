@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from .publishing import publish
 from .retrieval import download_indicator_sources
 from .transformation import transform_sources
-from .utils import list_command
+from .cli_utils import list_command
 
 load_dotenv()
 
