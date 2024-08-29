@@ -3,17 +3,25 @@ import json
 import numpy as np
 import pandas as pd
 
-pd.options.mode.chained_assignment = None
-from ..constants import STANDARD_COUNTRY_COLUMN, STANDARD_KEY_COLUMN
-from ..utils import (
+
+from dfpp.constants import STANDARD_COUNTRY_COLUMN, STANDARD_KEY_COLUMN
+
+from dfpp.geo_utils import (
     add_country_code,
-    add_region_code,
+    add_region_code
+)
+
+from dfpp.utils import (
     get_year_columns,
-    invert_dictionary,
-    rename_indicator,
     update_base_file,
 )
 
+from dfpp.transformation.utils import (
+    invert_dictionary,
+    rename_indicator,
+    )
+
+pd.options.mode.chained_assignment = None
 
 async def type1_transform(**kwargs) -> None:
     """

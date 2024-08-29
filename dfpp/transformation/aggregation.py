@@ -7,10 +7,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ..constants import CURRENT_YEAR, STANDARD_KEY_COLUMN
-from ..exceptions import AggregationError
-from ..storage import StorageManager
-from ..utils import base_df_for_indicator, interpolate_data
+from dfpp.constants import CURRENT_YEAR, STANDARD_KEY_COLUMN
+from dfpp.exceptions import AggregationError
+from dfpp.storage import StorageManager
+from dfpp.utils import base_df_for_indicator, interpolate_data
 
 logger = logging.getLogger(__name__)
 
