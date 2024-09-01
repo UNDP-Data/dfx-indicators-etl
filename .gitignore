@@ -161,3 +161,6 @@ config
 *.csv
 *.json
 .vscode
+
+# Execution outputs
+**/indicator_execution/*
