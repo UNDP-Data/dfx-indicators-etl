@@ -14,7 +14,6 @@ class NotebookStatus(Enum):
     MISSING = "missing"
     FAILED = "failed"
 
-
 @StorageManager.with_storage_manager
 async def run_notebooks(
     indicator_ids: list = None,
@@ -56,29 +55,28 @@ async def run_notebooks(
 
     return processing_results
 
-
 def log_notebook_result(
-    source_id, source_name, notebook_path, status: NotebookStatus, error_message=None
+    source_id, source_name, notebook_path, status: NotebookStatus, indicator_id=None, error_message=None
 ):
     """
     Logs the result of a notebook execution.
     """
     if status == NotebookStatus.PROCESSED:
-        logger.info(f"Successfully processed notebook: {notebook_path}")
+        logger.info(f"Successfully processed notebook: {notebook_path} for indicator_id: {indicator_id}")
     elif status == NotebookStatus.FAILED:
         logger.error(
-            f"Failed to process notebook for source_id: {source_id}, source_name: {source_name}. "
+            f"Failed to process notebook for source_id: {source_id}, source_name: {source_name}, indicator_id: {indicator_id}. "
             f"Notebook: {notebook_path}. Error: {error_message}"
         )
     elif status == NotebookStatus.MISSING:
-        logger.warning(f"Notebook missing: {notebook_path}")
-
+        logger.warning(f"Notebook missing: {notebook_path} for indicator_id: {indicator_id}")
 
 def update_processing_results(
     processing_results,
     status: NotebookStatus,
     notebook_path=None,
     source_id=None,
+    indicator_id=None,
     source_name=None,
     error_message=None,
 ):
@@ -93,25 +91,22 @@ def update_processing_results(
         processing_results["notebooks_failed"].append(
             {
                 "source_id": source_id,
+                "indicator_id": indicator_id,
                 "source_name": source_name,
                 "notebook_path": notebook_path,
                 "error": error_message,
             }
         )
 
-
 async def execute_notebook(source_cfg, indicator_cfgs, processing_results):
     """
-    Executes a single notebook and updates the processing results.
+    Executes a SOURCE notebook for ALL associated indicators
     """
     source_id = source_cfg["id"]
     source_name = source_cfg.get("name", "Unknown Source Name")
 
     notebook_path = os.path.join(
-        "dfpp", "transformation", "source_notebooks", f"{source_id}.ipynb"
-    )
-    notebook_path_to_save = os.path.join(
-        "dfpp", "transformation", "source_notebooks", f"{source_id}_processed.ipynb"
+        "dfpp", "transformation", "source_notebooks", source_id, f"{source_id}.ipynb"
     )
 
     if not os.path.exists(notebook_path):
@@ -121,47 +116,57 @@ async def execute_notebook(source_cfg, indicator_cfgs, processing_results):
         update_processing_results(
             processing_results, status=NotebookStatus.MISSING, notebook_path=notebook_path
         )
-        return
+        return None
 
-    params = {
-        "source_cfg": source_cfg,
-        "indicator_cfgs": [
-            indicator_cfg
+    source_indicator_cfgs = [indicator_cfg
             for indicator_cfg in indicator_cfgs
-            if indicator_cfg["source_id"] == source_id
-        ],
-    }
+            if indicator_cfg["source_id"] == source_id]
 
-    try:
-        pm.execute_notebook(
-            input_path=notebook_path,
-            output_path=notebook_path,
-            parameters=params,
-        )
-        log_notebook_result(
-            source_id, source_name, notebook_path_to_save, status=NotebookStatus.PROCESSED
-        )
-        update_processing_results(
-            processing_results, status=NotebookStatus.PROCESSED, notebook_path=notebook_path_to_save
-        )
-    except Exception as e:
-        error_message = str(e)
-        log_notebook_result(
-            source_id,
-            source_name,
-            notebook_path,
-            status=NotebookStatus.FAILED,
-            error_message=error_message,
-        )
-        update_processing_results(
-            processing_results,
-            status=NotebookStatus.FAILED,
-            notebook_path=notebook_path,
-            source_id=source_id,
-            source_name=source_name,
-            error_message=error_message,
+    for indicator_cfg in source_indicator_cfgs:
+        indicator_id = indicator_cfg["indicator_id"]
+
+        params = {
+            "source_cfg": source_cfg,
+            "indicator_cfg": indicator_cfg
+        }
+
+        notebook_path_to_save = os.path.join(
+            "dfpp", "transformation",
+            "source_notebooks", source_id, "indicator_execution",
+            f"{indicator_id}_{source_id}.ipynb"
         )
 
+        try:
+            pm.execute_notebook(
+                input_path=notebook_path,
+                output_path=notebook_path_to_save,
+                parameters=params,
+            )
+            log_notebook_result(
+                source_id, source_name, notebook_path_to_save, status=NotebookStatus.PROCESSED, indicator_id=indicator_id
+            )
+            update_processing_results(
+                processing_results, status=NotebookStatus.PROCESSED, notebook_path=notebook_path_to_save, indicator_id=indicator_id
+            )
+        except Exception as e:
+            error_message = str(e)
+            log_notebook_result(
+                source_id,
+                source_name,
+                notebook_path,
+                status=NotebookStatus.FAILED,
+                error_message=error_message,
+                indicator_id=indicator_id,
+            )
+            update_processing_results(
+                processing_results,
+                status=NotebookStatus.FAILED,
+                notebook_path=notebook_path,
+                source_id=source_id,
+                source_name=source_name,
+                error_message=error_message,
+                indicator_id=indicator_id
+            )
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
