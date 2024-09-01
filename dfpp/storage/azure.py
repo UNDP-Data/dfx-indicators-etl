@@ -10,9 +10,9 @@ import pandas as pd
 from azure.storage.blob import ContentSettings
 from azure.storage.blob.aio import BlobPrefix, ContainerClient
 
-from ..common import cfg2dict
-from ..exceptions import ConfigError
-from .utils import *
+from dfpp.common import cfg2dict
+from dfpp.exceptions import ConfigError
+from dfpp.storage.utils import *
 from dfpp.data_models import Source, Indicator
 
 logger = logging.getLogger(__name__)
