@@ -26,12 +26,11 @@ def gappiness(group, indicator_id):
     gaps = np.diff(available_years) - 1
     average_gap_size = gaps[gaps > 0].mean() if np.any(gaps > 0) else 0
 
+    gappiness_index = 0
     if total_years > 0:
         gappiness_index = (missing_years / total_years) * (
             1 + np.log(1 + average_gap_size)
         )
-    else:
-        gappiness_index = 0
 
     return pd.Series(
         {
@@ -64,6 +63,11 @@ def interpolate_group(group: pd.DataFrame, indicator_id: str) -> pd.DataFrame:
     observed_years = group["observed_years"].iloc[0]
     missing_years = group["missing_years"].iloc[0]
 
+    year_min = group["year_min"].iloc[0]
+    year_max = group["year_max"].iloc[0]
+
+    group.sort_values("year", inplace=True)
+
     if not missing_years:
         return group
 
@@ -79,21 +83,30 @@ def interpolate_group(group: pd.DataFrame, indicator_id: str) -> pd.DataFrame:
         )
         return group
 
-    group[indicator_id] = group[indicator_id].fillna(
-        method="ffill",
-    )
+    ffill_mask = (group["year"] >= year_min) & (group["year"] <= year_max)
+
+    group.loc[ffill_mask, indicator_id] = group.loc[ffill_mask, indicator_id].ffill()
 
     return group
 
 
-def interpolate_data(long_df: pd.DataFrame, indicator_id: str) -> pd.DataFrame:
+def interpolate_data(
+    long_df: pd.DataFrame, indicator_id: str, debug=False,
+) -> pd.DataFrame:
     """Interpolate data based on Gappiness Index."""
 
     gappiness_df = calculate_gappiness_index(long_df, indicator_id)
 
     long_df = long_df.merge(
         gappiness_df[
-            ["Alpha-3 code", "gappiness_index", "observed_years", "missing_years"]
+            [
+                "Alpha-3 code",
+                "gappiness_index",
+                "observed_years",
+                "missing_years",
+                "year_min",
+                "year_max",
+            ]
         ],
         on="Alpha-3 code",
     )
@@ -102,6 +115,27 @@ def interpolate_data(long_df: pd.DataFrame, indicator_id: str) -> pd.DataFrame:
         interpolate_group, indicator_id=indicator_id
     )
 
-    return interpolated_long_df.drop(
-        columns=["gappiness_index", "observed_years", "missing_years"]
-    ).reset_index(drop=True)
+    if not debug == True:
+        return interpolated_long_df.drop(
+            columns=[
+                "gappiness_index",
+                "observed_years",
+                "missing_years",
+                "year_min",
+                "year_max",
+            ]
+        ).reset_index(drop=True)
+
+    interpolated_long_df.reset_index(
+        drop=True,
+    )
+
+    debug_interpolation_df = long_df.merge(
+        interpolated_long_df, on=["Alpha-3 code", "year"]
+    ).merge(
+        interpolated_long_df,
+        on=["Alpha-3 code", "year"],
+        suffixes=("_original", "_interpolated"),
+    )
+
+    return debug_interpolation_df
