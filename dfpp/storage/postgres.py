@@ -7,6 +7,13 @@ class AsyncPGClient:
     def __init__(self, dsn):
         self.dsn = dsn
 
+    async def __aenter__(self):
+        await self.connect()
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self.close()
+
     async def connect(self):
         self.conn = await asyncpg.connect(self.dsn)
 
