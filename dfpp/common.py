@@ -3,7 +3,13 @@ A pyhon module to hold common (between stages) functions for the DFP pipeline
 """
 
 import logging
+import tldextract
+from urllib.parse import urlparse
+import re
+
+
 from configparser import ConfigParser, RawConfigParser
+
 
 logger = logging.getLogger(__name__)
 
@@ -66,3 +72,35 @@ async def read_indicator(storage_manager=None, indicator_blob_rel_path=None):
     assert cfg_dict, f"Indicator config file  {indicator_blob_rel_path} is invalid"
 
     return cfg_dict
+
+
+def get_domain_from_url(url: str | None) -> str | None:
+    """
+    Extract the domain (registered domain) from a given URL.
+    """
+    if url is None:
+        return None
+    return tldextract.extract(url).registered_domain
+
+
+def get_netloc_from_url(url: str | None) -> str | None:
+    """
+    Extract the network location (netloc) from a given URL.
+    """
+    if url is None:
+        return None
+    return " ".join(urlparse(url).netloc.split("/")[:2])
+
+
+def snake_casify(s: str) -> str:
+    """
+    Convert a string to snake_case
+    """
+    # Replace any dots, spaces, or non-alphanumeric characters with underscores
+    s = re.sub(r"[^a-zA-Z0-9]+", "_", s)
+
+    # Insert an underscore before any uppercase letter that is followed by a lowercase letter or another uppercase letter
+    s = re.sub(r"(?<!^)(?=[A-Z])", "_", s)
+
+    # Convert the whole string to lowercase
+    return s.lower().strip("_")
