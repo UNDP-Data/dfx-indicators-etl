@@ -231,7 +231,6 @@ def save_results_to_excel(processing_results):
     """
     Saves the processing results to an Excel file, appending if the file already exists.
     """
-    # Create a timestamped filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     processing_results["timestamp"] = timestamp
     filename = f"processing_results_{timestamp}.xlsx"
@@ -246,17 +245,11 @@ def output_summary(processing_results_df):
     """
     num_sources = processing_results_df.source_id.nunique()
 
-    num_missing_source_notebooks = len(
-        processing_results_df[
-            processing_results_df["status"] == NotebookStatus.MISSING.value
-        ]
+    num_missing_source_notebooks = (
+        processing_results_df["status"].eq(NotebookStatus.MISSING.value).sum()
     )
 
-    num_failed = len(
-        processing_results_df[
-            processing_results_df["status"] == NotebookStatus.FAILED.value
-        ]
-    )
+    num_failed = processing_results_df["status"].eq(NotebookStatus.FAILED.value).sum()
 
     sources_processed = processing_results_df[
         processing_results_df["status"] == NotebookStatus.PROCESSED.value
