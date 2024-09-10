@@ -13,22 +13,22 @@ logger = logging.getLogger(__name__)
 
 
 @StorageManager.with_storage_manager
-def _get_population_data(storage_manager):
+async def df_get_population_data(storage_manager):
     population_path = os.path.join(storage_manager.utilities_path, "population.csv")
     popuation_data = await storage_manager.read_blob(path=population_path)
-    population_df = pd.read_csv(io.BytesIO(popuation_data))
+    df_population = pd.read_csv(io.BytesIO(popuation_data))
 
-    long_population = population_df.melt(
-        id_vars=["Alpha-3 code"],
-        value_vars=population_df.select_dtypes("number"),
+    df_long_population = df_population.melt(
+        id_vars=["alpha_3_code"],
+        value_vars=df_population.select_dtypes("number"),
         value_name="totalpopulation_untp_year",
     )
-    long_population["totalpopulation_untp"] = long_population["variable"].str.extract(
+    df_long_population["totalpopulation_untp"] = df_long_population["variable"].str.extract(
         r"(\D+)"
     )
-    long_population["year"] = long_population["variable"].str.extract(r"(\d+)")
-    long_population["year"] = long_population["year"].astype(int)
-    return long_population
+    df_long_population["year"] = df_long_population["variable"].str.extract(r"(\d+)")
+    df_long_population["year"] = df_long_population["year"].astype(int)
+    return df_long_population
 
 
 @StorageManager.with_storage_manager
