@@ -6,11 +6,13 @@ import pandas as pd
 from datetime import datetime
 from dfpp.storage import StorageManager
 from enum import Enum
+from dfpp.common import get_domain_from_url, get_netloc_from_url, snake_casify
 
 __all__ = ["run_notebooks"]
 
 logger = logging.getLogger(__name__)
 
+BASE_NOTEBOOK_PATH = os.path.join("dfpp", "transformation", "source_notebooks")
 
 class NotebookStatus(Enum):
     PROCESSED = "processed"
@@ -163,10 +165,16 @@ async def execute_notebook(source_cfg, indicator_cfgs, processing_results):
     source_id = source_cfg["id"]
     source_name = source_cfg.get("name", "Unknown Source Name")
 
-    notebook_path = os.path.join(
-        "dfpp", "transformation", "source_notebooks", source_id, f"{source_id}.ipynb"
-    )
 
+    notebook_path =  os.path.join(
+            BASE_NOTEBOOK_PATH, f"{source_id}.ipynb"
+        )
+    if source_cfg["type"] != "Manual":
+        domain = snake_casify(get_domain_from_url(source_cfg["url"]))
+        netloc = snake_casify(get_netloc_from_url(source_cfg["url"]))
+
+        notebook_path = os.path.join(BASE_NOTEBOOK_PATH, domain, f"{netloc}.ipynb")
+        
     if not os.path.exists(notebook_path):
         log_and_update_results(
             processing_results,
@@ -182,20 +190,18 @@ async def execute_notebook(source_cfg, indicator_cfgs, processing_results):
         for indicator_cfg in indicator_cfgs
         if indicator_cfg["source_id"] == source_id
     ]
+    path_to_save_executed_notebook = os.path.join(notebook_path, "indicator_execution")
+    if not os.path.exists(path_to_save_executed_notebook):
+        os.mkdir(path_to_save_executed_notebook)
 
-    for indicator_cfg in source_indicator_cfgs[:1]:
+    for indicator_cfg in source_indicator_cfgs:
         indicator_id = indicator_cfg["indicator_id"]
 
         params = {"source_cfg": source_cfg, "indicator_cfg": indicator_cfg}
+        
+        notebook_path_to_save = os.path.join(path_to_save_executed_notebook,
+                                              f"{source_id}_{indicator_id}.ipynb")
 
-        notebook_path_to_save = os.path.join(
-            "dfpp",
-            "transformation",
-            "source_notebooks",
-            source_id,
-            "indicator_execution",
-            f"{indicator_id}_{source_id}.ipynb",
-        )
 
         try:
             pm.execute_notebook(
@@ -231,15 +237,8 @@ def save_results_to_excel(processing_results):
     # Create a timestamped filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     processing_results["timestamp"] = timestamp
-    filename = f"processing_results.xlsx"
+    filename = f"processing_results_{timestamp}.xlsx"
 
-    # Save results to the Excel file
-    if os.path.exists(filename):
-        with pd.ExcelWriter(filename, mode="a") as writer:
-            processing_results.to_excel(
-                writer, index=False, sheet_name=timestamp
-            )
-        return None
     with pd.ExcelWriter(filename) as writer:
         processing_results.to_excel(writer, index=False, sheet_name=timestamp)
 
@@ -272,23 +271,3 @@ def output_summary(processing_results_df):
     logger.info(f"Total Notebooks Failed: {num_failed}")
     logger.info(f"Number of Sources Processed: {sources_processed}")
     logger.info(f"Number of Indicators Successfully Processed: {indicators_processed}")
-
-
-if __name__ == "__main__":
-    from dotenv import load_dotenv
-
-    load_dotenv(".env")
-    logging.basicConfig()
-    logger = logging.getLogger("azure.storage.blob")
-    logging_stream_handler = logging.StreamHandler()
-    logging_stream_handler.setFormatter(
-        logging.Formatter(
-            "%(asctime)s-%(filename)s:%(funcName)s:%(lineno)d:%(levelname)s:%(message)s",
-            "%Y-%m-%d %H:%M:%S",
-        )
-    )
-    logger.setLevel(logging.DEBUG)
-    logger.handlers.clear()
-    logger.addHandler(logging_stream_handler)
-    logger.name = __name__
-    asyncio.run(run_notebooks(indicator_ids=None, indicator_id_contain_filter=None))
