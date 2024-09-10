@@ -2,9 +2,7 @@ import pandas as pd
 import numpy as np
 
 
-def gappiness(
-    df_long_group: pd.DataFrame, indicator_id: str
-) -> pd.Series:
+def gappiness(df_long_group: pd.DataFrame, indicator_id: str) -> pd.Series:
     """
     Calculates gappiness index for a single group of data.
 
@@ -15,7 +13,9 @@ def gappiness(
     Returns:
         pd.Series - Series with gappiness index and other relevant metrics
     """
-    available_years = df_long_group[df_long_group[indicator_id].notna()]["year"].sort_values().values
+    available_years = (
+        df_long_group[df_long_group[indicator_id].notna()]["year"].sort_values().values
+    )
 
     if len(available_years) == 0:
         return pd.Series(
@@ -95,13 +95,17 @@ def interpolate_group(df_long_group: pd.DataFrame, indicator_id: str) -> pd.Data
 
     ffill_mask = df_long_group["year"].between(year_min, year_max, inclusive="both")
 
-    df_long_group.loc[ffill_mask, indicator_id] = df_long_group.loc[ffill_mask, indicator_id].ffill()
+    df_long_group.loc[ffill_mask, indicator_id] = df_long_group.loc[
+        ffill_mask, indicator_id
+    ].ffill()
 
     return df_long_group
 
 
 def interpolate_data(
-    df_long: pd.DataFrame, indicator_id: str, debug=False,
+    df_long: pd.DataFrame,
+    indicator_id: str,
+    debug=False,
 ) -> pd.DataFrame:
     """Interpolate data based on Gappiness Index."""
 
@@ -141,7 +145,8 @@ def interpolate_data(
     )
 
     df_debug_interpolation = df_long.merge(
-       df_long_interpolated, on=["alpha_3_code", "year"],
+        df_long_interpolated,
+        on=["alpha_3_code", "year"],
         suffixes=("_original", "_interpolated"),
     )
 
