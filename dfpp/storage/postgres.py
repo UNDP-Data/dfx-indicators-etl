@@ -30,11 +30,8 @@ class AsyncPGClient:
             print(f"Table for indicator {indicator_id} already exists.")
 
     async def insert_indicator(self, indicator_id, df_long):
-        if indicator_id not in self.tables:
-            raise Exception(f"Table for indicator {indicator_id} does not exist.")
-        
-        self.tables[indicator_id].extend(df_long)
-        print(f"Inserted {len(df_long)} rows into table for indicator: {indicator_id}")
+
+        print(f"Inserted {df_long.shape[0]} rows into table for indicator: {indicator_id}")
 
     async def read_data(self, indicator_id, country_or_area=None, year=None):
         if indicator_id not in self.tables:
