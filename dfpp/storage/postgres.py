@@ -1,11 +1,11 @@
-"""draft of postgres client to manage indicator insertion"""
+"""mock of postgres client to manage indicator insertion"""
 
 import asyncpg
 
-
 class AsyncPGClient:
-    def __init__(self, dsn):
-        self.dsn = dsn
+    def __init__(self):
+        self.tables = {}  
+        self.connected = False
 
     async def __aenter__(self):
         await self.connect()
@@ -15,28 +15,30 @@ class AsyncPGClient:
         await self.close()
 
     async def connect(self):
-        self.conn = await asyncpg.connect(self.dsn)
+        self.connected = True
+        print("Mock connected to the database.")
 
     async def close(self):
-        await self.conn.close()
+        self.connected = False
+        print("Mock closed the database connection.")
 
     async def create_indicator_table(self, indicator_id):
-        """
-        Create a table for the specific indicator_id if it doesn't exist.
-        """
-        pass
+        if indicator_id not in self.tables:
+            self.tables[indicator_id] = []
+            print(f"Created mock table for indicator: {indicator_id}")
+        else:
+            print(f"Table for indicator {indicator_id} already exists.")
 
     async def insert_indicator(self, indicator_id, df_long):
-        """
-        Insert multiple rows into the indicator_id table from a long format DataFrame.
-        """
-        pass
+        if indicator_id not in self.tables:
+            raise Exception(f"Table for indicator {indicator_id} does not exist.")
+        
+        self.tables[indicator_id].extend(df_long)
+        print(f"Inserted {len(df_long)} rows into table for indicator: {indicator_id}")
 
     async def read_data(self, indicator_id, country_or_area=None, year=None):
-        """
-        Read data from the indicator table with optional filters for country and year.
-        """
-        pass
+        if indicator_id not in self.tables:
+            raise Exception(f"Table for indicator {indicator_id} does not exist.")
 
-
-
+        print(f"Reading data from table {indicator_id}.")
+        return data
