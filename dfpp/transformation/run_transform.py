@@ -165,7 +165,7 @@ async def execute_notebook(source_cfg, indicator_cfgs, processing_results):
     source_name = source_cfg.get("name", "Unknown Source Name")
 
     notebook_path = os.path.join(BASE_NOTEBOOK_PATH, f"{source_id}.ipynb")
-    if source_cfg["type"] != "Manual":
+    if source_cfg["source_type"] != "Manual":
         domain = snake_casify(get_domain_from_url(source_cfg["url"]))
         netloc = snake_casify(get_netloc_from_url(source_cfg["url"]))
 
@@ -186,7 +186,7 @@ async def execute_notebook(source_cfg, indicator_cfgs, processing_results):
         for indicator_cfg in indicator_cfgs
         if indicator_cfg["source_id"] == source_id
     ]
-    path_to_save_executed_notebook = os.path.join(notebook_path, "indicator_execution")
+    path_to_save_executed_notebook = os.path.join(BASE_NOTEBOOK_PATH, domain, "indicator_execution")
     if not os.path.exists(path_to_save_executed_notebook):
         os.mkdir(path_to_save_executed_notebook)
 
