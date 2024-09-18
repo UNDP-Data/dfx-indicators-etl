@@ -46,12 +46,13 @@ def filter_important_dimensions(
     for dim in dimensions:
         if dim in important_columns:
             columns_to_keep.append(dim)
-        else:
-            grouped_with_dim = df.groupby(base_columns + [dim])[value_column].nunique()
-            grouped_without_dim = df.groupby(base_columns)[value_column].nunique()
+            continue
 
-            if grouped_with_dim.gt(grouped_without_dim).any():
-                columns_to_keep.append(dim)
+        grouped_with_dim = df.groupby(base_columns + [dim])[value_column].nunique()
+        grouped_without_dim = df.groupby(base_columns)[value_column].nunique()
+
+        if grouped_with_dim > grouped_without_dim:
+            columns_to_keep.append(dim)
 
     filtered_df = df[columns_to_keep + [value_column]]
     return filtered_df, columns_to_keep
