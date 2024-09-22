@@ -31,6 +31,7 @@ class StorageManager:
         self.sources_path = "sources/raw"
         self.output_path = "output"
         self.backup_path = "backup"
+        self.test_path = "test"
 
     @property
     def container_name(self) -> str:
@@ -50,6 +51,7 @@ class StorageManager:
             f"\t UTILITIES_PATH: {self.utilities_path}\n"
             f"\t SOURCES_PATH: {self.sources_path}\n"
             f"\t OUTPUT_PATH: {self.output_path}\n"
+            f"\t TEST_PATH: {self.test_path}\n"
         )
 
     async def get_md5(self, path: str) -> str:
