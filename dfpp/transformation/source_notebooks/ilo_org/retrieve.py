@@ -22,15 +22,8 @@ def get_codebook():
     """Get the ILO codes and their descriptions as DataFrames with column names sanitized"""
     data_codes = defaultdict()
     codes = [
-        "ref_area",
-        "indicator",
-        "sex",
         "classif1",
         "classif2",
-        "obs_status",
-        "note_classif",
-        "note_indicator",
-        "note_source",
     ]
 
     for code in codes:
@@ -44,15 +37,9 @@ def get_codebook():
         data_codes[code] = df
 
     return (
-        data_codes["ref_area"],
-        data_codes["indicator"],
-        data_codes["sex"],
+
         data_codes["classif1"],
         data_codes["classif2"],
-        data_codes["obs_status"],
-        data_codes["note_classif"],
-        data_codes["note_indicator"],
-        data_codes["note_source"],
     )
 
 
