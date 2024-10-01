@@ -8,3 +8,5 @@ class SexEnum(StrEnum, Enum):
     MALE = "male"
     FEMALE = "female"
     BOTH = "both"
+    OTHER = "other"
+    TOTAL = "total"
