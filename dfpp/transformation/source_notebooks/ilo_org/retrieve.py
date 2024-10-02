@@ -46,14 +46,12 @@ def get_codebook():
 async def get_indicator(indicator_id):
     """Fetch indicator data asynchronously for the given indicator ID"""
     url = f"https://rplumber.ilo.org/data/indicator/?id={indicator_id}&format=json"
-
     headers = {"accept": "application/octet-stream"}
-
     async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=headers) as response:
+        response = await session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=60))
+        async with response:
             response.raise_for_status()
             content = await response.read()
-
             try:
                 data = await response.json(content_type=None)
                 return data
