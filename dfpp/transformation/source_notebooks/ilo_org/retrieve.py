@@ -1,12 +1,20 @@
 """retrieve series and metadata via api frin ILO Rplumber API"""
-from collections import defaultdict
 
+from collections import defaultdict
+from io import BytesIO
 import aiohttp
 import pandas as pd
 import requests
+import gzip
 from urllib.parse import urljoin
 
-__all__ = ["get_indicator", "list_indicators", "get_codebook"]
+__all__ = [
+    "get_indicator",
+    "list_indicators",
+    "get_codebook",
+    "download_indicator_file",
+    "read_to_df_csv_indicator",
+]
 
 BASE_URL = "https://rplumber.ilo.org/"
 
@@ -61,3 +69,34 @@ async def get_indicator(indicator_id):
             except Exception as e:
                 print(f"Failed to decode JSON: {e}")
                 return content
+
+
+def get_bulk_download_indicator_list() -> pd.DataFrame:
+    """Get list of available indicators via bulk download"""
+    table_of_contents_url = "https://webapps.ilo.org/ilostat-files/WEB_bulk_download/indicator/table_of_contents_en.csv"
+    df_bulk_indicators = pd.read_csv(table_of_contents_url)
+    df_bulk_indicators.columns = df_bulk_indicators.columns.str.replace(".", "_")
+    df_bulk_indicators = df_bulk_indicators[df_bulk_indicators.freq == "A"]
+    return df_bulk_indicators
+
+
+async def download_indicator_file(indicator_id: str) -> bytes:
+    """alternative download method if RPLUMBER API fails
+
+    :param indicator_id: the ILO indicator ID
+    :return: the contents of the file as bytes
+    """
+    base_url = f"https://webapps.ilo.org/ilostat-files/WEB_bulk_download/indicator/{indicator_id}.csv.gz"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(base_url) as response:
+            response.raise_for_status()
+            return await response.read()
+
+
+def read_to_df_csv_indicator(file: bytes) -> pd.DataFrame:
+    """
+    Reads a gzipped CSV file into a pandas DataFrame.
+    """
+    with gzip.GzipFile(fileobj=BytesIO(file)) as gz:
+        df = pd.read_csv(gz, low_memory=False)
+        return df
