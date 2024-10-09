@@ -1,15 +1,19 @@
+"""retrieve series and metadata via api frin ILO Rplumber API"""
 from collections import defaultdict
 
 import aiohttp
 import pandas as pd
 import requests
+from urllib.parse import urljoin
 
 __all__ = ["get_indicator", "list_indicators", "get_codebook"]
 
+BASE_URL = "https://rplumber.ilo.org/"
+
+
 def list_indicators():
     """get indicators and their metadata"""
-    url = "https://rplumber.ilo.org/metadata/toc/indicator/?lang=en&format=json"
-
+    url = urljoin(BASE_URL, "metadata/toc/indicator/?lang=en&format=json")
     headers = {"accept": "application/octet-stream"}
 
     response = requests.get(url, headers=headers)
@@ -27,7 +31,7 @@ def get_codebook():
     ]
 
     for code in codes:
-        url = f"https://rplumber.ilo.org/metadata/dic/?var={code}&format=.json"
+        url = urljoin(BASE_URL, f"metadata/dic/?var={code}&format=.json")
         response = requests.get(url)
         response.raise_for_status()
         data = response.json()
@@ -36,19 +40,18 @@ def get_codebook():
         df.columns = df.columns.str.replace(".", "_")
         data_codes[code] = df
 
-    return (
-
-        data_codes["classif1"],
-        data_codes["classif2"],
-    )
+    return data_codes["classif1"], data_codes["classif2"]
 
 
 async def get_indicator(indicator_id):
     """Fetch indicator data asynchronously for the given indicator ID"""
-    url = f"https://rplumber.ilo.org/data/indicator/?id={indicator_id}&format=json"
+    url = urljoin(BASE_URL, f"data/indicator/?id={indicator_id}&format=json")
     headers = {"accept": "application/octet-stream"}
+
     async with aiohttp.ClientSession() as session:
-        response = await session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=60))
+        response = await session.get(
+            url, headers=headers, timeout=aiohttp.ClientTimeout(total=60)
+        )
         async with response:
             response.raise_for_status()
             content = await response.read()

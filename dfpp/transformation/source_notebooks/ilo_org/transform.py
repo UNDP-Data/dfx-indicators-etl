@@ -4,8 +4,12 @@ import re
 from typing import Dict, Optional, Tuple
 import pandas as pd
 
-from dfpp.transformation.column_name_template import SexEnum
+from dfpp.transformation.column_name_template import (
+    SexEnum,
+    sort_columns_canonically,
+)
 
+SOURCE_NAME = "ILO_RPLUMBER_API"
 
 __all__ = ["sanitize_categories", "transform_indicator"]
 
@@ -161,6 +165,7 @@ def filter_out_regions(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def transform_indicator(
+    series_id: str,
     df: pd.DataFrame,
     df_classif1,
     df_classif2,
@@ -172,6 +177,7 @@ def transform_indicator(
     replacing the values of the 'country_or_area' column with the ISO 3 country codes, and filtering out regions.
 
     Args:
+        series_id (str): The series id.
         df (pd.DataFrame): The source DataFrame.
         df_classif1 (pd.DataFrame): The first classification DataFrame.
         df_classif2 (pd.DataFrame): The second classification DataFrame.
@@ -200,18 +206,11 @@ def transform_indicator(
 
     df = replace_country_code(df, iso_3_map)
 
-    desired_order = (
-        ["alpha_3_code", "country_or_area"]
-        + [
-            col
-            for col in df.columns
-            if col not in ["alpha_3_code", "country_or_area", "value"]
-        ]
-        + ["value"]
-    )
-
-    df = df[desired_order]
-
     df_source_filtered = filter_out_regions(df)
+
+    df_source_filtered["source"] = SOURCE_NAME
+    df_source_filtered["series_id"] = series_id
+
+    df_source_filtered = sort_columns_canonically(df_source_filtered)
 
     return df_source_filtered
