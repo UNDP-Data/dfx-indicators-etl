@@ -2,7 +2,9 @@
 
 import pandas as pd
 
-from dfpp.transformation.column_name_template import SexEnum
+from dfpp.transformation.column_name_template import SexEnum, sort_columns_canonically
+
+SOURCE_NAME = "UN_ORG_API"
 
 SEX_REMAP = {
     "BOTHSEX": SexEnum.BOTH.value,
@@ -23,13 +25,18 @@ __all__ = ["transform_series"]
 
 
 def transform_series(
-    df: pd.DataFrame, dimension_columns: list[str] = None, iso_3_map: dict = None
+    series_id: str,
+    df: pd.DataFrame,
+    dimension_columns: list[str] = None,
+    iso_3_map_numeric_to_alpha: dict = None,
+    iso_3_map_alpha_to_official: dict = None,
 ) -> pd.DataFrame:
     """transform a signle series dataframe to the publishable format
     Args:
+        series_id (str): the series id
         df (pd.DataFrame): the dataframe to transform
         dimension_columns (list[str]): the dimension columns
-        iso_3_map (dict): the iso_3_map to remap numeric country names to iso3
+        iso_3_map_numeric_to_alpha (dict): the iso_3_map_numeric_to_alpha to remap numeric country names to alpha iso3
     Returns:
         pd.DataFrame: the transformed dataframe
     """
@@ -57,7 +64,8 @@ def transform_series(
         + dimension_columns_formatted
     ]
     df_selection["alpha_3_code"] = df_selection["alpha_3_code"].astype(int)
-    df_selection["alpha_3_code"] = df_selection["alpha_3_code"].replace(iso_3_map)
+    df_selection["alpha_3_code"] = df_selection["alpha_3_code"].replace(iso_3_map_numeric_to_alpha)
+    df_selection["country_or_area"] = df_selection["alpha_3_code"].replace(iso_3_map_alpha_to_official)
 
     if "age" in df.columns:
         df_selection["age"] = df_selection["age"].replace(AGE_REMAP)
@@ -65,4 +73,8 @@ def transform_series(
     if "sex" in df.columns:
         df_selection["sex"] = df_selection["sex"].replace(SEX_REMAP)
 
+    df_selection["source"] = SOURCE_NAME
+    df_selection["series_id"] = series_id
+
+    df_selection = sort_columns_canonically(df_selection)
     return df_selection

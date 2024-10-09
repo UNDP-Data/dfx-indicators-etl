@@ -1,21 +1,23 @@
 """retrieve series and metadata via api"""
-from typing import DefaultDict, List, Tuple, Any
+from typing import DefaultDict, Any
 import asyncio
 import aiohttp
 from collections import defaultdict
 import requests
+from urllib.parse import urljoin
 
 
 __all__ = ["get_indicators", "get_series_data_and_dimensions"]
 
+BASE_URL = "https://unstats.un.org/sdgapi/v1/sdg/"
 
-def get_indicators() -> List[dict]:
+def get_indicators() -> list[dict]:
     """Get list of the indicators
 
     Returns:
-        List[dict]: A list of dictionaries containing the indicator data
+        list[dict]: A list of dictionaries containing the indicator data
     """
-    url = "https://unstats.un.org/sdgapi/v1/sdg/CompareTrends/GetDisaggregatedGlobalAndRegional"
+    url = urljoin(BASE_URL, "CompareTrends/GetDisaggregatedGlobalAndRegional")
 
     headers = {"Accept": "application/json"}
 
@@ -41,13 +43,14 @@ async def get_data(
     Returns:
         dict[str, Any]: The response data.
     """
-    url = f"https://unstats.un.org/sdgapi/v1/sdg/Series/Data"
+    url = urljoin(BASE_URL, "Series/Data")
     params = {"seriesCode": series_id, "pageSize": 1000, "page": page_number}
     headers = {"Accept": "application/json"}
 
     async with session.get(url, headers=headers, params=params) as response:
         response.raise_for_status()
         return await response.json()
+
 
 
 async def get_series_data(
@@ -80,10 +83,10 @@ async def get_series_data(
 
 
 async def get_series_data_and_dimensions(
-    series_codes: List[str]
-) -> Tuple[DefaultDict[str, List[dict]], DefaultDict[str, dict]]:
+    series_codes: list[str]
+) -> tuple[DefaultDict[str, list[dict]], DefaultDict[str, dict]]:
     """wrapper to get the series data and metadata"""
-    series_data_map: DefaultDict[str, List[dict]] = defaultdict(list)
+    series_data_map: DefaultDict[str, list[dict]] = defaultdict(list)
     series_map: DefaultDict[str, dict] = defaultdict(dict)
 
     async with aiohttp.ClientSession() as session:
