@@ -3,7 +3,6 @@ from scipy.interpolate import CubicSpline, interp1d
 import pandas as pd
 import numpy as np
 
-from dfpp.constants import CURRENT_YEAR
 
 __all__ = ["interpolate_data",
            "rename_indicator",
