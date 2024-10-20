@@ -7,7 +7,11 @@ import pandas as pd
 from dfpp.transformation.column_name_template import (
     SexEnum,
     sort_columns_canonically,
+    DIMENSION_COLUMN_PREFIX,
 )
+
+from dfpp.transformation.source_notebooks.ilo_org.retrieve import BASE_URL
+from dfpp.transformation.source_notebooks.ilo_org.utils import extract_last_braket_string, sanitize_category
 
 SOURCE_NAME = "ILO_RPLUMBER_API"
 
@@ -18,6 +22,8 @@ PRIMARY_COLUMNS_TO_RENAME = {
     "ref_area": "alpha_3_code",
     "time": "year",
     "obs_value": "value",
+    "obs_status": "observation_type",
+    "sex": DIMENSION_COLUMN_PREFIX + "sex",
 }
 
 
@@ -28,20 +34,11 @@ REMAP_SEX = {
     "SEX_O": SexEnum.OTHER.value,
 }
 
-TO_DROP_COLUMN_NAME_PREFIXES = ("note_", "obs_status", "source", "indicator")
+TO_DROP_COLUMN_NAME_PREFIXES = ("note_", "source", "indicator")
 
 
-def sanitize_category(s):
-    """sanitize column names"""
-    s = s.split(":")[0]
-    s = s.lower()
-    s = re.sub(r"[()\[\]]", "", s)
-    s = re.sub(r"[\s\W]+", "_", s)
-    s = s.strip("_")
-    return s
-
-
-def sanitize_categories(df_classif1: pd.DataFrame, df_classif2: pd.DataFrame):
+def sanitize_categories(df_classif1: pd.DataFrame,
+                        df_classif2: pd.DataFrame):
     """return sanitized category map used to rename columns and the values in classif1 and classif2 to human readable format"""
     df_classif1["dimension"] = df_classif1["classif1"].str.split("_").str[0].str.lower()
     df_classif1["category"] = df_classif1["classif1_label"].apply(sanitize_category)
@@ -132,6 +129,7 @@ def replace_dimension_values(
             ].values
         )
         df[dimension_one] = df[dimension_one].replace(dimension_one_map)
+        df.rename(columns={dimension_one: DIMENSION_COLUMN_PREFIX + dimension_one}, inplace=True)
 
     if dimension_two and dimension_two in df.columns:
         dimension_two_map = dict(
@@ -140,6 +138,7 @@ def replace_dimension_values(
             ].values
         )
         df[dimension_two] = df[dimension_two].replace(dimension_two_map)
+        df.rename(columns={dimension_two: DIMENSION_COLUMN_PREFIX + dimension_two}, inplace=True)
     return df
 
 
@@ -161,14 +160,13 @@ def filter_out_regions(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: A DataFrame with regions removed.
     """
-    return df[~df["country_or_area"].str.contains(r"^X\d+")]
+    return df.loc[~df["country_or_area"].str.contains(r"^X\d+")].reset_index()
 
 
 def transform_indicator(
-    series_id: str,
+    indicator: dict[str, str],
     df: pd.DataFrame,
-    df_classif1,
-    df_classif2,
+    data_codes: dict[str, pd.DataFrame],
     iso_3_map: Dict[str, str],
 ) -> pd.DataFrame:
     """
@@ -177,10 +175,9 @@ def transform_indicator(
     replacing the values of the 'country_or_area' column with the ISO 3 country codes, and filtering out regions.
 
     Args:
-        series_id (str): The series id.
+        indicator (dict[str, str]) indicator dict with its metadata
         df (pd.DataFrame): The source DataFrame.
-        df_classif1 (pd.DataFrame): The first classification DataFrame.
-        df_classif2 (pd.DataFrame): The second classification DataFrame.
+        data_codes (dict[str, pd.DataFrame]): A dictionary of data codebooks.
         iso_3_map (Dict[str, str]): A dictionary mapping the ISO3 country codes to their human readable names.
 
     Returns:
@@ -197,20 +194,31 @@ def transform_indicator(
     df = replace_sex_values(df, REMAP_SEX)
 
     df, dimension_one, dimension_two = rename_dimension_columns(
-        df, df_classif1, df_classif2
+        df, data_codes["classif1"], data_codes["classif2"],
     )
 
     df = replace_dimension_values(
-        df, df_classif1, df_classif2, dimension_one, dimension_two
+        df, data_codes["classif1"], data_codes["classif2"], dimension_one, dimension_two
     )
 
     df = replace_country_code(df, iso_3_map)
+    
+    df = filter_out_regions(df)
+    df.drop(columns=["country_or_area"], inplace=True)
 
-    df_source_filtered = filter_out_regions(df)
+    df_source_filtered = df
 
-    df_source_filtered["source"] = SOURCE_NAME
-    df_source_filtered["series_id"] = series_id
+    if "obs_status" in df_source_filtered.columns:
+        observation_type_map = dict(data_codes["obs_status"][["obs_status", "obs_status_label"]].values)
+        df_source_filtered["observation_type"] = df_source_filtered["observation_type"].replace(observation_type_map)
+    else:
+        df_source_filtered["observation_type"] = None
+    
+    df_source_filtered["series_id"] = indicator["id"]
+    df_source_filtered["series_name"] = indicator["indicator_label"]
+    df_source_filtered["unit"] = extract_last_braket_string(df_source_filtered["series_name"].values[0])
+    df_source_filtered["source"] = BASE_URL
 
     df_source_filtered = sort_columns_canonically(df_source_filtered)
-
+    assert df_source_filtered.drop("value", axis=1).duplicated().sum() == 0, "Duplicate rows per country year found after transformation, make sure that any dimension columns are not omitted from the transformed data."
     return df_source_filtered

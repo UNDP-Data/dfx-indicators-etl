@@ -36,6 +36,7 @@ def get_codebook():
     codes = [
         "classif1",
         "classif2",
+        "obs_status"
     ]
 
     for code in codes:
@@ -48,7 +49,7 @@ def get_codebook():
         df.columns = df.columns.str.replace(".", "_")
         data_codes[code] = df
 
-    return data_codes["classif1"], data_codes["classif2"]
+    return data_codes
 
 
 async def get_indicator(indicator_id):
