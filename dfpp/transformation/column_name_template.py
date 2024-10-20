@@ -2,8 +2,10 @@
 
 from enum import StrEnum, Enum
 
-CANONICAL_COLUMN_NAMES= ["alpha_3_code", "country_or_area", "year", "value", "series_id", "source"]
+CANONICAL_COLUMN_NAMES= ["source", "series_id", "series_name", "alpha_3_code",
+                          "year", "value", "unit", "observation_type"]
 
+DIMENSION_COLUMN_PREFIX = "disagr_"
 
 class SexEnum(StrEnum, Enum):
     MALE = "male"
@@ -13,6 +15,9 @@ class SexEnum(StrEnum, Enum):
     TOTAL = "total"
     NOT_APPLICABLE = "not applicable"
 
+
+def set_dimension_column_prefix(dimension_columns: str):
+    return dimension_columns
 
 def sort_columns_canonically(df):
     """
@@ -28,8 +33,8 @@ def sort_columns_canonically(df):
     assert all(col in df.columns for col in CANONICAL_COLUMN_NAMES), \
     f"DataFrame does not contain all canonical columns. Missing columns: {set(CANONICAL_COLUMN_NAMES) - set(df.columns)}"
 
-    canonical_cols_start = [col for col in CANONICAL_COLUMN_NAMES if col in df.columns][:2]
-    canonical_cols_end = [col for col in CANONICAL_COLUMN_NAMES if col in df.columns][2:]
+    canonical_cols_start = [col for col in CANONICAL_COLUMN_NAMES if col in df.columns][:4]
+    canonical_cols_end = [col for col in CANONICAL_COLUMN_NAMES if col in df.columns][4:]
     
     other_cols = [col for col in df.columns if col not in CANONICAL_COLUMN_NAMES]
     
