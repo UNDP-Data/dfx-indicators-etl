@@ -13,7 +13,6 @@ __all__ = [
     "list_indicators",
     "get_codebook",
     "download_indicator_file",
-    "read_to_df_csv_indicator",
 ]
 
 BASE_URL = "https://rplumber.ilo.org/"
@@ -92,12 +91,3 @@ async def download_indicator_file(indicator_id: str) -> bytes:
         async with session.get(base_url) as response:
             response.raise_for_status()
             return await response.read()
-
-
-def read_to_df_csv_indicator(file: bytes) -> pd.DataFrame:
-    """
-    Reads a gzipped CSV file into a pandas DataFrame.
-    """
-    with gzip.GzipFile(fileobj=BytesIO(file)) as gz:
-        df = pd.read_csv(gz, low_memory=False)
-        return df

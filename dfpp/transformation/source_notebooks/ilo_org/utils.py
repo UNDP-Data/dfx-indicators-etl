@@ -1,6 +1,10 @@
+import gzip
+from io import BytesIO
 import re
 
-__all__ = ["extract_last_braket_string", "sanitize_category"]
+import pandas as pd
+
+__all__ = ["extract_last_braket_string", "sanitize_category", "read_to_df_csv_indicator"]
 
 def extract_last_braket_string(text: str) -> str | None:
     """extract units from indicator label sting"""
@@ -20,3 +24,12 @@ def sanitize_category(s):
     s = re.sub(r"[\s\W]+", "_", s)
     s = s.strip("_")
     return s
+
+
+def read_to_df_csv_indicator(file: bytes) -> pd.DataFrame:
+    """
+    Reads a gzipped CSV file into a pandas DataFrame.
+    """
+    with gzip.GzipFile(fileobj=BytesIO(file)) as gz:
+        df = pd.read_csv(gz, low_memory=False)
+        return df
