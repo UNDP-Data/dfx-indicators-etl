@@ -58,6 +58,7 @@ def replace_sex_values(df: pd.DataFrame, remap_sex: dict[str, str]) -> pd.DataFr
     if "sex" in df.columns:
         df[f"{DIMENSION_COLUMN_PREFIX}sex{DIMENSION_COLUMN_CODE_SUFFIX}"] = df["sex"]
         df[f"{DIMENSION_COLUMN_PREFIX}sex{DIMENSION_COLUMN_NAME_SUFFIX}"] = df["sex"].replace(remap_sex)
+        df.drop(columns=["sex"], inplace=True)
     return df
 
 
