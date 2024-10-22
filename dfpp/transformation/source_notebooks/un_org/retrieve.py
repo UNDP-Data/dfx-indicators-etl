@@ -1,4 +1,5 @@
 """retrieve series and metadata via api"""
+
 from typing import DefaultDict, Any
 import asyncio
 import aiohttp
@@ -11,6 +12,7 @@ from dfpp.transformation.source_notebooks.un_org.utils import flatten_dict
 __all__ = ["get_indicator_list", "get_series_data_and_dimensions"]
 
 BASE_URL = "https://unstats.un.org/sdgapi/v1/sdg/"
+
 
 def get_indicator_list() -> list[dict]:
     """Get list of the indicators
@@ -54,7 +56,6 @@ async def get_data(
         return await response.json()
 
 
-
 async def get_series_data(
     series_id: str, session: aiohttp.ClientSession
 ) -> tuple[str, list[dict], list[str], int]:
@@ -78,16 +79,19 @@ async def get_series_data(
             data = await get_data(session, series_id, page)
             all_pages.extend(data["data"])
 
-    dimensions: list[str] = flatten_dict([{d["id"]: d["codes"]} for d in data["dimensions"]])
-    attributes: list[str] = flatten_dict([{a["id"]: a["codes"]} for a in data["attributes"]])
+    dimensions: list[str] = flatten_dict(
+        [{d["id"]: d["codes"]} for d in data["dimensions"]]
+    )
+    attributes: list[str] = flatten_dict(
+        [{a["id"]: a["codes"]} for a in data["attributes"]]
+    )
     size: int = data["totalElements"]
-    
 
     return series_id, all_pages, dimensions, attributes, size
 
 
 async def get_series_data_and_dimensions(
-    series_codes: list[str]
+    series_codes: list[str],
 ) -> tuple[DefaultDict[str, list[dict]], DefaultDict[str, dict]]:
     """wrapper to get the series data and metadata"""
     series_data_map: DefaultDict[str, list[dict]] = defaultdict(list)

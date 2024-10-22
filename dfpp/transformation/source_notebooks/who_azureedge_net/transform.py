@@ -65,20 +65,27 @@ def update_dimensional_columns(
         ]
 
         dimension_name_to_display_code: str = (
-            DIMENSION_COLUMN_PREFIX + dimension["dimension_to_display"].values[0] +
-            DIMENSION_COLUMN_CODE_SUFFIX
+            DIMENSION_COLUMN_PREFIX
+            + dimension["dimension_to_display"].values[0]
+            + DIMENSION_COLUMN_CODE_SUFFIX
         )
         dimension_name_to_display_name: str = (
-            DIMENSION_COLUMN_PREFIX + dimension["dimension_to_display"].values[0] +
-            DIMENSION_COLUMN_NAME_SUFFIX
+            DIMENSION_COLUMN_PREFIX
+            + dimension["dimension_to_display"].values[0]
+            + DIMENSION_COLUMN_NAME_SUFFIX
         )
 
         to_rename.update({dim_column: dimension_name_to_display_code})
 
-        if dimension_name_to_display_name == DIMENSION_COLUMN_PREFIX + "sex" + DIMENSION_COLUMN_NAME_SUFFIX:
+        if (
+            dimension_name_to_display_name
+            == DIMENSION_COLUMN_PREFIX + "sex" + DIMENSION_COLUMN_NAME_SUFFIX
+        ):
             df[dimension_name_to_display_name] = df[dim_column].replace(RECODE_SEX)
         else:
-            to_replace: dict[str, str] = dict(dimension[["code_value", "title_value"]].values)
+            to_replace: dict[str, str] = dict(
+                dimension[["code_value", "title_value"]].values
+            )
             df[dimension_name_to_display_name] = df[dim_column].replace(to_replace)
 
     df.rename(columns=to_rename, inplace=True)
@@ -118,9 +125,14 @@ def transform_indicator(
     to_rename_columns = handle_value_column(df, to_rename_columns)
 
     df = update_dimensional_columns(df, df_full_dimension_map, to_rename_columns)
-    
-    disagr_columns = [col for col in df.columns if col.startswith("disagr_") if col not in list(to_rename_columns.values())]
-    
+
+    disagr_columns = [
+        col
+        for col in df.columns
+        if col.startswith("disagr_")
+        if col not in list(to_rename_columns.values())
+    ]
+
     df = df[list(set(disagr_columns + list(to_rename_columns.values())))]
 
     assert df["value"].notna().any(), "All values are null"

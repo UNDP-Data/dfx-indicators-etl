@@ -4,15 +4,20 @@ import re
 
 import pandas as pd
 
-__all__ = ["extract_last_braket_string", "sanitize_category", "read_to_df_csv_indicator"]
+__all__ = [
+    "extract_last_braket_string",
+    "sanitize_category",
+    "read_to_df_csv_indicator",
+]
+
 
 def extract_last_braket_string(text: str) -> str | None:
     """extract units from indicator label sting"""
-    match = re.search(r'\(([^)]*)\)$', text)
-    
+    match = re.search(r"\(([^)]*)\)$", text)
+
     if match:
         return match.group(1).strip()
-    
+
     return None
 
 

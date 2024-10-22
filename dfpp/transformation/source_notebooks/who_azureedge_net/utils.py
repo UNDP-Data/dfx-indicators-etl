@@ -2,13 +2,14 @@ import re
 
 __all__ = ["extract_last_braket_string"]
 
+
 def extract_last_braket_string(text: str) -> str | None:
     """extract units from indicator label sting"""
-    match = re.search(r'\(([^)]*)\)$', text)
-    
+    match = re.search(r"\(([^)]*)\)$", text)
+
     if match:
         return match.group(1).strip()
-    
+
     return None
 
 

@@ -1,6 +1,4 @@
 """transform series data retrieved via api into publishable format"""
-
-import re
 from typing import Dict, Optional, Tuple
 import pandas as pd
 
@@ -13,7 +11,10 @@ from dfpp.transformation.column_name_template import (
 )
 
 from dfpp.transformation.source_notebooks.ilo_org.retrieve import BASE_URL
-from dfpp.transformation.source_notebooks.ilo_org.utils import extract_last_braket_string, sanitize_category
+from dfpp.transformation.source_notebooks.ilo_org.utils import (
+    extract_last_braket_string,
+    sanitize_category,
+)
 
 SOURCE_NAME = "ILO_RPLUMBER_API"
 
@@ -38,8 +39,7 @@ REMAP_SEX = {
 TO_DROP_COLUMN_NAME_PREFIXES = ("note_", "source", "indicator")
 
 
-def sanitize_categories(df_classif1: pd.DataFrame,
-                        df_classif2: pd.DataFrame):
+def sanitize_categories(df_classif1: pd.DataFrame, df_classif2: pd.DataFrame):
     """return sanitized category map used to rename columns and the values in classif1 and classif2 to human readable format"""
     df_classif1["dimension"] = df_classif1["classif1"].str.split("_").str[0].str.lower()
     df_classif1["category"] = df_classif1["classif1_label"].apply(sanitize_category)
@@ -57,7 +57,9 @@ def replace_sex_values(df: pd.DataFrame, remap_sex: dict[str, str]) -> pd.DataFr
     """
     if "sex" in df.columns:
         df[f"{DIMENSION_COLUMN_PREFIX}sex{DIMENSION_COLUMN_CODE_SUFFIX}"] = df["sex"]
-        df[f"{DIMENSION_COLUMN_PREFIX}sex{DIMENSION_COLUMN_NAME_SUFFIX}"] = df["sex"].replace(remap_sex)
+        df[f"{DIMENSION_COLUMN_PREFIX}sex{DIMENSION_COLUMN_NAME_SUFFIX}"] = df[
+            "sex"
+        ].replace(remap_sex)
         df.drop(columns=["sex"], inplace=True)
     return df
 
@@ -131,8 +133,12 @@ def replace_dimension_values(
                 ["classif1", "value"]
             ].values
         )
-        df[f"{DIMENSION_COLUMN_PREFIX}{dimension_one}{DIMENSION_COLUMN_CODE_SUFFIX}"] = df[dimension_one]
-        df[f"{DIMENSION_COLUMN_PREFIX}{dimension_one}{DIMENSION_COLUMN_NAME_SUFFIX}"] = df[dimension_one].replace(dimension_one_map)
+        df[
+            f"{DIMENSION_COLUMN_PREFIX}{dimension_one}{DIMENSION_COLUMN_CODE_SUFFIX}"
+        ] = df[dimension_one]
+        df[
+            f"{DIMENSION_COLUMN_PREFIX}{dimension_one}{DIMENSION_COLUMN_NAME_SUFFIX}"
+        ] = df[dimension_one].replace(dimension_one_map)
         df.drop(columns=[dimension_one], inplace=True)
 
     if dimension_two and dimension_two in df.columns:
@@ -141,8 +147,12 @@ def replace_dimension_values(
                 ["classif2", "value"]
             ].values
         )
-        df[f"{DIMENSION_COLUMN_PREFIX}{dimension_two}{DIMENSION_COLUMN_CODE_SUFFIX}"] = df[dimension_two]
-        df[f"{DIMENSION_COLUMN_PREFIX}{dimension_two}{DIMENSION_COLUMN_NAME_SUFFIX}"] = df[dimension_two].replace(dimension_two_map)
+        df[
+            f"{DIMENSION_COLUMN_PREFIX}{dimension_two}{DIMENSION_COLUMN_CODE_SUFFIX}"
+        ] = df[dimension_two]
+        df[
+            f"{DIMENSION_COLUMN_PREFIX}{dimension_two}{DIMENSION_COLUMN_NAME_SUFFIX}"
+        ] = df[dimension_two].replace(dimension_two_map)
         df.drop(columns=[dimension_two], inplace=True)
     return df
 
@@ -199,7 +209,9 @@ def transform_indicator(
     df = replace_sex_values(df, REMAP_SEX)
 
     df, dimension_one, dimension_two = rename_dimension_columns(
-        df, data_codes["classif1"], data_codes["classif2"],
+        df,
+        data_codes["classif1"],
+        data_codes["classif2"],
     )
 
     df = replace_dimension_values(
@@ -207,23 +219,31 @@ def transform_indicator(
     )
 
     df = replace_country_code(df, iso_3_map)
-    
+
     df = filter_out_regions(df)
     df.drop(columns=["country_or_area"], inplace=True)
 
     df_source_filtered = df
 
     if "obs_status" in df_source_filtered.columns:
-        observation_type_map = dict(data_codes["obs_status"][["obs_status", "obs_status_label"]].values)
-        df_source_filtered["observation_type"] = df_source_filtered["observation_type"].replace(observation_type_map)
+        observation_type_map = dict(
+            data_codes["obs_status"][["obs_status", "obs_status_label"]].values
+        )
+        df_source_filtered["observation_type"] = df_source_filtered[
+            "observation_type"
+        ].replace(observation_type_map)
     else:
         df_source_filtered["observation_type"] = None
-    
+
     df_source_filtered["series_id"] = indicator["id"]
     df_source_filtered["series_name"] = indicator["indicator_label"]
-    df_source_filtered["unit"] = extract_last_braket_string(df_source_filtered["series_name"].values[0])
+    df_source_filtered["unit"] = extract_last_braket_string(
+        df_source_filtered["series_name"].values[0]
+    )
     df_source_filtered["source"] = BASE_URL
 
     df_source_filtered = sort_columns_canonically(df_source_filtered)
-    assert df_source_filtered.drop("value", axis=1).duplicated().sum() == 0, "Duplicate rows per country year found after transformation, make sure that any dimension columns are not omitted from the transformed data."
+    assert (
+        df_source_filtered.drop("value", axis=1).duplicated().sum() == 0
+    ), "Duplicate rows per country year found after transformation, make sure that any dimension columns are not omitted from the transformed data."
     return df_source_filtered

@@ -1,11 +1,9 @@
 """retrieve series and metadata via api frin ILO Rplumber API"""
 
 from collections import defaultdict
-from io import BytesIO
 import aiohttp
 import pandas as pd
 import requests
-import gzip
 from urllib.parse import urljoin
 
 __all__ = [
@@ -32,11 +30,7 @@ def list_indicators():
 def get_codebook():
     """Get the ILO codes and their descriptions as DataFrames with column names sanitized"""
     data_codes = defaultdict()
-    codes = [
-        "classif1",
-        "classif2",
-        "obs_status"
-    ]
+    codes = ["classif1", "classif2", "obs_status"]
 
     for code in codes:
         url = urljoin(BASE_URL, f"metadata/dic/?var={code}&format=.json")
