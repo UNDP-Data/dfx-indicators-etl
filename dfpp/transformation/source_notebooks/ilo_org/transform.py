@@ -8,6 +8,8 @@ from dfpp.transformation.column_name_template import (
     SexEnum,
     sort_columns_canonically,
     DIMENSION_COLUMN_PREFIX,
+    DIMENSION_COLUMN_CODE_SUFFIX,
+    DIMENSION_COLUMN_NAME_SUFFIX,
 )
 
 from dfpp.transformation.source_notebooks.ilo_org.retrieve import BASE_URL
@@ -23,7 +25,6 @@ PRIMARY_COLUMNS_TO_RENAME = {
     "time": "year",
     "obs_value": "value",
     "obs_status": "observation_type",
-    "sex": DIMENSION_COLUMN_PREFIX + "sex",
 }
 
 
@@ -55,7 +56,8 @@ def replace_sex_values(df: pd.DataFrame, remap_sex: dict[str, str]) -> pd.DataFr
     Replace the values in the 'sex' column with the remapped values.
     """
     if "sex" in df.columns:
-        df["sex"] = df["sex"].replace(remap_sex)
+        df[f"{DIMENSION_COLUMN_PREFIX}sex{DIMENSION_COLUMN_CODE_SUFFIX}"] = df["sex"]
+        df[f"{DIMENSION_COLUMN_PREFIX}sex{DIMENSION_COLUMN_NAME_SUFFIX}"] = df["sex"].replace(remap_sex)
     return df
 
 
@@ -128,8 +130,9 @@ def replace_dimension_values(
                 ["classif1", "value"]
             ].values
         )
-        df[dimension_one] = df[dimension_one].replace(dimension_one_map)
-        df.rename(columns={dimension_one: DIMENSION_COLUMN_PREFIX + dimension_one}, inplace=True)
+        df[f"{DIMENSION_COLUMN_PREFIX}{dimension_one}{DIMENSION_COLUMN_CODE_SUFFIX}"] = df[dimension_one]
+        df[f"{DIMENSION_COLUMN_PREFIX}{dimension_one}{DIMENSION_COLUMN_NAME_SUFFIX}"] = df[dimension_one].replace(dimension_one_map)
+        df.drop(columns=[dimension_one], inplace=True)
 
     if dimension_two and dimension_two in df.columns:
         dimension_two_map = dict(
@@ -137,8 +140,9 @@ def replace_dimension_values(
                 ["classif2", "value"]
             ].values
         )
-        df[dimension_two] = df[dimension_two].replace(dimension_two_map)
-        df.rename(columns={dimension_two: DIMENSION_COLUMN_PREFIX + dimension_two}, inplace=True)
+        df[f"{DIMENSION_COLUMN_PREFIX}{dimension_two}{DIMENSION_COLUMN_CODE_SUFFIX}"] = df[dimension_two]
+        df[f"{DIMENSION_COLUMN_PREFIX}{dimension_two}{DIMENSION_COLUMN_NAME_SUFFIX}"] = df[dimension_two].replace(dimension_two_map)
+        df.drop(columns=[dimension_two], inplace=True)
     return df
 
 
@@ -160,7 +164,7 @@ def filter_out_regions(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: A DataFrame with regions removed.
     """
-    return df.loc[~df["country_or_area"].str.contains(r"^X\d+")].reset_index()
+    return df.loc[~df["country_or_area"].str.contains(r"^X\d+")].reset_index(drop=True)
 
 
 def transform_indicator(
