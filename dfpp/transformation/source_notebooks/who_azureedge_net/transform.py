@@ -1,7 +1,9 @@
 import pandas as pd
 import re
 
-from dfpp.transformation.column_name_template import SexEnum, sort_columns_canonically
+from dfpp.transformation.column_name_template import SexEnum, sort_columns_canonically, DIMENSION_COLUMN_PREFIX
+from dfpp.transformation.source_notebooks.who_azureedge_net.retrieve import BASE_URL
+from dfpp.transformation.source_notebooks.who_azureedge_net.utils import extract_last_braket_string, sanitize_category
 
 SOURCE_NAME = "WHO_GHO_API"
 
@@ -18,16 +20,6 @@ RECODE_SEX: dict[str, str] = {
     "SEX_FMLE": SexEnum.FEMALE.value,
     "SEX_NOA": SexEnum.NOT_APPLICABLE.value,
 }
-
-
-def sanitize_category(s):
-    """Sanitize column names."""
-    s = s.split(":")[0]
-    s = s.lower()
-    s = re.sub(r"[()\[\]]", "", s)
-    s = re.sub(r"[\s\W]+", "_", s)
-    s = s.strip("_")
-    return s
 
 
 def process_dimension_data(df_full_dimension_map):
@@ -47,7 +39,6 @@ def update_dimensional_columns(
     df: pd.DataFrame,
     df_full_dimension_map: pd.DataFrame,
     to_rename: dict[str, str],
-    ISO_3_MAP: dict[str, str],
 ) -> pd.DataFrame:
     """Update dimensional column names and their values based on the full dimension mapping."""
     for i in range(1, 4):
@@ -64,11 +55,11 @@ def update_dimensional_columns(
         dimension: pd.DataFrame = df_full_dimension_map[
             df_full_dimension_map.code_dimension == dim_type[0]
         ]
-        dimension_name_to_display: str = dimension["dimension_to_display"].values[0]
+        dimension_name_to_display: str = DIMENSION_COLUMN_PREFIX + dimension["dimension_to_display"].values[0]
 
         to_rename.update({dim_column: dimension_name_to_display})
 
-        if dimension_name_to_display == "sex":
+        if dimension_name_to_display == DIMENSION_COLUMN_PREFIX + "sex":
             df[dim_column].replace(RECODE_SEX, inplace=True)
         else:
             to_replace: dict[str, str] = dict(
@@ -78,7 +69,6 @@ def update_dimensional_columns(
             df[dim_column].replace(to_replace, inplace=True)
 
     df.rename(columns=to_rename, inplace=True)
-    df["country_or_area"] = df["alpha_3_code"].replace(ISO_3_MAP)
     return df
 
 
@@ -98,10 +88,9 @@ def filter_by_country_and_year(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def transform_indicator(
-    series_id: str,
+    indicator: dict,
     df: pd.DataFrame,
     df_full_dimension_map: pd.DataFrame,
-    ISO_3_MAP: dict[str, str],
 ) -> pd.DataFrame:
     """Transform the raw indicator data into a processed DataFrame."""
     assert not df.empty, "No data to transform"
@@ -116,16 +105,18 @@ def transform_indicator(
     to_rename_columns = handle_value_column(df, to_rename_columns)
 
     df = update_dimensional_columns(
-        df, df_full_dimension_map, to_rename_columns, ISO_3_MAP=ISO_3_MAP
+        df, df_full_dimension_map, to_rename_columns
     )
 
-    df = df[["country_or_area"] + list(to_rename_columns.values())]
+    df = df[list(to_rename_columns.values())]
 
     assert df["value"].notna().any(), "All values are null"
-
-    df["series_id"] = series_id
-    df["source"] = SOURCE_NAME
+    df["source"] = BASE_URL
+    df["series_id"] = indicator["IndicatorCode"]
+    df["series_name"] = indicator["IndicatorName"]
+    df["unit"] = None
+    df["observation_type"] = None
 
     df = sort_columns_canonically(df)
-
+    assert df.drop("value", axis=1).duplicated().sum() == 0, "Duplicate rows per country year found after transformation, make sure that any dimension columns are not omitted from the transformed data."
     return df
