@@ -1,9 +1,18 @@
 import pandas as pd
 import re
 
-from dfpp.transformation.column_name_template import SexEnum, sort_columns_canonically, DIMENSION_COLUMN_PREFIX
+from dfpp.transformation.column_name_template import (
+    SexEnum,
+    sort_columns_canonically,
+    DIMENSION_COLUMN_PREFIX,
+    DIMENSION_COLUMN_CODE_SUFFIX,
+    DIMENSION_COLUMN_NAME_SUFFIX,
+)
 from dfpp.transformation.source_notebooks.who_azureedge_net.retrieve import BASE_URL
-from dfpp.transformation.source_notebooks.who_azureedge_net.utils import extract_last_braket_string, sanitize_category
+from dfpp.transformation.source_notebooks.who_azureedge_net.utils import (
+    extract_last_braket_string,
+    sanitize_category,
+)
 
 SOURCE_NAME = "WHO_GHO_API"
 
@@ -40,7 +49,6 @@ def update_dimensional_columns(
     df_full_dimension_map: pd.DataFrame,
     to_rename: dict[str, str],
 ) -> pd.DataFrame:
-    """Update dimensional column names and their values based on the full dimension mapping."""
     for i in range(1, 4):
         dim_column = f"Dim{i}"
         dim_type_column = f"Dim{i}Type"
@@ -55,18 +63,23 @@ def update_dimensional_columns(
         dimension: pd.DataFrame = df_full_dimension_map[
             df_full_dimension_map.code_dimension == dim_type[0]
         ]
-        dimension_name_to_display: str = DIMENSION_COLUMN_PREFIX + dimension["dimension_to_display"].values[0]
 
-        to_rename.update({dim_column: dimension_name_to_display})
+        dimension_name_to_display_code: str = (
+            DIMENSION_COLUMN_PREFIX + dimension["dimension_to_display"].values[0] +
+            DIMENSION_COLUMN_CODE_SUFFIX
+        )
+        dimension_name_to_display_name: str = (
+            DIMENSION_COLUMN_PREFIX + dimension["dimension_to_display"].values[0] +
+            DIMENSION_COLUMN_NAME_SUFFIX
+        )
 
-        if dimension_name_to_display == DIMENSION_COLUMN_PREFIX + "sex":
-            df[dim_column].replace(RECODE_SEX, inplace=True)
+        to_rename.update({dim_column: dimension_name_to_display_code})
+
+        if dimension_name_to_display_name == DIMENSION_COLUMN_PREFIX + "sex" + DIMENSION_COLUMN_NAME_SUFFIX:
+            df[dimension_name_to_display_name] = df[dim_column].replace(RECODE_SEX)
         else:
-            to_replace: dict[str, str] = dict(
-                dimension[["code_value", "title_value"]].values
-            )
-
-            df[dim_column].replace(to_replace, inplace=True)
+            to_replace: dict[str, str] = dict(dimension[["code_value", "title_value"]].values)
+            df[dimension_name_to_display_name] = df[dim_column].replace(to_replace)
 
     df.rename(columns=to_rename, inplace=True)
     return df
@@ -104,11 +117,11 @@ def transform_indicator(
 
     to_rename_columns = handle_value_column(df, to_rename_columns)
 
-    df = update_dimensional_columns(
-        df, df_full_dimension_map, to_rename_columns
-    )
-
-    df = df[list(to_rename_columns.values())]
+    df = update_dimensional_columns(df, df_full_dimension_map, to_rename_columns)
+    
+    disagr_columns = [col for col in df.columns if col.startswith("disagr_") if col not in list(to_rename_columns.values())]
+    
+    df = df[list(set(disagr_columns + list(to_rename_columns.values())))]
 
     assert df["value"].notna().any(), "All values are null"
     df["source"] = BASE_URL
@@ -118,5 +131,7 @@ def transform_indicator(
     df["observation_type"] = None
 
     df = sort_columns_canonically(df)
-    assert df.drop("value", axis=1).duplicated().sum() == 0, "Duplicate rows per country year found after transformation, make sure that any dimension columns are not omitted from the transformed data."
+    assert (
+        df.drop("value", axis=1).duplicated().sum() == 0
+    ), "Duplicate rows per country year found after transformation, make sure that any dimension columns are not omitted from the transformed data."
     return df
