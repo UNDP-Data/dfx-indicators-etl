@@ -157,15 +157,7 @@ def replace_dimension_values(
     return df
 
 
-def replace_country_code(df: pd.DataFrame, iso_3_map: Dict[str, str]) -> pd.DataFrame:
-    """
-    Replace the values in the ISO-3 country code column with the human readable names.
-    """
-    df["country_or_area"] = df["alpha_3_code"].replace(iso_3_map)
-    return df
-
-
-def filter_out_regions(df: pd.DataFrame) -> pd.DataFrame:
+def filter_out_regions(df: pd.DataFrame, iso_3_map: dict) -> pd.DataFrame:
     """
     Filter out regions (rows containing 'X' followed by digits) from the DataFrame.
 
@@ -175,7 +167,7 @@ def filter_out_regions(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: A DataFrame with regions removed.
     """
-    return df.loc[~df["country_or_area"].str.contains(r"^X\d+")].reset_index(drop=True)
+    return df.loc[df["alpha_3_code"].isin(iso_3_map.keys())].reset_index(drop=True)
 
 
 def transform_indicator(
@@ -218,10 +210,8 @@ def transform_indicator(
         df, data_codes["classif1"], data_codes["classif2"], dimension_one, dimension_two
     )
 
-    df = replace_country_code(df, iso_3_map)
 
-    df = filter_out_regions(df)
-    df.drop(columns=["country_or_area"], inplace=True)
+    df = filter_out_regions(df, iso_3_map)
 
     df_source_filtered = df
 
