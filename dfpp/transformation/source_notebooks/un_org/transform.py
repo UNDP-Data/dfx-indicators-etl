@@ -24,8 +24,6 @@ PRIMARY_COLUMNS_TO_RENAME = {
     "geoAreaCode": "alpha_3_code",
     "timePeriodStart": "year",
     "seriesDescription": "series_name",
-    "Units": "unit",
-    "Nature": "observation_type",
 }
 
 
@@ -92,7 +90,12 @@ def transform_series(
                 ["code", "description"]
             ].values
         )
-        df[column] = df[column].replace(to_remap)
+        if column == "Units":
+            df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_CODE_SUFFIX] = df[column]
+            df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX] = df[column].replace(to_remap)
+        if column == "Nature":
+            df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX] = df[column]
+            df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX] = df[column].replace(to_remap)
 
     columns_to_rename = PRIMARY_COLUMNS_TO_RENAME.copy()
 
