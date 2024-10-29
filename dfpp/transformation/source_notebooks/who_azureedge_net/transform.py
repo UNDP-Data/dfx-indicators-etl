@@ -139,8 +139,10 @@ def transform_indicator(
     df["source"] = BASE_URL
     df["series_id"] = indicator["IndicatorCode"]
     df["series_name"] = indicator["IndicatorName"]
-    df["unit"] = None
-    df["observation_type"] = None
+    df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX] = None
+    df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_CODE_SUFFIX] = None
+    df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX] = None
+    df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX] = None
 
     df = sort_columns_canonically(df)
     assert (
