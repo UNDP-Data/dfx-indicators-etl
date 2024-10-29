@@ -2,6 +2,9 @@ import pandas as pd
 from dfpp.transformation.source_notebooks.imf_org.retrieve import BASE_URL
 
 from dfpp.transformation.column_name_template import (
+    DIMENSION_COLUMN_PREFIX,
+    DIMENSION_COLUMN_CODE_SUFFIX,
+    DIMENSION_COLUMN_NAME_SUFFIX,
     sort_columns_canonically,
 )
 
@@ -25,10 +28,13 @@ def transform(df: pd.DataFrame, indicator: dict, iso_3_map: dict):
     df = df.reset_index().rename(columns={"index": "year"})
     df = df.melt(id_vars="year", value_name="value", var_name="alpha_3_code")
     df["source"] = BASE_URL
-    df["unit"] = indicator["unit"]
+    df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX] = indicator["unit"]
+    df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_CODE_SUFFIX] = None
+
     df["series_id"] = indicator["id"]
     df["series_name"] = indicator["label"]
-    df["observation_type"] = None
+    df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX] = None
+    df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX] = None
 
     df = filter_out_regions(df, iso_3_map)
 

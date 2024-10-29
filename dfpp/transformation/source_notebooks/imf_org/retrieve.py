@@ -5,6 +5,7 @@ import pandas as pd
 import json
 from urllib.parse import urljoin
 
+
 BASE_URL = "https://www.imf.org/external/datamapper/api/v1/"
 
 __all__ = ["list_indicators", "get_indicator_data"]
@@ -31,13 +32,10 @@ def list_indicators() -> pd.DataFrame:
     return df
 
 
-async def get_indicator_data(
-    indicator_id: str, timeout: int = 60, max_connections: int = 10
+async def get_indicator_data(client: httpx.AsyncClient,
+    indicator_id: str,
 ) -> pd.DataFrame:
-    async with httpx.AsyncClient(
-        timeout=timeout, limits=httpx.Limits(max_connections=max_connections)
-    ) as client:
-        response = await client.get(urljoin(BASE_URL, indicator_id))
+    response = await client.get(urljoin(BASE_URL, indicator_id))
 
     response.raise_for_status()
     response_body = json.loads(response.text)
