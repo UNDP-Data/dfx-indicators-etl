@@ -8,6 +8,7 @@ from dfpp.transformation.column_name_template import (
     DIMENSION_COLUMN_NAME_SUFFIX,
     SexEnum,
     sort_columns_canonically,
+    CANONICAL_COLUMN_NAMES,
 )
 
 from dfpp.transformation.source_notebooks.un_org.retrieve import BASE_URL
@@ -91,23 +92,34 @@ def transform_series(
             ].values
         )
         if column == "Units":
-            df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_CODE_SUFFIX] = df[column]
-            df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX] = df[column].replace(to_remap)
+            df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_CODE_SUFFIX] = df[
+                column
+            ]
+            df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX] = df[
+                column
+            ].replace(to_remap)
         if column == "Nature":
-            df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX] = df[column]
-            df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX] = df[column].replace(to_remap)
+            df[
+                DIMENSION_COLUMN_PREFIX
+                + "observation_type"
+                + DIMENSION_COLUMN_CODE_SUFFIX
+            ] = df[column]
+            df[
+                DIMENSION_COLUMN_PREFIX
+                + "observation_type"
+                + DIMENSION_COLUMN_NAME_SUFFIX
+            ] = df[column].replace(to_remap)
 
     columns_to_rename = PRIMARY_COLUMNS_TO_RENAME.copy()
 
     df.rename(columns=columns_to_rename, inplace=True)
 
     disagr_columns = [
-        col for col in df.columns if col.startswith(DIMENSION_COLUMN_PREFIX)
+        col
+        for col in df.columns
+        if col.startswith(DIMENSION_COLUMN_PREFIX) and col not in CANONICAL_COLUMN_NAMES
     ]
-    df_selection = df.copy()[
-        ["series_name", "alpha_3_code", "year", "value", "unit", "observation_type"]
-        + disagr_columns
-    ]
+    df_selection = df.copy()[CANONICAL_COLUMN_NAMES + disagr_columns]
     df_selection["alpha_3_code"] = df_selection["alpha_3_code"].astype(int)
     df_selection["alpha_3_code"] = df_selection["alpha_3_code"].replace(
         iso_3_map_numeric_to_alpha

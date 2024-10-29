@@ -215,21 +215,24 @@ def transform_indicator(
 
     df_source_filtered = df
 
-    if "obs_status" in df_source_filtered.columns:
+    if "observation_type" in df_source_filtered.columns:
         observation_type_map = dict(
             data_codes["obs_status"][["obs_status", "obs_status_label"]].values
         )
-        df_source_filtered["observation_type"] = df_source_filtered[
+        df_source_filtered[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX] = df_source_filtered["observation_type"]
+        df_source_filtered[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX] = df_source_filtered[
             "observation_type"
         ].replace(observation_type_map)
     else:
-        df_source_filtered["observation_type"] = None
+        df_source_filtered[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX] = None
+        df_source_filtered[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX] = None
 
     df_source_filtered["series_id"] = indicator["id"]
     df_source_filtered["series_name"] = indicator["indicator_label"]
-    df_source_filtered["unit"] = extract_last_braket_string(
+    df_source_filtered[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX] = extract_last_braket_string(
         df_source_filtered["series_name"].values[0]
     )
+    df_source_filtered[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_CODE_SUFFIX] = None
     df_source_filtered["source"] = BASE_URL
 
     df_source_filtered = sort_columns_canonically(df_source_filtered)
