@@ -13,12 +13,12 @@ CANONICAL_COLUMN_NAMES = [
     "series_id",
     "series_name",
     "alpha_3_code",
-    "year",
-    "value",
     DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_CODE_SUFFIX,
     DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX,
     DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX,
     DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX,
+    "year",
+    "value",
 ]
 
 
