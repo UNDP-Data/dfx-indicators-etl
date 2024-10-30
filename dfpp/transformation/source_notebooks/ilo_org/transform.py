@@ -1,4 +1,5 @@
 """transform series data retrieved via api into publishable format"""
+
 from typing import Dict, Optional, Tuple
 import pandas as pd
 
@@ -210,25 +211,30 @@ def transform_indicator(
         df, data_codes["classif1"], data_codes["classif2"], dimension_one, dimension_two
     )
 
-
     df = filter_out_regions(df, iso_3_map)
 
     if "observation_type" in df.columns:
         observation_type_map = dict(
             data_codes["obs_status"][["obs_status", "obs_status_label"]].values
         )
-        df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX] = df["observation_type"]
-        df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX] = df[
-            "observation_type"
-        ].replace(observation_type_map)
+        df[
+            DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX
+        ] = df["observation_type"]
+        df[
+            DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX
+        ] = df["observation_type"].replace(observation_type_map)
     else:
-        df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX] = None
-        df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX] = None
+        df[
+            DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX
+        ] = None
+        df[
+            DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX
+        ] = None
     df.drop(columns=["observation_type"], inplace=True)
     df["series_id"] = indicator["id"]
     df["series_name"] = indicator["indicator_label"]
-    df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX] = extract_last_braket_string(
-        df["series_name"].values[0]
+    df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX] = (
+        extract_last_braket_string(df["series_name"].values[0])
     )
     df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_CODE_SUFFIX] = None
     df["source"] = BASE_URL

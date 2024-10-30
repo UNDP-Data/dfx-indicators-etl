@@ -17,7 +17,7 @@ BASE_URL = "https://rplumber.ilo.org/"
 
 
 def list_indicators():
-    """get indicators and their metadata"""
+    """get indicators and their metadata using rplumber api"""
     url = urljoin(BASE_URL, "metadata/toc/indicator/?lang=en&format=json")
     headers = {"accept": "application/octet-stream"}
 
@@ -46,7 +46,7 @@ def get_codebook():
 
 
 async def get_indicator(indicator_id):
-    """Fetch indicator data asynchronously for the given indicator ID"""
+    """Fetch indicator data asynchronously for the given indicator ID using rplumber api"""
     url = urljoin(BASE_URL, f"data/indicator/?id={indicator_id}&format=json")
     headers = {"accept": "application/octet-stream"}
 
