@@ -19,8 +19,6 @@ SEX_REMAP = {
     "FEMALE": SexEnum.FEMALE.value,
 }
 
-AGE_REMAP = {"ALLAGE", "all"}
-
 PRIMARY_COLUMNS_TO_RENAME = {
     "geoAreaCode": "alpha_3_code",
     "timePeriodStart": "year",
@@ -59,14 +57,6 @@ def transform_series(
         )
         column_name_formatted = column.lower().replace(" ", "_")
 
-        if column_name_formatted == "age":
-            df[
-                f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}{DIMENSION_COLUMN_CODE_SUFFIX}"
-            ] = df[column]
-            df[
-                f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}{DIMENSION_COLUMN_NAME_SUFFIX}"
-            ] = df[column].replace(AGE_REMAP)
-            continue
         if column_name_formatted == "sex":
             df[
                 f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}{DIMENSION_COLUMN_CODE_SUFFIX}"
@@ -98,6 +88,8 @@ def transform_series(
             df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX] = df[
                 column
             ].replace(to_remap)
+            continue
+
         if column == "Nature":
             df[
                 DIMENSION_COLUMN_PREFIX
@@ -109,6 +101,15 @@ def transform_series(
                 + "observation_type"
                 + DIMENSION_COLUMN_NAME_SUFFIX
             ] = df[column].replace(to_remap)
+            continue
+
+        column_name_formatted = column.lower().replace(" ", "_")
+        df[
+            f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}{DIMENSION_COLUMN_CODE_SUFFIX}"
+        ] = df[column]
+        df[
+            f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}{DIMENSION_COLUMN_NAME_SUFFIX}"
+        ] = df[column].replace(to_remap)
 
     columns_to_rename = PRIMARY_COLUMNS_TO_RENAME.copy()
 
@@ -119,16 +120,15 @@ def transform_series(
         for col in df.columns
         if col.startswith(DIMENSION_COLUMN_PREFIX) and col not in CANONICAL_COLUMN_NAMES
     ]
-    df_selection = df.copy()[CANONICAL_COLUMN_NAMES + disagr_columns]
-    df_selection["alpha_3_code"] = df_selection["alpha_3_code"].astype(int)
-    df_selection["alpha_3_code"] = df_selection["alpha_3_code"].replace(
-        iso_3_map_numeric_to_alpha
+    df["series_id"] = series_id
+    df["source"] = BASE_URL
+    df = df[CANONICAL_COLUMN_NAMES + disagr_columns]
+    df["alpha_3_code"] = df["alpha_3_code"].astype(int)
+    df["alpha_3_code"] = df["alpha_3_code"].replace(iso_3_map_numeric_to_alpha)
+    df = df[df["alpha_3_code"].apply(lambda x: isinstance(x, str))].reset_index(
+        drop=True
     )
-
-    df_selection["source"] = BASE_URL
-    df_selection["series_id"] = series_id
-
-    df_selection = sort_columns_canonically(df_selection)
-    assert df_selection.drop("value", axis=1).duplicated().sum() == 0
-
-    return df_selection
+    df = sort_columns_canonically(df)
+    assert df.drop("value", axis=1).duplicated().sum() == 0
+    df["value"] = df["value"].replace({"NaN": None})
+    return df
