@@ -213,30 +213,28 @@ def transform_indicator(
 
     df = filter_out_regions(df, iso_3_map)
 
-    df_source_filtered = df
-
-    if "observation_type" in df_source_filtered.columns:
+    if "observation_type" in df.columns:
         observation_type_map = dict(
             data_codes["obs_status"][["obs_status", "obs_status_label"]].values
         )
-        df_source_filtered[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX] = df_source_filtered["observation_type"]
-        df_source_filtered[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX] = df_source_filtered[
+        df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX] = df["observation_type"]
+        df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX] = df[
             "observation_type"
         ].replace(observation_type_map)
     else:
-        df_source_filtered[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX] = None
-        df_source_filtered[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX] = None
-
-    df_source_filtered["series_id"] = indicator["id"]
-    df_source_filtered["series_name"] = indicator["indicator_label"]
-    df_source_filtered[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX] = extract_last_braket_string(
-        df_source_filtered["series_name"].values[0]
+        df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX] = None
+        df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX] = None
+    df.drop(columns=["observation_type"], inplace=True)
+    df["series_id"] = indicator["id"]
+    df["series_name"] = indicator["indicator_label"]
+    df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX] = extract_last_braket_string(
+        df["series_name"].values[0]
     )
-    df_source_filtered[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_CODE_SUFFIX] = None
-    df_source_filtered["source"] = BASE_URL
+    df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_CODE_SUFFIX] = None
+    df["source"] = BASE_URL
 
-    df_source_filtered = sort_columns_canonically(df_source_filtered)
+    df = sort_columns_canonically(df)
     assert (
-        df_source_filtered.drop("value", axis=1).duplicated().sum() == 0
+        df.drop("value", axis=1).duplicated().sum() == 0
     ), "Duplicate rows per country year found after transformation, make sure that any dimension columns are not omitted from the transformed data."
-    return df_source_filtered
+    return df
