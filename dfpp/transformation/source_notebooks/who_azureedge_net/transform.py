@@ -10,7 +10,6 @@ from dfpp.transformation.column_name_template import (
 )
 from dfpp.transformation.source_notebooks.who_azureedge_net.retrieve import BASE_URL
 from dfpp.transformation.source_notebooks.who_azureedge_net.utils import (
-    extract_last_braket_string,
     sanitize_category,
 )
 
@@ -141,8 +140,12 @@ def transform_indicator(
     df["series_name"] = indicator["IndicatorName"]
     df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX] = None
     df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_CODE_SUFFIX] = None
-    df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX] = None
-    df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX] = None
+    df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX] = (
+        None
+    )
+    df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX] = (
+        None
+    )
 
     df = sort_columns_canonically(df)
     assert (
