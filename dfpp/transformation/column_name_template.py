@@ -1,12 +1,20 @@
 """store basic column name and column value conventions"""
 
 import re
+import logging
 import pandas as pd
 from enum import StrEnum, Enum
 
 DIMENSION_COLUMN_PREFIX = "disagr_"
 DIMENSION_COLUMN_CODE_SUFFIX = "_code"
 DIMENSION_COLUMN_NAME_SUFFIX = "_name"
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()],
+)
 
 CANONICAL_COLUMN_NAMES = [
     "source",
@@ -29,6 +37,8 @@ class SexEnum(StrEnum, Enum):
     OTHER = "other"
     TOTAL = "total"
     NOT_APPLICABLE = "not applicable"
+    UNKNOWN = "unknown"
+    NON_RESPONSE = "non response"
 
 
 def set_dimension_column_prefix(dimension_columns: str):
@@ -87,3 +97,12 @@ def get_grouped_disagr_columns(df: pd.DataFrame) -> list:
             grouped_disagr_cols.append(name_col)
 
     return grouped_disagr_cols
+
+
+def ensure_canonical_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """if any of the canonical is absent, set it"""
+    for column in CANONICAL_COLUMN_NAMES:
+        if column not in df.columns:
+            logging.warning(f"Filling missing canonical column {column} with None")
+            df[column] = None
+    return df
