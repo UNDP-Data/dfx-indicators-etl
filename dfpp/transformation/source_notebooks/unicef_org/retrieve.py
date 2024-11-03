@@ -6,7 +6,7 @@ import logging
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
+    format="%(asctime)s - %(levelname)s - %(module)s - %(message)s",
     handlers=[logging.StreamHandler()],
 )
 
