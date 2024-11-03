@@ -2,7 +2,6 @@
 
 import pandas as pd
 import logging
-from typing import Dict
 
 from dfpp.transformation.source_notebooks.unicef_org.retrieve import BASE_URL
 from dfpp.transformation.column_name_template import (
@@ -81,7 +80,7 @@ def remap_dimensions(df: pd.DataFrame, df_dimensions: pd.DataFrame) -> pd.DataFr
 
 
 def remap_attribute(
-    df: pd.DataFrame, attribute_code: str, to_remap: Dict, column_name: str
+    df: pd.DataFrame, attribute_code: str, to_remap: dict, column_name: str
 ) -> pd.DataFrame:
     """Remap attribute values and create canonical columns for attribute codes and names."""
     df[f"{DIMENSION_COLUMN_PREFIX}{column_name}{DIMENSION_COLUMN_CODE_SUFFIX}"] = df[
