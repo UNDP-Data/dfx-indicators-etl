@@ -16,3 +16,4 @@ papermill ~= 2.6.0
 notebook ~= 7.2.1
 country-converter ~= 1.2
 tldextract ~= 5.1.2
+sdmx1 ~=2.19.1
