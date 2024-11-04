@@ -11,7 +11,7 @@ from dfpp.transformation.column_name_template import (
     CANONICAL_COLUMN_NAMES,
 )
 
-from dfpp.transformation.source_notebooks.un_org.retrieve import BASE_URL
+from dfpp.transformation.sources.un_org.retrieve import BASE_URL
 
 SEX_REMAP = {
     "BOTHSEX": SexEnum.BOTH.value,

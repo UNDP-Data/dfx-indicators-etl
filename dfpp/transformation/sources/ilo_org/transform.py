@@ -11,8 +11,8 @@ from dfpp.transformation.column_name_template import (
     DIMENSION_COLUMN_NAME_SUFFIX,
 )
 
-from dfpp.transformation.source_notebooks.ilo_org.retrieve import BASE_URL
-from dfpp.transformation.source_notebooks.ilo_org.utils import (
+from dfpp.transformation.sources.ilo_org.retrieve import BASE_URL
+from dfpp.transformation.sources.ilo_org.utils import (
     extract_last_braket_string,
     sanitize_category,
 )

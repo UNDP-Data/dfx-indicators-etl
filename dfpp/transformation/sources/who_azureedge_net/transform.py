@@ -8,8 +8,8 @@ from dfpp.transformation.column_name_template import (
     DIMENSION_COLUMN_CODE_SUFFIX,
     DIMENSION_COLUMN_NAME_SUFFIX,
 )
-from dfpp.transformation.source_notebooks.who_azureedge_net.retrieve import BASE_URL
-from dfpp.transformation.source_notebooks.who_azureedge_net.utils import (
+from dfpp.transformation.sources.who_azureedge_net.retrieve import BASE_URL
+from dfpp.transformation.sources.who_azureedge_net.utils import (
     sanitize_category,
 )
 

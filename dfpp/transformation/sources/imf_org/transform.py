@@ -1,5 +1,5 @@
 import pandas as pd
-from dfpp.transformation.source_notebooks.imf_org.retrieve import BASE_URL
+from dfpp.transformation.sources.imf_org.retrieve import BASE_URL
 
 from dfpp.transformation.column_name_template import (
     DIMENSION_COLUMN_PREFIX,

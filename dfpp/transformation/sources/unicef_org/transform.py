@@ -3,7 +3,7 @@
 import pandas as pd
 import logging
 
-from dfpp.transformation.source_notebooks.unicef_org.retrieve import BASE_URL
+from dfpp.transformation.sources.unicef_org.retrieve import BASE_URL
 from dfpp.transformation.column_name_template import (
     DIMENSION_COLUMN_PREFIX,
     DIMENSION_COLUMN_CODE_SUFFIX,

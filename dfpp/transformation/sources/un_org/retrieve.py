@@ -7,7 +7,7 @@ from collections import defaultdict
 import requests
 from urllib.parse import urljoin
 
-from dfpp.transformation.source_notebooks.un_org.utils import flatten_dict
+from dfpp.transformation.sources.un_org.utils import flatten_dict
 
 __all__ = ["get_indicator_list", "get_series_data_and_dimensions"]
 
