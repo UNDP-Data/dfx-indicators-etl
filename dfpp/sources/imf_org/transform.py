@@ -1,12 +1,12 @@
 import pandas as pd
 
+from dfpp.sources.imf_org.retrieve import BASE_URL
 from dfpp.transformation.column_name_template import (
     DIMENSION_COLUMN_CODE_SUFFIX,
     DIMENSION_COLUMN_NAME_SUFFIX,
     DIMENSION_COLUMN_PREFIX,
     sort_columns_canonically,
 )
-from dfpp.transformation.sources.imf_org.retrieve import BASE_URL
 
 __all__ = ["transform"]
 

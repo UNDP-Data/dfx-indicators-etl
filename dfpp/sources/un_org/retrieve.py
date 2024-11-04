@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 import aiohttp
 import requests
 
-from dfpp.transformation.sources.un_org.utils import flatten_dict
+from dfpp.sources.un_org.utils import flatten_dict
 
 __all__ = ["get_indicator_list", "get_series_data_and_dimensions"]
 

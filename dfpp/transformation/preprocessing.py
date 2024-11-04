@@ -3337,7 +3337,7 @@ async def il_fishing_transform_preprocessing(
     bytes_data: bytes, **kwargs
 ) -> pd.DataFrame:
     async with StorageManager() as storage_manager:
-        path = os.path.join("sources", "raw", "IL_FISH_META.json")
+        path = os.path.join(os.pardir, "sources", "raw", "IL_FISH_META.json")
         data = await storage_manager.read_blob(path=path)
         meta_data_dict = json.loads(data.decode("utf-8"))
         meta_data_dict = meta_data_dict["dimensions"]["entities"]["values"]
@@ -3400,7 +3400,7 @@ async def med_waste_transform_preprocessing(
     bytes_data: bytes, **kwargs
 ) -> pd.DataFrame:
     async with StorageManager() as storage_manager:
-        path = os.path.join("sources", "raw", "MED_WASTE_META.csv")
+        path = os.path.join(os.pardir, "sources", "raw", "MED_WASTE_META.csv")
         data = await storage_manager.read_blob(path=path)
         source_meta_df = pd.read_csv(
             io.BytesIO(data),

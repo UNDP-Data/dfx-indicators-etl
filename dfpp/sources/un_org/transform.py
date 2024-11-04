@@ -2,6 +2,7 @@
 
 import pandas as pd
 
+from dfpp.sources.un_org.retrieve import BASE_URL
 from dfpp.transformation.column_name_template import (
     CANONICAL_COLUMN_NAMES,
     DIMENSION_COLUMN_CODE_SUFFIX,
@@ -10,7 +11,6 @@ from dfpp.transformation.column_name_template import (
     SexEnum,
     sort_columns_canonically,
 )
-from dfpp.transformation.sources.un_org.retrieve import BASE_URL
 
 SEX_REMAP = {
     "BOTHSEX": SexEnum.BOTH.value,

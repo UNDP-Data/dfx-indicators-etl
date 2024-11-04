@@ -4,6 +4,7 @@ import logging
 
 import pandas as pd
 
+from dfpp.sources.unicef_org.retrieve import BASE_URL
 from dfpp.transformation.column_name_template import (
     CANONICAL_COLUMN_NAMES,
     DIMENSION_COLUMN_CODE_SUFFIX,
@@ -13,7 +14,6 @@ from dfpp.transformation.column_name_template import (
     ensure_canonical_columns,
     sort_columns_canonically,
 )
-from dfpp.transformation.sources.unicef_org.retrieve import BASE_URL
 
 logging.basicConfig(
     level=logging.INFO,
