@@ -4,6 +4,8 @@ import httpx
 import pandas as pd
 from tqdm.asyncio import tqdm
 
+__all__ = ["Connector"]
+
 
 class Connector:
     def __init__(self, connections: int = 10, timeout: int = 60):
