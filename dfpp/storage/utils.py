@@ -1,8 +1,6 @@
 import configparser
 
-__all__ = [
-    "UnescapedConfigParser"
-]
+__all__ = ["UnescapedConfigParser"]
 
 
 class UnescapedConfigParser(configparser.RawConfigParser):

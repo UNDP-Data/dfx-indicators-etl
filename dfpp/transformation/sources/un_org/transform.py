@@ -3,14 +3,13 @@
 import pandas as pd
 
 from dfpp.transformation.column_name_template import (
-    DIMENSION_COLUMN_PREFIX,
+    CANONICAL_COLUMN_NAMES,
     DIMENSION_COLUMN_CODE_SUFFIX,
     DIMENSION_COLUMN_NAME_SUFFIX,
+    DIMENSION_COLUMN_PREFIX,
     SexEnum,
     sort_columns_canonically,
-    CANONICAL_COLUMN_NAMES,
 )
-
 from dfpp.transformation.sources.un_org.retrieve import BASE_URL
 
 SEX_REMAP = {

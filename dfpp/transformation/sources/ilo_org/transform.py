@@ -1,16 +1,16 @@
 """transform series data retrieved via api into publishable format"""
 
 from typing import Dict, Optional, Tuple
+
 import pandas as pd
 
 from dfpp.transformation.column_name_template import (
-    SexEnum,
-    sort_columns_canonically,
-    DIMENSION_COLUMN_PREFIX,
     DIMENSION_COLUMN_CODE_SUFFIX,
     DIMENSION_COLUMN_NAME_SUFFIX,
+    DIMENSION_COLUMN_PREFIX,
+    SexEnum,
+    sort_columns_canonically,
 )
-
 from dfpp.transformation.sources.ilo_org.retrieve import BASE_URL
 from dfpp.transformation.sources.ilo_org.utils import (
     extract_last_braket_string,

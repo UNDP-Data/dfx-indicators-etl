@@ -1,8 +1,9 @@
 """retrieve sdmx UNICEF data"""
 
-import sdmx
-import pandas as pd
 import logging
+
+import pandas as pd
+import sdmx
 
 logging.basicConfig(
     level=logging.INFO,

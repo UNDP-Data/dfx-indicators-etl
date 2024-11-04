@@ -9,10 +9,10 @@ from functools import partial, partialmethod
 import click
 from dotenv import load_dotenv
 
+from .cli_utils import list_command
 from .publishing import publish
 from .retrieval import download_indicator_sources
 from .transformation import transform_sources
-from .cli_utils import list_command
 
 load_dotenv()
 

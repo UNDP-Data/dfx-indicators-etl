@@ -1,8 +1,9 @@
-import aiohttp
 import asyncio
-import requests
-import pandas as pd
 from urllib.parse import urljoin
+
+import aiohttp
+import pandas as pd
+import requests
 
 BASE_URL = "https://ghoapi.azureedge.net/api/"
 

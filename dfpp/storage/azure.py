@@ -11,8 +11,8 @@ from azure.storage.blob import ContentSettings
 from azure.storage.blob.aio import BlobPrefix, ContainerClient
 
 from dfpp.common import cfg2dict
+from dfpp.data_models import Indicator, Source
 from dfpp.storage.utils import *
-from dfpp.data_models import Source, Indicator
 
 logger = logging.getLogger(__name__)
 
@@ -114,8 +114,8 @@ class StorageManager:
             parser = UnescapedConfigParser(interpolation=None)
             parser.read_string(content_str)
             if "indicator" in parser:
-                 indicator_cfg_dict = Indicator.flatten_dict_config(cfg2dict(parser))
-                 return dict(Indicator(**indicator_cfg_dict))
+                indicator_cfg_dict = Indicator.flatten_dict_config(cfg2dict(parser))
+                return dict(Indicator(**indicator_cfg_dict))
             else:
                 raise Exception(
                     f"Indicator  {indicator_id} located at {indicator_path} does not contain an 'indicator' section"
@@ -424,11 +424,12 @@ class StorageManager:
         data = await self.read_blob(path=path)
         df = pd.read_excel(BytesIO(data), sheet_name=f"{sheet}_lookup")
         return df
-    
+
     @staticmethod
     def with_storage_manager(func):
         async def wrapper(*args, **kwargs):
             async with StorageManager() as storage_manager:
                 logger.debug("Connected to Azure blob")
                 return await func(*args, storage_manager=storage_manager, **kwargs)
+
         return wrapper

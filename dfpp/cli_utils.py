@@ -1,5 +1,6 @@
 from dfpp.storage import StorageManager
 
+
 async def list_command(
     indicators=False,
     sources=False,

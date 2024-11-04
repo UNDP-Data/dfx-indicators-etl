@@ -2,10 +2,10 @@
 
 import os
 from io import BytesIO
+
 import pandas as pd
 
 from dfpp.storage import StorageManager
-
 
 __all__ = ["get_iso3_to_official_name_map", "get_numeric_to_iso3_map"]
 

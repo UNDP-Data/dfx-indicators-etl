@@ -1,13 +1,15 @@
-import pandas as pd
 from typing import List
 
+import pandas as pd
+
 __all__ = ["filter_important_dimensions"]
+
 
 def filter_important_dimensions(
     df: pd.DataFrame,
     base_columns: List[str] = ["alpha_3_code", "year"],
     value_column: str = "value",
-    important_columns: List[str] = []
+    important_columns: List[str] = [],
 ) -> (pd.DataFrame, List[str]):
     """
     Filters columns from the DataFrame by retaining only those dimensions that:
@@ -51,7 +53,6 @@ def filter_important_dimensions(
         if dim in important_columns:
             columns_to_keep.append(dim)
             continue
-
 
         grouped_with_dim = df.groupby(columns_to_keep + [dim])[value_column].nunique()
         grouped_without_dim = df.groupby(columns_to_keep)[value_column].nunique()

@@ -1,4 +1,6 @@
-from typing import Literal, Any
+import ast
+from typing import Any, Literal
+
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -7,7 +9,6 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-import ast
 
 __all__ = ["Source", "Indicator"]
 
@@ -26,7 +27,7 @@ class BaseModelWithConfig(BaseModel):
         cls: BaseModel, config_dict: dict[str, Any]
     ) -> dict[str, Any]:
         """Unnest sections from config
-          if the section is 'source' or 'indicator'."""
+        if the section is 'source' or 'indicator'."""
         config = {}
         for k, v in config_dict.items():
             if k not in ["source", "indicator"]:

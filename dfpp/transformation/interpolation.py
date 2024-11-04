@@ -1,5 +1,5 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 
 def gappiness(df_long_group: pd.DataFrame, indicator_id: str) -> pd.Series:

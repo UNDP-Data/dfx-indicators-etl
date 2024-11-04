@@ -1,10 +1,11 @@
 """retrieve series and metadata via api frin ILO Rplumber API"""
 
 from collections import defaultdict
+from urllib.parse import urljoin
+
 import aiohttp
 import pandas as pd
 import requests
-from urllib.parse import urljoin
 
 __all__ = [
     "get_indicator",

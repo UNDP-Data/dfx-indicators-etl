@@ -1,11 +1,12 @@
 """retrieve series and metadata via api"""
 
-from typing import DefaultDict, Any
 import asyncio
-import aiohttp
 from collections import defaultdict
-import requests
+from typing import Any, DefaultDict
 from urllib.parse import urljoin
+
+import aiohttp
+import requests
 
 from dfpp.transformation.sources.un_org.utils import flatten_dict
 

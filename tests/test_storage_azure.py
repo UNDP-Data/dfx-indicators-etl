@@ -42,8 +42,7 @@ async def test_upload_blob_from_file(content: str, tmp_path):
     path_src.write_text(content)
     async with StorageManager() as storage_manager:
         path = await storage_manager.upload_blob(
-            path_or_data_src=str(path_src),
-            path_dst="tests/qux.txt"
+            path_or_data_src=str(path_src), path_dst="tests/qux.txt"
         )
         assert isinstance(path, str), "Unexpected return type"
         data = await storage_manager.read_blob(path)
@@ -58,8 +57,7 @@ async def test_upload_blob_from_file(content: str, tmp_path):
 async def test_upload_blob_from_data(content: str | dict, tmp_path):
     async with StorageManager() as storage_manager:
         path = await storage_manager.upload_blob(
-            path_or_data_src=content.encode(),
-            path_dst="tests/qux.txt"
+            path_or_data_src=content.encode(), path_dst="tests/qux.txt"
         )
         assert isinstance(path, str), "Unexpected return type"
         data = await storage_manager.read_blob(path)

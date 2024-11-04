@@ -3,13 +3,11 @@ A pyhon module to hold common (between stages) functions for the DFP pipeline
 """
 
 import logging
-import tldextract
-from urllib.parse import urlparse
 import re
-
-
 from configparser import ConfigParser, RawConfigParser
+from urllib.parse import urlparse
 
+import tldextract
 
 logger = logging.getLogger(__name__)
 

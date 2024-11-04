@@ -1,17 +1,16 @@
-import pandas as pd
 import re
 
+import pandas as pd
+
 from dfpp.transformation.column_name_template import (
-    SexEnum,
-    sort_columns_canonically,
-    DIMENSION_COLUMN_PREFIX,
     DIMENSION_COLUMN_CODE_SUFFIX,
     DIMENSION_COLUMN_NAME_SUFFIX,
+    DIMENSION_COLUMN_PREFIX,
+    SexEnum,
+    sort_columns_canonically,
 )
 from dfpp.transformation.sources.who_azureedge_net.retrieve import BASE_URL
-from dfpp.transformation.sources.who_azureedge_net.utils import (
-    sanitize_category,
-)
+from dfpp.transformation.sources.who_azureedge_net.utils import sanitize_category
 
 SOURCE_NAME = "WHO_GHO_API"
 

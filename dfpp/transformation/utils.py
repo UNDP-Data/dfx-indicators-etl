@@ -1,12 +1,11 @@
 from typing import Any
-from scipy.interpolate import CubicSpline, interp1d
-import pandas as pd
+
 import numpy as np
+import pandas as pd
+from scipy.interpolate import CubicSpline, interp1d
 
+__all__ = ["interpolate_data", "rename_indicator", "invert_dictionary"]
 
-__all__ = ["interpolate_data",
-           "rename_indicator",
-           "invert_dictionary"]
 
 async def interpolate_data(
     data_frame: pd.DataFrame, target_column: Any = None, min_year: int = None
@@ -108,5 +107,3 @@ async def invert_dictionary(original_dictionary):
         # Swap the key and value in the inverted dictionary
         inverted_dictionary[original_dictionary[dict_key]] = dict_key
     return inverted_dictionary
-
-

@@ -1,18 +1,19 @@
 """scripts to transform series data retrieved via api into publishable format"""
 
-import pandas as pd
 import logging
 
-from dfpp.transformation.sources.unicef_org.retrieve import BASE_URL
+import pandas as pd
+
 from dfpp.transformation.column_name_template import (
-    DIMENSION_COLUMN_PREFIX,
+    CANONICAL_COLUMN_NAMES,
     DIMENSION_COLUMN_CODE_SUFFIX,
     DIMENSION_COLUMN_NAME_SUFFIX,
+    DIMENSION_COLUMN_PREFIX,
     SexEnum,
-    sort_columns_canonically,
     ensure_canonical_columns,
-    CANONICAL_COLUMN_NAMES,
+    sort_columns_canonically,
 )
+from dfpp.transformation.sources.unicef_org.retrieve import BASE_URL
 
 logging.basicConfig(
     level=logging.INFO,
@@ -176,6 +177,8 @@ def transform(
     df_indicator = df_indicator[CANONICAL_COLUMN_NAMES + columns_to_select]
     df_indicator = sort_columns_canonically(df_indicator)
     if iso_3_map:
-        df_indicator = df_indicator[df_indicator["alpha_3_code"].isin(iso_3_map.keys())].reset_index(drop=True)
+        df_indicator = df_indicator[
+            df_indicator["alpha_3_code"].isin(iso_3_map.keys())
+        ].reset_index(drop=True)
     assert df_indicator.drop("value", axis=1).duplicated().sum() == 0
     return df_indicator

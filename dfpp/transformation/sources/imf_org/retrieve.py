@@ -1,10 +1,10 @@
 """retrive ILO datamapper API data"""
 
-import httpx
-import pandas as pd
 import json
 from urllib.parse import urljoin
 
+import httpx
+import pandas as pd
 
 BASE_URL = "https://www.imf.org/external/datamapper/api/v1/"
 
@@ -32,7 +32,8 @@ def list_indicators() -> pd.DataFrame:
     return df
 
 
-async def get_indicator_data(client: httpx.AsyncClient,
+async def get_indicator_data(
+    client: httpx.AsyncClient,
     indicator_id: str,
 ) -> pd.DataFrame:
     response = await client.get(urljoin(BASE_URL, indicator_id))

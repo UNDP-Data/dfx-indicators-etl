@@ -1,9 +1,10 @@
 """store basic column name and column value conventions"""
 
-import re
 import logging
+import re
+from enum import Enum, StrEnum
+
 import pandas as pd
-from enum import StrEnum, Enum
 
 DIMENSION_COLUMN_PREFIX = "disagr_"
 DIMENSION_COLUMN_CODE_SUFFIX = "_code"
@@ -81,7 +82,7 @@ def get_grouped_disagr_columns(df: pd.DataFrame) -> list:
         for col in df.columns
         if col.startswith("disagr_") and col not in CANONICAL_COLUMN_NAMES
     ]
-    
+
     if not disagr_cols:
         return []
 

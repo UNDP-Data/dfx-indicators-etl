@@ -1,11 +1,13 @@
 import logging
 import os
-import papermill as pm
-import pandas as pd
 from datetime import datetime
-from dfpp.storage import StorageManager
 from enum import Enum
+
+import pandas as pd
+import papermill as pm
+
 from dfpp.common import get_domain_from_url, get_netloc_from_url, snake_casify
+from dfpp.storage import StorageManager
 
 __all__ = ["run_notebooks"]
 
@@ -186,7 +188,9 @@ async def execute_notebook(source_cfg, indicator_cfgs, processing_results):
         for indicator_cfg in indicator_cfgs
         if indicator_cfg["source_id"] == source_id
     ]
-    path_to_save_executed_notebook = os.path.join(BASE_NOTEBOOK_PATH, domain, "indicator_execution")
+    path_to_save_executed_notebook = os.path.join(
+        BASE_NOTEBOOK_PATH, domain, "indicator_execution"
+    )
     if not os.path.exists(path_to_save_executed_notebook):
         os.mkdir(path_to_save_executed_notebook)
 
