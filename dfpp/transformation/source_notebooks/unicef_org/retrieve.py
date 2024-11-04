@@ -12,6 +12,8 @@ logging.basicConfig(
 
 BASE_URL = "https://sdmx.data.unicef.org/"
 
+__all__ = ["get_indicator", "get_sdmx_client", "get_dataflow_codebook"]
+
 
 def get_sdmx_client() -> sdmx.Client:
     """
@@ -79,7 +81,7 @@ def get_dataflow_codebook(
         ).local_representation.enumerated
         if not schema:
             logging.warning(
-                "Missing codebook for the dimension %s in %s", dimension, dataflow_id
+                f"Missing codebook for the dimension {dimension} in {dataflow_id}"
             )
             continue
 
@@ -102,9 +104,7 @@ def get_dataflow_codebook(
             ).local_representation.enumerated
             if not schema:
                 logging.warning(
-                    "Missing codebook for the attribute %s in %s",
-                    attribute,
-                    dataflow_id,
+                    f"Missing codebook for the attribute {attribute} codebook in {dataflow_id}"
                 )
                 continue
 
@@ -121,10 +121,7 @@ def get_dataflow_codebook(
             to_concat_attrs.append(df_attribute_code)
         except Exception as e:
             logging.warning(
-                "Missing codebook for the attribute %s in %s: %s",
-                attribute,
-                dataflow_id,
-                e,
+                f"Missing codebook for the attribute {attribute} in {dataflow_id}: {e}",
             )
 
     df_dims = pd.concat(to_concat_dims, ignore_index=True)

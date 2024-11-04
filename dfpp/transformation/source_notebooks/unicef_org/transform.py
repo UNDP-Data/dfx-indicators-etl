@@ -20,6 +20,8 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()],
 )
 
+__all__ = ["transform"]
+
 SEX_REMAP = {
     "F": SexEnum.FEMALE.value,
     "M": SexEnum.MALE.value,
@@ -30,7 +32,7 @@ SEX_REMAP = {
     "_Z": SexEnum.NOT_APPLICABLE.value,
 }
 
-PRIMARY_COLUMNS_TO_RENAME = {"REF_AREA": "alpha_3_code", "INDICATOR": "series_id"}
+PRIMARY_COLUMNS_TO_RENAME = {"REF_AREA": "alpha_3_code"}
 
 
 def get_series_name(df_indicators: pd.DataFrame, indicator_code: str) -> str:
@@ -41,7 +43,7 @@ def get_series_name(df_indicators: pd.DataFrame, indicator_code: str) -> str:
 
 
 def remap_dimension(
-    df: pd.DataFrame, dimension_code: str, to_remap: Dict, column_name: str
+    df: pd.DataFrame, dimension_code: str, to_remap: dict, column_name: str
 ) -> pd.DataFrame:
     """Remap dimension values and create canonical columns for dimension codes and names."""
     df[f"{DIMENSION_COLUMN_PREFIX}{column_name}{DIMENSION_COLUMN_CODE_SUFFIX}"] = df[
@@ -133,11 +135,12 @@ def validate_and_rename_year_column(df: pd.DataFrame) -> pd.DataFrame:
     raise ValueError("No valid 4-digit year column found")
 
 
-def transform_indicator(
-    df_indicator: pd.DataFrame,
-    df_indicators: pd.DataFrame,
-    df_dimensions: pd.DataFrame,
-    df_attributes: pd.DataFrame,
+def transform(
+    df_indicator: pd.DataFrame = None,
+    df_indicators: pd.DataFrame = None,
+    df_dimensions: pd.DataFrame = None,
+    df_attributes: pd.DataFrame = None,
+    iso_3_map=None,
 ) -> pd.DataFrame:
     """
     Transform the raw indicator data into a processed DataFrame.
@@ -151,7 +154,8 @@ def transform_indicator(
     Returns:
         pd.DataFrame: A DataFrame with the processed data.
     """
-    indicator_code = df_indicator["series_id"] = df_indicator["INDICATOR"].values[0]
+    indicator_code = df_indicator["INDICATOR"].values[0]
+    df_indicator["series_id"] = indicator_code
     assert (
         df_indicator["INDICATOR"].nunique() == 1
     ), "Cannot process more than one series at a time"
@@ -171,5 +175,7 @@ def transform_indicator(
     ]
     df_indicator = df_indicator[CANONICAL_COLUMN_NAMES + columns_to_select]
     df_indicator = sort_columns_canonically(df_indicator)
+    if iso_3_map:
+        df_indicator = df_indicator[df_indicator["alpha_3_code"].isin(iso_3_map.keys())].reset_index(drop=True)
     assert df_indicator.drop("value", axis=1).duplicated().sum() == 0
     return df_indicator
