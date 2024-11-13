@@ -7,9 +7,7 @@ from enum import Enum, StrEnum
 import pandas as pd
 
 DIMENSION_COLUMN_PREFIX = "disagr_"
-DIMENSION_COLUMN_CODE_SUFFIX = "_code"
-DIMENSION_COLUMN_NAME_SUFFIX = "_name"
-
+SERIES_PROPERTY_PREFIX = "prprty_"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,10 +20,8 @@ CANONICAL_COLUMN_NAMES = [
     "series_id",
     "series_name",
     "alpha_3_code",
-    DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_CODE_SUFFIX,
-    DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX,
-    DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX,
-    DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX,
+    SERIES_PROPERTY_PREFIX + "unit",
+    SERIES_PROPERTY_PREFIX + "observation_type",
     "year",
     "value",
 ]
@@ -52,52 +48,41 @@ def sort_columns_canonically(df):
     ), f"DataFrame does not contain all canonical columns. Missing columns: {set(CANONICAL_COLUMN_NAMES) - set(df.columns)}"
 
     canonical_cols_start = [col for col in CANONICAL_COLUMN_NAMES if col in df.columns][
-        :4
+        :3
     ]
     canonical_cols_end = [col for col in CANONICAL_COLUMN_NAMES if col in df.columns][
-        4:
+        3:
     ]
 
-    grouped_disagr_cols = get_grouped_disagr_columns(df)
+    grouped_disagr_cols = [
+        col
+        for col in df.columns
+        if col.startswith(DIMENSION_COLUMN_PREFIX) and col not in CANONICAL_COLUMN_NAMES
+    ]
+
+    grouped_property_cols = [
+        col
+        for col in df.columns
+        if col.startswith(SERIES_PROPERTY_PREFIX) and col not in CANONICAL_COLUMN_NAMES
+    ]
 
     other_cols = [
         col
         for col in df.columns
-        if col not in CANONICAL_COLUMN_NAMES and col not in grouped_disagr_cols
+        if all(
+            [
+                col not in CANONICAL_COLUMN_NAMES,
+                col not in grouped_disagr_cols,
+                col not in grouped_property_cols,
+            ]
+        )
     ]
 
     sorted_columns = (
-        canonical_cols_start + grouped_disagr_cols + other_cols + canonical_cols_end
+        canonical_cols_start + grouped_disagr_cols + other_cols + grouped_property_cols + canonical_cols_end
     )
 
     return df[sorted_columns]
-
-
-def get_grouped_disagr_columns(df: pd.DataFrame) -> list:
-    """Returns the grouped disagr columns in the DataFrame
-    so that _code and _name suffixed dimension columns are displayed next to each other.
-    """
-    disagr_cols = [
-        col
-        for col in df.columns
-        if col.startswith("disagr_") and col not in CANONICAL_COLUMN_NAMES
-    ]
-
-    if not disagr_cols:
-        return []
-
-    grouped_disagr_cols = []
-    base_names = set(re.sub(r"(_code|_name)$", "", col) for col in disagr_cols)
-
-    for base in sorted(base_names):
-        code_col = f"{base}_code"
-        name_col = f"{base}_name"
-        if code_col in df.columns:
-            grouped_disagr_cols.append(code_col)
-        if name_col in df.columns:
-            grouped_disagr_cols.append(name_col)
-
-    return grouped_disagr_cols
 
 
 def ensure_canonical_columns(df: pd.DataFrame) -> pd.DataFrame:
