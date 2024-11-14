@@ -4,7 +4,7 @@ import pandas as pd
 import country_converter as coco
 import string
 
-
+from dfpp.sources import exceptions
 from dfpp.transformation.column_name_template import (
     CANONICAL_COLUMN_NAMES,
     SERIES_PROPERTY_PREFIX,
@@ -62,7 +62,8 @@ def transform_series(df: pd.DataFrame, coco: coco.CountryConverter) -> pd.DataFr
         inplace=True,
     )
 
-    df[DIMENSION_COLUMN_PREFIX + "sex"] = df[DIMENSION_COLUMN_PREFIX + "sex"].replace(SEX_VALUES_TO_REPLACE)
+    df[DIMENSION_COLUMN_PREFIX + "sex"] = df[DIMENSION_COLUMN_PREFIX + "sex"].map(SEX_VALUES_TO_REPLACE)
+    assert df[DIMENSION_COLUMN_PREFIX + "sex"].isna.any() == False, exceptions.DIMENSION_REMAP_ERROR_MESSAGE
 
     disagr_columns = [
         col
@@ -79,5 +80,5 @@ def transform_series(df: pd.DataFrame, coco: coco.CountryConverter) -> pd.DataFr
     df = ensure_canonical_columns(df)
     df = df[CANONICAL_COLUMN_NAMES + disagr_columns + property_columns]
     df = sort_columns_canonically(df)
-    assert df.drop("value", axis=1).duplicated().sum() == 0
+    assert df.drop("value", axis=1).duplicated().sum() == 0, exceptions.DUPLICATE_ERROR_MESSAGE
     return df
