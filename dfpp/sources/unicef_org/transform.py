@@ -166,7 +166,8 @@ def transform(
     columns_to_select = [
         col
         for col in df_indicator.columns.tolist()
-        if col not in CANONICAL_COLUMN_NAMES and DIMENSION_COLUMN_PREFIX in col or SERIES_PROPERTY_PREFIX in col
+        if col not in CANONICAL_COLUMN_NAMES and any([DIMENSION_COLUMN_PREFIX in col,
+                                                      SERIES_PROPERTY_PREFIX in col])
     ]
     df_indicator = df_indicator[CANONICAL_COLUMN_NAMES + columns_to_select]
     df_indicator = sort_columns_canonically(df_indicator)
