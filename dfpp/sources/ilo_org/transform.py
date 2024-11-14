@@ -89,14 +89,12 @@ def rename_dimension_columns(
         dimension_one = df_classif1[
             df_classif1.classif1 == df.classif1.iloc[0]
         ].category.values[0]
-        dimension_one = DIMENSION_COLUMN_PREFIX + dimension_one
         to_rename_columns.update({"classif1": dimension_one})
 
     if "classif2" in df.columns:
         dimension_two = df_classif2[
             df_classif2.classif2 == df.classif2.iloc[0]
         ].category.values[0]
-        dimension_two = DIMENSION_COLUMN_PREFIX + dimension_two
         to_rename_columns.update({"classif2": dimension_two})
 
     df.rename(columns=to_rename_columns, inplace=True)
@@ -129,23 +127,27 @@ def replace_dimension_values(
 
     if dimension_one and dimension_one in df.columns:
         dimension_one_map = dict(
-            df_classif1[df_classif1.category == dimension_one][
-                ["classif1", "value"]
+            df_classif1[
+                ["classif1", "classif1_label"]
             ].values
         )
         df[
             f"{DIMENSION_COLUMN_PREFIX}{dimension_one}"
-        ] = df[dimension_one].replace(dimension_one_map)
+        ] = df[dimension_one].map(dimension_one_map)
+        assert df[ f"{DIMENSION_COLUMN_PREFIX}{dimension_one}"].isna().any() == False
+        df.drop(columns=[dimension_one], inplace=True)
 
     if dimension_two and dimension_two in df.columns:
         dimension_two_map = dict(
-            df_classif2[df_classif2.category == dimension_two][
-                ["classif2", "value"]
+            df_classif2[
+                ["classif2", "classif2_label"]
             ].values
         )
         df[
             f"{DIMENSION_COLUMN_PREFIX}{dimension_two}"
-        ] = df[dimension_two].replace(dimension_two_map)
+        ] = df[dimension_two].map(dimension_two_map)
+        assert df[ f"{DIMENSION_COLUMN_PREFIX}{dimension_two}"].isna().any() == False
+        df.drop(columns=[dimension_two], inplace=True)
     return df
 
 
@@ -211,8 +213,7 @@ def transform_indicator(
         df[
             SERIES_PROPERTY_PREFIX + "observation_type"
         ] = df["observation_type"].replace(observation_type_map)
-
-    df.drop(columns=["observation_type"], inplace=True)
+        df.drop(columns=["observation_type"], inplace=True)
     df["series_id"] = indicator["id"]
     df["series_name"] = indicator["indicator_label"]
     df[SERIES_PROPERTY_PREFIX + "unit"] = (
