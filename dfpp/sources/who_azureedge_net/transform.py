@@ -2,12 +2,11 @@ import pandas as pd
 
 from dfpp.sources.who_azureedge_net.retrieve import BASE_URL
 from dfpp.sources.who_azureedge_net.utils import sanitize_category
-from dfpp.transformation.column_name_template import (
-    DIMENSION_COLUMN_CODE_SUFFIX,
-    DIMENSION_COLUMN_NAME_SUFFIX,
-    DIMENSION_COLUMN_PREFIX,
+from dfpp.transformation.column_name_template import (DIMENSION_COLUMN_PREFIX,
+    SERIES_PROPERTY_PREFIX,
     SexEnum,
     sort_columns_canonically,
+    ensure_canonical_columns,
 )
 
 SOURCE_NAME = "WHO_GHO_API"
@@ -60,29 +59,22 @@ def update_dimensional_columns(
             df_full_dimension_map.code_dimension == dim_type[0]
         ]
 
-        dimension_name_to_display_code: str = (
-            DIMENSION_COLUMN_PREFIX
-            + dimension["dimension_to_display"].values[0]
-            + DIMENSION_COLUMN_CODE_SUFFIX
-        )
         dimension_name_to_display_name: str = (
             DIMENSION_COLUMN_PREFIX
             + dimension["dimension_to_display"].values[0]
-            + DIMENSION_COLUMN_NAME_SUFFIX
         )
 
-        to_rename.update({dim_column: dimension_name_to_display_code})
+        to_rename.update({dim_column: dimension_name_to_display_name})
 
+        to_replace: dict[str, str] = dict(
+            dimension[["code_value", "title_value"]].values
+        )
         if (
             dimension_name_to_display_name
-            == DIMENSION_COLUMN_PREFIX + "sex" + DIMENSION_COLUMN_NAME_SUFFIX
+            == DIMENSION_COLUMN_PREFIX + "sex"
         ):
-            df[dimension_name_to_display_name] = df[dim_column].replace(RECODE_SEX)
-        else:
-            to_replace: dict[str, str] = dict(
-                dimension[["code_value", "title_value"]].values
-            )
-            df[dimension_name_to_display_name] = df[dim_column].replace(to_replace)
+            to_replace = RECODE_SEX
+        df[dimension_name_to_display_name] = df[dim_column].replace(to_replace)
 
     df.rename(columns=to_rename, inplace=True)
     return df
@@ -135,14 +127,7 @@ def transform_indicator(
     df["source"] = BASE_URL
     df["series_id"] = indicator["IndicatorCode"]
     df["series_name"] = indicator["IndicatorName"]
-    df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX] = None
-    df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_CODE_SUFFIX] = None
-    df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX] = (
-        None
-    )
-    df[DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX] = (
-        None
-    )
+    df = ensure_canonical_columns(df)
 
     df = sort_columns_canonically(df)
     assert (
