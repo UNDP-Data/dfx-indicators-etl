@@ -7,11 +7,11 @@ import pandas as pd
 from dfpp.sources.ilo_org.retrieve import BASE_URL
 from dfpp.sources.ilo_org.utils import extract_last_braket_string, sanitize_category
 from dfpp.transformation.column_name_template import (
-    DIMENSION_COLUMN_CODE_SUFFIX,
-    DIMENSION_COLUMN_NAME_SUFFIX,
     DIMENSION_COLUMN_PREFIX,
+    SERIES_PROPERTY_PREFIX,
     SexEnum,
     sort_columns_canonically,
+    ensure_canonical_columns,
 )
 
 SOURCE_NAME = "ILO_RPLUMBER_API"
@@ -34,6 +34,7 @@ REMAP_SEX = {
     "SEX_O": SexEnum.OTHER.value,
 }
 
+
 TO_DROP_COLUMN_NAME_PREFIXES = ("note_", "source", "indicator")
 
 
@@ -54,8 +55,7 @@ def replace_sex_values(df: pd.DataFrame, remap_sex: dict[str, str]) -> pd.DataFr
     Replace the values in the 'sex' column with the remapped values.
     """
     if "sex" in df.columns:
-        df[f"{DIMENSION_COLUMN_PREFIX}sex{DIMENSION_COLUMN_CODE_SUFFIX}"] = df["sex"]
-        df[f"{DIMENSION_COLUMN_PREFIX}sex{DIMENSION_COLUMN_NAME_SUFFIX}"] = df[
+        df[f"{DIMENSION_COLUMN_PREFIX}sex"] = df[
             "sex"
         ].replace(remap_sex)
         df.drop(columns=["sex"], inplace=True)
@@ -89,12 +89,14 @@ def rename_dimension_columns(
         dimension_one = df_classif1[
             df_classif1.classif1 == df.classif1.iloc[0]
         ].category.values[0]
+        dimension_one = DIMENSION_COLUMN_PREFIX + dimension_one
         to_rename_columns.update({"classif1": dimension_one})
 
     if "classif2" in df.columns:
         dimension_two = df_classif2[
             df_classif2.classif2 == df.classif2.iloc[0]
         ].category.values[0]
+        dimension_two = DIMENSION_COLUMN_PREFIX + dimension_two
         to_rename_columns.update({"classif2": dimension_two})
 
     df.rename(columns=to_rename_columns, inplace=True)
@@ -132,12 +134,8 @@ def replace_dimension_values(
             ].values
         )
         df[
-            f"{DIMENSION_COLUMN_PREFIX}{dimension_one}{DIMENSION_COLUMN_CODE_SUFFIX}"
-        ] = df[dimension_one]
-        df[
-            f"{DIMENSION_COLUMN_PREFIX}{dimension_one}{DIMENSION_COLUMN_NAME_SUFFIX}"
+            f"{DIMENSION_COLUMN_PREFIX}{dimension_one}"
         ] = df[dimension_one].replace(dimension_one_map)
-        df.drop(columns=[dimension_one], inplace=True)
 
     if dimension_two and dimension_two in df.columns:
         dimension_two_map = dict(
@@ -146,12 +144,8 @@ def replace_dimension_values(
             ].values
         )
         df[
-            f"{DIMENSION_COLUMN_PREFIX}{dimension_two}{DIMENSION_COLUMN_CODE_SUFFIX}"
-        ] = df[dimension_two]
-        df[
-            f"{DIMENSION_COLUMN_PREFIX}{dimension_two}{DIMENSION_COLUMN_NAME_SUFFIX}"
+            f"{DIMENSION_COLUMN_PREFIX}{dimension_two}"
         ] = df[dimension_two].replace(dimension_two_map)
-        df.drop(columns=[dimension_two], inplace=True)
     return df
 
 
@@ -215,27 +209,17 @@ def transform_indicator(
             data_codes["obs_status"][["obs_status", "obs_status_label"]].values
         )
         df[
-            DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX
-        ] = df["observation_type"]
-        df[
-            DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX
+            SERIES_PROPERTY_PREFIX + "observation_type"
         ] = df["observation_type"].replace(observation_type_map)
-    else:
-        df[
-            DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_CODE_SUFFIX
-        ] = None
-        df[
-            DIMENSION_COLUMN_PREFIX + "observation_type" + DIMENSION_COLUMN_NAME_SUFFIX
-        ] = None
+
     df.drop(columns=["observation_type"], inplace=True)
     df["series_id"] = indicator["id"]
     df["series_name"] = indicator["indicator_label"]
-    df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX] = (
+    df[SERIES_PROPERTY_PREFIX + "unit"] = (
         extract_last_braket_string(df["series_name"].values[0])
     )
-    df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_CODE_SUFFIX] = None
     df["source"] = BASE_URL
-
+    df = ensure_canonical_columns(df)
     df = sort_columns_canonically(df)
     assert (
         df.drop("value", axis=1).duplicated().sum() == 0
