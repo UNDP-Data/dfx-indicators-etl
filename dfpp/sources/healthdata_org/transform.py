@@ -18,7 +18,16 @@ BASE_URL = "https://www.healthdata.org/"
 
 
 def transform_series(df: pd.DataFrame, coco: coco.CountryConverter) -> pd.DataFrame:
-    """transform a dataframe containing multiple series into multiple series"""
+    """
+    Transform a DataFrame containing multiple series into a structured format.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame containing series data.
+        coco (coco.CountryConverter): A CountryConverter instance for converting country names to ISO3 codes.
+
+    Returns:
+        pd.DataFrame: The transformed DataFrame with structured series data.
+    """
 
     df["source"] = BASE_URL
     df["alpha_3_code"] = coco.pandas_convert(df["location_name"], to="ISO3")
