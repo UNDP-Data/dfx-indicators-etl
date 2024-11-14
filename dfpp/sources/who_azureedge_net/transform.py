@@ -74,7 +74,7 @@ def update_dimensional_columns(
             == DIMENSION_COLUMN_PREFIX + "sex"
         ):
             to_replace = RECODE_SEX
-        df[dimension_name_to_display_name] = df[dim_column].replace(to_replace)
+        df[dim_column] = df[dim_column].replace(to_replace)
 
     df.rename(columns=to_rename, inplace=True)
     return df
@@ -128,7 +128,6 @@ def transform_indicator(
     df["series_id"] = indicator["IndicatorCode"]
     df["series_name"] = indicator["IndicatorName"]
     df = ensure_canonical_columns(df)
-
     df = sort_columns_canonically(df)
     assert (
         df.drop("value", axis=1).duplicated().sum() == 0
