@@ -5,12 +5,13 @@ import pandas as pd
 from dfpp.sources.un_org.retrieve import BASE_URL
 from dfpp.transformation.column_name_template import (
     CANONICAL_COLUMN_NAMES,
-    DIMENSION_COLUMN_CODE_SUFFIX,
-    DIMENSION_COLUMN_NAME_SUFFIX,
     DIMENSION_COLUMN_PREFIX,
+    SERIES_PROPERTY_PREFIX,
     SexEnum,
     sort_columns_canonically,
+    ensure_canonical_columns,
 )
+from dfpp.sources import exceptions
 
 SEX_REMAP = {
     "BOTHSEX": SexEnum.BOTH.value,
@@ -57,77 +58,55 @@ def transform_series(
         column_name_formatted = column.lower().replace(" ", "_")
 
         if column_name_formatted == "sex":
-            df[
-                f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}{DIMENSION_COLUMN_CODE_SUFFIX}"
-            ] = df[column]
-            df[
-                f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}{DIMENSION_COLUMN_NAME_SUFFIX}"
-            ] = df[column].replace(SEX_REMAP)
-            continue
+            to_remap = SEX_REMAP
 
         df[
-            f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}{DIMENSION_COLUMN_CODE_SUFFIX}"
-        ] = df[column]
-        df[
-            f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}{DIMENSION_COLUMN_NAME_SUFFIX}"
-        ] = df[column].replace(to_remap)
+            f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}"
+        ] = df[column].map(to_remap)
+        assert df[
+            f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}"
+        ].isna().any() == False, exceptions.DIMENSION_REMAP_ERROR_MESSAGE
 
+    series_property_column_map = {"Nature": "observation_type", "Units": "unit"}
     for column in df_attribute_codebook["id"].unique().tolist():
         if not column in df.columns:
             continue
+
         to_remap = dict(
             df_attribute_codebook[df_attribute_codebook["id"] == column][
                 ["code", "description"]
             ].values
         )
-        if column == "Units":
-            df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_CODE_SUFFIX] = df[
-                column
-            ]
-            df[DIMENSION_COLUMN_PREFIX + "unit" + DIMENSION_COLUMN_NAME_SUFFIX] = df[
-                column
-            ].replace(to_remap)
-            continue
-
-        if column == "Nature":
-            df[
-                DIMENSION_COLUMN_PREFIX
-                + "observation_type"
-                + DIMENSION_COLUMN_CODE_SUFFIX
-            ] = df[column]
-            df[
-                DIMENSION_COLUMN_PREFIX
-                + "observation_type"
-                + DIMENSION_COLUMN_NAME_SUFFIX
-            ] = df[column].replace(to_remap)
-            continue
+        if column in series_property_column_map.keys():
+            column = series_property_column_map[column]
 
         column_name_formatted = column.lower().replace(" ", "_")
         df[
-            f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}{DIMENSION_COLUMN_CODE_SUFFIX}"
-        ] = df[column]
-        df[
-            f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}{DIMENSION_COLUMN_NAME_SUFFIX}"
-        ] = df[column].replace(to_remap)
+            f"{SERIES_PROPERTY_PREFIX}{column_name_formatted}"
+        ] = df[column].map(to_remap)
+        assert df[
+            f"{SERIES_PROPERTY_PREFIX}{column_name_formatted}"
+        ].isna().any() == False, exceptions.SERIES_PROPERTY_REMAP_ERROR_MESSAGE
 
     columns_to_rename = PRIMARY_COLUMNS_TO_RENAME.copy()
 
     df.rename(columns=columns_to_rename, inplace=True)
 
-    disagr_columns = [
+    to_select_columns = [
         col
         for col in df.columns
-        if col.startswith(DIMENSION_COLUMN_PREFIX) and col not in CANONICAL_COLUMN_NAMES
+        if any([col.startswith(DIMENSION_COLUMN_PREFIX),
+                col.startswith(SERIES_PROPERTY_PREFIX)]) and col not in CANONICAL_COLUMN_NAMES
     ]
     df["series_id"] = series_id
     df["source"] = BASE_URL
-    df = df[CANONICAL_COLUMN_NAMES + disagr_columns]
+    df = df[CANONICAL_COLUMN_NAMES + to_select_columns]
     df["alpha_3_code"] = df["alpha_3_code"].astype(int)
     df["alpha_3_code"] = df["alpha_3_code"].replace(iso_3_map_numeric_to_alpha)
     df = df[df["alpha_3_code"].apply(lambda x: isinstance(x, str))].reset_index(
         drop=True
     )
     df = sort_columns_canonically(df)
-    assert df.drop("value", axis=1).duplicated().sum() == 0
+    assert df.drop("value", axis=1).duplicated().sum() == 0, exceptions.DUPLICATE_ERROR_MESSAGE
     df["value"] = df["value"].replace({"NaN": None})
     return df
