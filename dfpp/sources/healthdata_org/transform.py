@@ -17,6 +17,22 @@ from dfpp.transformation.column_name_template import (
 BASE_URL = "https://www.healthdata.org/"
 
 
+SEX_VALUES_TO_REPLACE = {
+            "Male": SexEnum.MALE.value,
+            "Female": SexEnum.FEMALE.value,
+            "Both sexes": SexEnum.BOTH.value,
+            "All sexes": SexEnum.TOTAL.value,
+        }
+
+
+PRIMARY_COLUMNS_TO_RENAME = {
+    "val": "value",
+    "metric_name": SERIES_PROPERTY_PREFIX + "unit",
+    "sex_name": DIMENSION_COLUMN_PREFIX + "sex",
+    "age_name": DIMENSION_COLUMN_PREFIX + "age",
+    "cause_name": DIMENSION_COLUMN_PREFIX + "cause",
+},
+
 def transform_series(df: pd.DataFrame, coco: coco.CountryConverter) -> pd.DataFrame:
     """
     Transform a DataFrame containing multiple series into a structured format.
@@ -42,24 +58,11 @@ def transform_series(df: pd.DataFrame, coco: coco.CountryConverter) -> pd.DataFr
     )
 
     df.rename(
-        columns={
-            "val": "value",
-            "metric_name": SERIES_PROPERTY_PREFIX + "unit",
-            "sex_name": DIMENSION_COLUMN_PREFIX + "sex",
-            "age_name": DIMENSION_COLUMN_PREFIX + "age",
-            "cause_name": DIMENSION_COLUMN_PREFIX + "cause",
-        },
+        columns=PRIMARY_COLUMNS_TO_RENAME,
         inplace=True,
     )
 
-    df[DIMENSION_COLUMN_PREFIX + "sex"] = df[DIMENSION_COLUMN_PREFIX + "sex"].map(
-        {
-            "Male": SexEnum.MALE.value,
-            "Female": SexEnum.FEMALE.value,
-            "Both sexes": SexEnum.BOTH.value,
-            "All sexes": SexEnum.TOTAL.value,
-        }
-    )
+    df[DIMENSION_COLUMN_PREFIX + "sex"] = df[DIMENSION_COLUMN_PREFIX + "sex"].replace(SEX_VALUES_TO_REPLACE)
 
     disagr_columns = [
         col
