@@ -12,6 +12,7 @@ __all__ = [
     "list_indicators",
     "get_codebook",
     "download_indicator_file",
+    "get_bulk_download_indicator_list",
 ]
 
 BASE_URL = "https://rplumber.ilo.org/"
