@@ -77,16 +77,17 @@ def transform_series(
                 ["code", "description"]
             ].values
         )
-        if column in series_property_column_map.keys():
-            column = series_property_column_map[column]
-
         column_name_formatted = column.lower().replace(" ", "_")
+
+        if column in series_property_column_map.keys():
+            column_name_formatted = series_property_column_map[column]
+        
         df[
             f"{SERIES_PROPERTY_PREFIX}{column_name_formatted}"
         ] = df[column].map(to_remap)
         assert df[
             f"{SERIES_PROPERTY_PREFIX}{column_name_formatted}"
-        ].isna().any() == False, exceptions.SERIES_PROPERTY_REMAP_ERROR_MESSAGE
+        ].isna().any() == False, exceptions.DIMENSION_REMAP_ERROR_MESSAGE
 
     columns_to_rename = PRIMARY_COLUMNS_TO_RENAME.copy()
 
@@ -106,6 +107,7 @@ def transform_series(
     df = df[df["alpha_3_code"].apply(lambda x: isinstance(x, str))].reset_index(
         drop=True
     )
+    df = ensure_canonical_columns(df)
     df = sort_columns_canonically(df)
     assert df.drop("value", axis=1).duplicated().sum() == 0, exceptions.DUPLICATE_ERROR_MESSAGE
     df["value"] = df["value"].replace({"NaN": None})
