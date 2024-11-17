@@ -24,6 +24,7 @@ CANONICAL_COLUMN_NAMES = [
     SERIES_PROPERTY_PREFIX + "observation_type",
     "year",
     "value",
+    SERIES_PROPERTY_PREFIX + "value_label",
 ]
 
 
