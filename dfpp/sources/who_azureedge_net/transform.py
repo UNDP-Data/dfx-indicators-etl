@@ -109,20 +109,12 @@ def transform_indicator(
     df: pd.DataFrame = filter_by_country_and_year(df)
 
     if df.empty:
-        return None
-
+        raise ValueError("No data to transform after filtering by country and year dimensions")
     to_rename_columns: dict[str, str] = TO_RENAME_BASE_COLUMNS.copy()
 
     to_rename_columns = handle_value_column(df, to_rename_columns)
 
     df = update_dimensional_columns(df, df_full_dimension_map, to_rename_columns)
-
-    disagr_columns = [
-        col
-        for col in df.columns.tolist()
-        if col.startswith(DIMENSION_COLUMN_PREFIX) or col.startswith(SERIES_PROPERTY_PREFIX)
-        if col not in list(to_rename_columns.values())
-    ]
 
 
     assert df["value"].notna().any(), "All values are null"
