@@ -4,10 +4,12 @@ from dfpp.sources.who_azureedge_net.retrieve import BASE_URL
 from dfpp.sources.who_azureedge_net.utils import sanitize_category
 from dfpp.transformation.column_name_template import (DIMENSION_COLUMN_PREFIX,
     SERIES_PROPERTY_PREFIX,
+    CANONICAL_COLUMN_NAMES,
     SexEnum,
     sort_columns_canonically,
     ensure_canonical_columns,
 )
+from dfpp.transformation.value_handler import handle_value
 
 SOURCE_NAME = "WHO_GHO_API"
 
@@ -117,19 +119,29 @@ def transform_indicator(
 
     disagr_columns = [
         col
-        for col in df.columns
-        if col.startswith("disagr_")
+        for col in df.columns.tolist()
+        if col.startswith(DIMENSION_COLUMN_PREFIX) or col.startswith(SERIES_PROPERTY_PREFIX)
         if col not in list(to_rename_columns.values())
     ]
 
-    df = df[list(set(disagr_columns + list(to_rename_columns.values())))]
 
     assert df["value"].notna().any(), "All values are null"
+    df[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df.apply(handle_value, axis=1,result_type="expand")
     df["source"] = BASE_URL
     df["series_id"] = indicator["IndicatorCode"]
     df["series_name"] = indicator["IndicatorName"]
     df = ensure_canonical_columns(df)
+
+
+    to_select_columns = [
+        col
+        for col in df.columns
+        if any([col.startswith(DIMENSION_COLUMN_PREFIX),
+                col.startswith(SERIES_PROPERTY_PREFIX)]) and col not in CANONICAL_COLUMN_NAMES]
+
+    df = df[to_select_columns + CANONICAL_COLUMN_NAMES]
     df = sort_columns_canonically(df)
+   
     assert (
         df.drop("value", axis=1).duplicated().sum() == 0
     ), "Duplicate rows per country year found after transformation, make sure that any dimension columns are not omitted from the transformed data."
