@@ -1,4 +1,5 @@
 import re
+import pandas as pd
 from enum import Enum
 
 
@@ -10,7 +11,7 @@ class ValueLabel(Enum):
     NEGATIVE_INFINITY = -99999999
     STRING_ONLY = "string"
 
-def process_row(row: str | int | float) -> tuple[str | float, str]:
+def handle_value(row: pd.Series) -> tuple[str | float, str]:
     """Process a row of data and return a tuple of the processed value and its label.
     Indicating whether value conversion to float64 can be done."""
     value = row['value']
@@ -44,10 +45,10 @@ def process_row(row: str | int | float) -> tuple[str | float, str]:
                     float_value, label = float_conversion
                     if ">" in operator:
                         return float_value, ValueLabel.POSITIVE_INFINITY.value
-                    elif "<" in operator:
+                    if "<" in operator:
                         return float_value, ValueLabel.NEGATIVE_INFINITY.value
-                    else:
-                        return float_value, label
+                    
+                    return float_value, label
 
         return value, ValueLabel.STRING_ONLY.value
 
