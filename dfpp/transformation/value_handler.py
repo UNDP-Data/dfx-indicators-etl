@@ -19,11 +19,12 @@ def handle_value(row: pd.Series) -> tuple[str | float, str]:
     def try_convert_to_float(value):
         """Attempt to convert a string to a float after replacing ',' with '.'"""
         if re.search(r"\d[\+\-\*/]\d", value):
-            return None
+            return value
         try:
+            value = re.sub(r"\s*%\s*", "", value)
             return float(value.replace(",", ""))
         except ValueError:
-            return None
+            return value
 
     def handle_comparison_string(value):
         """
@@ -32,33 +33,30 @@ def handle_value(row: pd.Series) -> tuple[str | float, str]:
         are present, return the original value. Handles inequality signs appropriately.
         """
         if re.search(r"[a-zA-Z]", value):
-            return None, None
+            return value, None
 
-        cleaned_value = re.sub(r"[<>]=?", "", value).replace(",", "") 
+        cleaned_value = re.sub(r"[<>]=?", "", value)
         float_value = try_convert_to_float(cleaned_value)
         
         if ">" in value:
             return (float_value, ValueLabel.POSITIVE_INFINITY)
 
-        elif "<" in value:
+        if "<" in value:
             return (float_value, ValueLabel.NEGATIVE_INFINITY)
-        return None, None
+        return float_value, None
+    
+    if isinstance(value, (int, float)):
+        return value, None
 
     if isinstance(value, str):
         if is_pure_zero_prefixed_number(value):
-            return None, None
+            return value, None
 
         if any(c in value for c in ["<", ">"]):
             return handle_comparison_string(value)
 
         numeric_result = try_convert_to_float(value)
-        if numeric_result:
-            return numeric_result, None
+        
+        return numeric_result, None
 
-    try:
-        float_value = float(value)
-        return float_value, None
-    except (ValueError, TypeError):
-        pass
-
-    return None, None
+    return value, None
