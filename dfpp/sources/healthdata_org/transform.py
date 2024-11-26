@@ -13,6 +13,7 @@ from dfpp.transformation.column_name_template import (
     sort_columns_canonically,
     ensure_canonical_columns,
 )
+from dfpp.transformation.value_handler import handle_value
 
 BASE_URL = "https://www.healthdata.org/"
 
@@ -31,7 +32,7 @@ PRIMARY_COLUMNS_TO_RENAME = {
     "sex_name": DIMENSION_COLUMN_PREFIX + "sex",
     "age_name": DIMENSION_COLUMN_PREFIX + "age",
     "cause_name": DIMENSION_COLUMN_PREFIX + "cause",
-},
+}
 
 def transform_series(df: pd.DataFrame, coco: coco.CountryConverter) -> pd.DataFrame:
     """
@@ -63,7 +64,7 @@ def transform_series(df: pd.DataFrame, coco: coco.CountryConverter) -> pd.DataFr
     )
 
     df[DIMENSION_COLUMN_PREFIX + "sex"] = df[DIMENSION_COLUMN_PREFIX + "sex"].map(SEX_VALUES_TO_REPLACE)
-    assert df[DIMENSION_COLUMN_PREFIX + "sex"].isna.any() == False, exceptions.DIMENSION_REMAP_ERROR_MESSAGE
+    assert df[DIMENSION_COLUMN_PREFIX + "sex"].isna().any() == False, exceptions.DIMENSION_REMAP_ERROR_MESSAGE
 
     disagr_columns = [
         col
@@ -76,7 +77,7 @@ def transform_series(df: pd.DataFrame, coco: coco.CountryConverter) -> pd.DataFr
         for col in df.columns
         if col.startswith(SERIES_PROPERTY_PREFIX) and col not in CANONICAL_COLUMN_NAMES
     ]
-
+    df[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df.apply(handle_value, axis=1, result_type="expand")
     df = ensure_canonical_columns(df)
     df = df[CANONICAL_COLUMN_NAMES + disagr_columns + property_columns]
     df = sort_columns_canonically(df)
