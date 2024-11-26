@@ -13,6 +13,7 @@ from dfpp.transformation.column_name_template import (
     ensure_canonical_columns,
     sort_columns_canonically,
 )
+from dfpp.transformation.value_handler import handle_value
 from dfpp.sources import exceptions
 
 logging.basicConfig(
@@ -161,6 +162,7 @@ def transform(
     df_indicator = remap_attributes(df_indicator, df_attributes)
     df_indicator = validate_and_rename_year_column(df_indicator)
     df_indicator.rename(columns=PRIMARY_COLUMNS_TO_RENAME, inplace=True)
+    df_indicator[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df_indicator.apply(handle_value, axis=1, result_type="expand")
     df_indicator = ensure_canonical_columns(df_indicator)
 
     columns_to_select = [
