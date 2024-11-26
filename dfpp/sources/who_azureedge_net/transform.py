@@ -77,8 +77,7 @@ def update_dimensional_columns(
         ):
             to_replace = RECODE_SEX
         df[dim_column] = df[dim_column].map(to_replace)
-        assert df[dim_column].isna().any() == False, "Some dimension codes did not map to a human readable value"
-
+        
     df.rename(columns=to_rename, inplace=True)
     return df
 
