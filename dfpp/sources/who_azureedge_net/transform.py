@@ -116,9 +116,8 @@ def transform_indicator(
 
     df = update_dimensional_columns(df, df_full_dimension_map, to_rename_columns)
 
-
     assert df["value"].notna().any(), "All values are null"
-    df[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df.apply(handle_value, axis=1,result_type="expand")
+    df[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df.apply(handle_value, axis=1, result_type="expand")
     df["source"] = BASE_URL
     df["series_id"] = indicator["IndicatorCode"]
     df["series_name"] = indicator["IndicatorName"]
