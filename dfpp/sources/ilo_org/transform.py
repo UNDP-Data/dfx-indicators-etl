@@ -13,6 +13,7 @@ from dfpp.transformation.column_name_template import (
     sort_columns_canonically,
     ensure_canonical_columns,
 )
+from dfpp.transformation.value_handler import handle_value
 from dfpp.sources import exceptions
 
 SOURCE_NAME = "ILO_RPLUMBER_API"
@@ -59,7 +60,6 @@ def replace_sex_values(df: pd.DataFrame, remap_sex: dict[str, str]) -> pd.DataFr
         df[f"{DIMENSION_COLUMN_PREFIX}sex"] = df[
             "sex"
         ].map(remap_sex)
-        assert df[f"{DIMENSION_COLUMN_PREFIX}sex"].isna().any() == False, exceptions.DIMENSION_REMAP_ERROR_MESSAGE
         df.drop(columns=["sex"], inplace=True)
     return df
 
@@ -136,7 +136,6 @@ def replace_dimension_values(
         df[
             f"{DIMENSION_COLUMN_PREFIX}{dimension_one}"
         ] = df[dimension_one].map(dimension_one_map)
-        assert df[ f"{DIMENSION_COLUMN_PREFIX}{dimension_one}"].isna().any() == False, exceptions.DIMENSION_REMAP_ERROR_MESSAGE
 
         df.drop(columns=[dimension_one], inplace=True)
 
@@ -149,8 +148,6 @@ def replace_dimension_values(
         df[
             f"{DIMENSION_COLUMN_PREFIX}{dimension_two}"
         ] = df[dimension_two].map(dimension_two_map)
-        assert df[ f"{DIMENSION_COLUMN_PREFIX}{dimension_two}"].isna().any() == False, exceptions.DIMENSION_REMAP_ERROR_MESSAGE
-
         df.drop(columns=[dimension_two], inplace=True)
     return df
 
@@ -224,6 +221,7 @@ def transform_indicator(
         extract_last_braket_string(df["series_name"].values[0])
     )
     df["source"] = BASE_URL
+    df[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df.apply(handle_value, axis=1, result_type="expand")
     df = ensure_canonical_columns(df)
     df = sort_columns_canonically(df)
     assert (
