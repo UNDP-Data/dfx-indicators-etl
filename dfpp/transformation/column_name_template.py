@@ -1,7 +1,6 @@
 """store basic column name and column value conventions"""
 
 import logging
-import re
 from enum import Enum, StrEnum
 
 import pandas as pd

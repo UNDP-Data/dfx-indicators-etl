@@ -1,3 +1,5 @@
+"""handle transformations of string values to numeric values"""
+
 import re
 import pandas as pd
 
