@@ -11,6 +11,7 @@ from dfpp.transformation.column_name_template import (
     sort_columns_canonically,
     ensure_canonical_columns,
 )
+from dfpp.transformation.value_handler import handle_value
 from dfpp.sources import exceptions
 
 SEX_REMAP = {
@@ -86,6 +87,8 @@ def transform_series(
     columns_to_rename = PRIMARY_COLUMNS_TO_RENAME.copy()
 
     df.rename(columns=columns_to_rename, inplace=True)
+
+    df[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df.apply(handle_value, axis=1, result_type="expand")
 
     to_select_columns = [
         col
