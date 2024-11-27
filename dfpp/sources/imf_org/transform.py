@@ -6,6 +6,7 @@ from dfpp.transformation.column_name_template import (
     sort_columns_canonically,
     ensure_canonical_columns
 )
+from dfpp.transformation.value_handler import handle_value
 from dfpp.sources import exceptions
 
 __all__ = ["transform"]
@@ -36,6 +37,7 @@ def transform(df: pd.DataFrame, indicator: dict, iso_3_map: dict):
     df["series_name"] = indicator["label"]
 
     df = filter_out_regions(df, iso_3_map)
+    df[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df.apply(handle_value, axis=1, result_type="expand")
     df = ensure_canonical_columns(df)
     df_final = sort_columns_canonically(df)
     assert df_final.drop("value", axis=1).duplicated().sum() == 0, exceptions.DUPLICATE_ERROR_MESSAGE
