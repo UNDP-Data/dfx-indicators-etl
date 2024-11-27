@@ -76,7 +76,7 @@ def update_dimensional_columns(
             == DIMENSION_COLUMN_PREFIX + "sex"
         ):
             to_replace = RECODE_SEX
-        df[dim_column] = df[dim_column].map(to_replace)
+        df[dim_column] = df[dim_column].replace(to_replace)
         
     df.rename(columns=to_rename, inplace=True)
     return df

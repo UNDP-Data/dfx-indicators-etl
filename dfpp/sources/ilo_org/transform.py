@@ -59,7 +59,7 @@ def replace_sex_values(df: pd.DataFrame, remap_sex: dict[str, str]) -> pd.DataFr
     if "sex" in df.columns:
         df[f"{DIMENSION_COLUMN_PREFIX}sex"] = df[
             "sex"
-        ].map(remap_sex)
+        ].replace(remap_sex)
         df.drop(columns=["sex"], inplace=True)
     return df
 
@@ -135,7 +135,7 @@ def replace_dimension_values(
         )
         df[
             f"{DIMENSION_COLUMN_PREFIX}{dimension_one}"
-        ] = df[dimension_one].map(dimension_one_map)
+        ] = df[dimension_one].replace(dimension_one_map)
 
         df.drop(columns=[dimension_one], inplace=True)
 
@@ -147,7 +147,7 @@ def replace_dimension_values(
         )
         df[
             f"{DIMENSION_COLUMN_PREFIX}{dimension_two}"
-        ] = df[dimension_two].map(dimension_two_map)
+        ] = df[dimension_two].replace(dimension_two_map)
         df.drop(columns=[dimension_two], inplace=True)
     return df
 
