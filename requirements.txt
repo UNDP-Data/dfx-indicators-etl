@@ -9,12 +9,9 @@ xlrd ~= 2.0.1
 scipy ~= 1.14.0
 tqdm ~= 4.66.1
 numpy == 1.26.4
-asyncpg == 0.29.0
 click ~= 8.1.7
-pydantic ~= 2.8.2
 papermill ~= 2.6.0
 notebook ~= 7.2.1
 country-converter ~= 1.2
-tldextract ~= 5.1.2
 sdmx1 ~= 2.19.1
 fastparquet ~= 2024.11.0
