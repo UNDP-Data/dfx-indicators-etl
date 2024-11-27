@@ -63,7 +63,7 @@ def transform_series(df: pd.DataFrame, coco: coco.CountryConverter) -> pd.DataFr
         inplace=True,
     )
 
-    df[DIMENSION_COLUMN_PREFIX + "sex"] = df[DIMENSION_COLUMN_PREFIX + "sex"].map(SEX_VALUES_TO_REPLACE)
+    df[DIMENSION_COLUMN_PREFIX + "sex"] = df[DIMENSION_COLUMN_PREFIX + "sex"].replace(SEX_VALUES_TO_REPLACE)
     assert df[DIMENSION_COLUMN_PREFIX + "sex"].isna().any() == False, exceptions.DIMENSION_REMAP_ERROR_MESSAGE
 
     disagr_columns = [

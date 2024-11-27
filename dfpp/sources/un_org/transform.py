@@ -62,10 +62,7 @@ def transform_series(
 
         df[
             f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}"
-        ] = df[column].map(to_remap)
-        assert df[
-            f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}"
-        ].isna().any() == False, exceptions.DIMENSION_REMAP_ERROR_MESSAGE
+        ] = df[column].replace(to_remap)
 
     series_property_column_map = {"Nature": "observation_type", "Units": "unit"}
     for column in df_attribute_codebook["id"].unique().tolist():
@@ -84,10 +81,7 @@ def transform_series(
         
         df[
             f"{SERIES_PROPERTY_PREFIX}{column_name_formatted}"
-        ] = df[column].map(to_remap)
-        assert df[
-            f"{SERIES_PROPERTY_PREFIX}{column_name_formatted}"
-        ].isna().any() == False, exceptions.DIMENSION_REMAP_ERROR_MESSAGE
+        ] = df[column].replace(to_remap)
 
     columns_to_rename = PRIMARY_COLUMNS_TO_RENAME.copy()
 
