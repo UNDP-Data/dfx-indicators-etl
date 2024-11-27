@@ -1,24 +1,15 @@
-import asyncio
-import configparser
 import logging
 import math
 import os
-from io import BytesIO
-from typing import Any, Literal
 
-import pandas as pd
 from azure.storage.blob import ContentSettings
-from azure.storage.blob.aio import BlobPrefix, ContainerClient
+from azure.storage.blob.aio import ContainerClient
 
-from dfpp.common import cfg2dict
-from dfpp.data_models import Indicator, Source
-from dfpp.storage.utils import *
 
 logger = logging.getLogger(__name__)
 
 
 class StorageManager:
-
     def __init__(self, clear_cache: bool = False):
         self.container_client = ContainerClient.from_container_url(
             container_url=os.environ["AZURE_STORAGE_SAS_URL"]
@@ -75,157 +66,9 @@ class StorageManager:
         properties = await blob_client.get_blob_properties()
         return properties["content_settings"]["content_md5"]
 
-    async def list_configs(self, kind: Literal["indicators", "sources"]) -> list[str]:
-        path = getattr(self, f"{kind}_cfg_path")
-        logger.info(f"Listing {kind} configs at {path}")
-        blob_names = []
-        async for blob in self.container_client.list_blobs(name_starts_with=path):
-            if isinstance(blob, BlobPrefix):
-                continue
-            elif not blob.name.endswith(".cfg"):
-                continue
-            blob_names.append(blob.name)
-        return blob_names
-
-    async def get_indicator_cfg(self, indicator_id_or_path: str):
-        if not isinstance(indicator_id_or_path, str):
-            raise ValueError("indicator_id_or_path must be a valid string")
-
-        if indicator_id_or_path.endswith(".cfg"):
-            *_, indicator_name = os.path.split(indicator_id_or_path)
-            indicator_id, _ = os.path.splitext(indicator_name)
-            indicator_path = indicator_id_or_path
-        else:
-            indicator_id = indicator_id_or_path
-            indicator_path = (
-                f"{os.path.join(self.indicators_cfg_path, indicator_id)}.cfg"
-            )
-
-        try:
-            if not await self.check_blob_exists(indicator_path):
-                raise ValueError(f"Blob {indicator_path} does not exist.")
-            logger.info(
-                f"Fetching indicator cfg for {indicator_id} from  {indicator_path}"
-            )
-
-            content = await self.read_blob(path=indicator_path)
-            content_str = content.decode("utf-8")
-
-            parser = UnescapedConfigParser(interpolation=None)
-            parser.read_string(content_str)
-            if "indicator" in parser:
-                indicator_cfg_dict = Indicator.flatten_dict_config(cfg2dict(parser))
-                return dict(Indicator(**indicator_cfg_dict))
-            else:
-                raise Exception(
-                    f"Indicator  {indicator_id} located at {indicator_path} does not contain an 'indicator' section"
-                )
-        except Exception as e:
-            logger.error(f"Indicator {indicator_id} will be skipped because {e}")
-            raise
-
-    async def get_indicators_cfg(
-        self, contain_filter: str = None, indicator_ids: list[str] = None
-    ):
-        if indicator_ids is None:
-            indicator_ids = await self.list_configs(kind="indicators")
-        tasks = []
-        for indicator in indicator_ids:
-            if contain_filter is not None and contain_filter not in indicator:
-                continue
-            t = asyncio.create_task(
-                self.get_indicator_cfg(indicator_id_or_path=indicator)
-            )
-            tasks.append(t)
-        results = await asyncio.gather(*tasks)
-        return [e for e in results if e]
-
-    async def get_source_cfg(self, source_id_or_path: str):
-        if not isinstance(source_id_or_path, str):
-            raise ValueError("source_id_or_path must be a valid string")
-
-        if source_id_or_path.endswith(".cfg"):
-            *_, source_name = os.path.split(source_id_or_path)
-            source_id, _ = os.path.splitext(source_name)
-            source_path = source_id_or_path
-        else:
-            source_id = source_id_or_path
-            source_path = f"{os.path.join(self.sources_cfg_path, source_id.lower(), source_id.lower())}.cfg"
-
-        try:
-            logger.debug(f"Checking if {source_path} exists")
-            if not await self.check_blob_exists(source_path):
-                raise ValueError(f"Source {source_id} at {source_path} does not exist")
-            logger.info(f"Fetching source cfg  for {source_id} from  {source_path}")
-            content = await self.read_blob(path=source_path)
-            logger.debug(f"Downloaded {source_path}")
-            content_str = content.decode("utf-8")
-
-            parser = UnescapedConfigParser()
-            parser.read_string(content_str)
-            logger.debug("Source config read by parser")
-            cfg_dict = cfg2dict(parser)
-            source_cfg_dict = Source.flatten_dict_config(cfg_dict)
-            return dict(Source(**source_cfg_dict))
-        except Exception as e:
-            logger.error(f"Failed to download {source_id}")
-            logger.error(e)
-            raise
-
-    async def get_sources_cfgs(self, source_ids: list[str] = None):
-        if source_ids is None:
-            sources = await self.list_configs(kind="sources")
-        else:
-            sources = source_ids
-        tasks = []
-        for source in sources:
-            t = asyncio.create_task(self.get_source_cfg(source_id_or_path=source))
-            tasks.append(t)
-        results = await asyncio.gather(*tasks)
-        return [e for e in results if e]
 
     async def close(self):
         await self.container_client.close()
-
-    async def get_utility_file(self, utility_file: str) -> dict[str, dict[str, Any]]:
-        """
-        Asynchronously retrieves a specified utility configuration file from the Azure Blob Container,
-        parses it, and returns its content as a dictionary.
-
-        Args:
-            utility_file (str): The name of the utility configuration file to search for.
-
-        Returns:
-            dict: A dictionary representation of the utility configuration file content,
-                where keys are section names and values are dictionaries of key-value pairs within the section.
-
-        Raises:
-            ConfigError: Raised if the specified utility configuration file is not found or not valid.
-
-        """
-        # os.path.join doesn't work for filtering returned Azure blob paths
-        async for blob in self.container_client.list_blobs(
-            name_starts_with=self.utilities_path
-        ):
-            if (
-                not isinstance(blob, BlobPrefix)
-                and blob.name.endswith(".cfg")
-                and utility_file == os.path.basename(blob.name)
-            ):
-                stream = await self.container_client.download_blob(
-                    blob.name, max_concurrency=8
-                )
-                content = await stream.readall()
-                content_str = content.decode("utf-8")
-                parser = configparser.ConfigParser(interpolation=None)
-                parser.read_string(content_str)
-                config_dict = {
-                    section: dict(parser.items(section))
-                    for section in parser.sections()
-                }
-                return config_dict
-        else:
-            raise ConfigError(f"Utility source not valid")
 
     async def check_blob_exists(self, blob_name: str) -> bool:
         """
@@ -412,18 +255,6 @@ class StorageManager:
         """
         blobs = self.container_client.list_blobs(name_starts_with=prefix)
         return [blob.name async for blob in blobs]
-
-    async def list_base_files(self) -> list[str]:
-        prefix = os.path.join(self.output_path, "access_all_data", "base/")
-        return await self.list_blobs(prefix)
-
-    async def get_lookup_df(
-        self, sheet: Literal["country", "region", "country_code"]
-    ) -> pd.DataFrame:
-        path = f"{self.utilities_path}/country_lookup.xlsx"
-        data = await self.read_blob(path=path)
-        df = pd.read_excel(BytesIO(data), sheet_name=f"{sheet}_lookup")
-        return df
 
     @staticmethod
     def with_storage_manager(func):
