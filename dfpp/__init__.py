@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
 
-from . import geo_utils, storage, transformation
+from . import storage, transformation
 
 load_dotenv()
