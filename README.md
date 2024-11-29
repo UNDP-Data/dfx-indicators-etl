@@ -71,7 +71,7 @@ However if one requires to transform **multiple files/indicator series from one 
 | **Source**       | **API Endpoint Base URL**                                         | **Documentation Page**                                                        |
 |------------------|------------------------------------------------------------------|-------------------------------------------------------------------------------|
 | **ILO**          | [https://rplumber.ilo.org/](https://rplumber.ilo.org/)             | [ilostat web service](https://rplumber.ilo.org/__docs__/)                      |
-|                  | [Bulk file download endpoint](https://webapps.ilo.org/ilostat-files/WEB_bulk_download/html/bulk_indicator.html) | [ilostat web service](https://webapps.ilo.org/ilostat-files/WEB_bulk_download/html/bulk_main.html)                      |
+|  **ILO(bulk file download)**         | [Bulk file download endpoint](https://webapps.ilo.org/ilostat-files/WEB_bulk_download/html/bulk_indicator.html) | [Bulk download guide](https://webapps.ilo.org/ilostat-files/WEB_bulk_download/html/bulk_main.html)                      |
 | **UN SDG API**   | [https://unstats.un.org/sdgapi/swagger#/](https://unstats.un.org/sdgapi/swagger#/)| [UN SDG API Documentation](https://unstats.un.org/sdgapi/swagger#/)| 
 | **WHO GHO API**  | [https://www.who.int/data/gho/info/gho-odata-api](https://www.who.int/data/gho/info/gho-odata-api) | [WHO GHO API Documentation](https://www.who.int/data/gho/info/gho-odata-api) |
 | **UNICEF**       | [https://sdmx.data.unicef.org/](https://sdmx.data.unicef.org/)     | [UNICEF Data](https://sdmx.data.unicef.org/)                                    |
