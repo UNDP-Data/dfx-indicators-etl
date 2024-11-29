@@ -66,7 +66,7 @@ However if one requires to transform **multiple files/indicator series from one 
 
 
 ### Sources
-# API Endpoints and Documentation
+# Supported Sources and Documentation
 
 | **Source**       | **API Endpoint Base URL**                                         | **Documentation Page**                                                        |
 |------------------|------------------------------------------------------------------|-------------------------------------------------------------------------------|
