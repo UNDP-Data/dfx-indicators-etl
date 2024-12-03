@@ -15,7 +15,7 @@ from dfpp.transformation.column_name_template import (
 from dfpp.transformation.value_handler import handle_value
 from dfpp.transformation import exceptions
 
-from dfpp.sources.world_bank.retrieve import BASE_URL
+from dfpp.sources.worldbank_org.retrieve import BASE_URL
 
 logging.basicConfig(
     level=logging.INFO,

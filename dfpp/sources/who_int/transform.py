@@ -1,7 +1,7 @@
 import pandas as pd
 
-from dfpp.sources.who_azureedge_net.retrieve import BASE_URL
-from dfpp.sources.who_azureedge_net.utils import sanitize_category
+from dfpp.sources.who_int.retrieve import BASE_URL
+from dfpp.sources.who_int.utils import sanitize_category
 from dfpp.transformation.column_name_template import (
     DIMENSION_COLUMN_PREFIX,
     SERIES_PROPERTY_PREFIX,

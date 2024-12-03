@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from dfpp.sources.un_org.retrieve import BASE_URL
+from dfpp.sources.unstats_un_org.retrieve import BASE_URL
 from dfpp.transformation.column_name_template import (
     CANONICAL_COLUMN_NAMES,
     DIMENSION_COLUMN_PREFIX,

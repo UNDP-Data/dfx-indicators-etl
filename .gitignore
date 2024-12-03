@@ -165,3 +165,4 @@ config
 
 # Execution outputs
 **/indicator_execution/*
+check_configs.ipynb
