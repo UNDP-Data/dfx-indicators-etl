@@ -6,7 +6,7 @@ from enum import Enum, StrEnum
 import pandas as pd
 
 DIMENSION_COLUMN_PREFIX = "disagr_"
-SERIES_PROPERTY_PREFIX = "prprty_"
+SERIES_PROPERTY_PREFIX = "prop_"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,10 +36,6 @@ class SexEnum(StrEnum, Enum):
     NOT_APPLICABLE = "not applicable"
     UNKNOWN = "unknown"
     NON_RESPONSE = "non response"
-
-
-def set_dimension_column_prefix(dimension_columns: str):
-    return dimension_columns
 
 
 def sort_columns_canonically(df):
@@ -79,7 +75,11 @@ def sort_columns_canonically(df):
     ]
 
     sorted_columns = (
-        canonical_cols_start + grouped_disagr_cols + other_cols + grouped_property_cols + canonical_cols_end
+        canonical_cols_start
+        + grouped_disagr_cols
+        + other_cols
+        + grouped_property_cols
+        + canonical_cols_end
     )
 
     return df[sorted_columns]
