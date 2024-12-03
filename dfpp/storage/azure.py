@@ -15,13 +15,11 @@ class StorageManager:
             container_url=os.environ["AZURE_STORAGE_SAS_URL"]
         )
         self.clear_cache = clear_cache
-        self.indicators_cfg_path = "config/indicators"
         self.sources_cfg_path = "config/sources"
         self.utilities_path = "config/utilities"
         self.sources_path = "sources/raw"
-        self.output_path = "output"
+        self.output_path = os.environ["STORAGE_OUTPUT_PATH"]
         self.backup_path = "backup"
-        self.test_path = "test"
 
     @property
     def container_name(self) -> str:
@@ -36,12 +34,10 @@ class StorageManager:
     def __str__(self):
         return (
             f"{self.__class__.__name__}\n"
-            f"\t INDICATORS_CFG_PATH: {self.indicators_cfg_path}\n"
             f"\t SOURCES_CFG_PATH: {self.sources_cfg_path}\n"
             f"\t UTILITIES_PATH: {self.utilities_path}\n"
             f"\t SOURCES_PATH: {self.sources_path}\n"
             f"\t OUTPUT_PATH: {self.output_path}\n"
-            f"\t TEST_PATH: {self.test_path}\n"
         )
 
     async def get_md5(self, path: str) -> str:

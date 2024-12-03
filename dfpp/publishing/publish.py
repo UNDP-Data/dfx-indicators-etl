@@ -27,7 +27,7 @@ async def publish_series(
         None
     """
     path_to_save = os.path.join(
-        storage_manager.test_path, source_folder, "parquet", f"{series_id}.parquet"
+        storage_manager.output_path, source_folder, "parquet", f"{series_id}.parquet"
     )
 
     with BytesIO() as output_buffer:
