@@ -2,7 +2,8 @@ import pandas as pd
 
 from dfpp.sources.who_azureedge_net.retrieve import BASE_URL
 from dfpp.sources.who_azureedge_net.utils import sanitize_category
-from dfpp.transformation.column_name_template import (DIMENSION_COLUMN_PREFIX,
+from dfpp.transformation.column_name_template import (
+    DIMENSION_COLUMN_PREFIX,
     SERIES_PROPERTY_PREFIX,
     CANONICAL_COLUMN_NAMES,
     SexEnum,
@@ -62,8 +63,7 @@ def update_dimensional_columns(
         ]
 
         dimension_name_to_display_name: str = (
-            DIMENSION_COLUMN_PREFIX
-            + dimension["dimension_to_display"].values[0]
+            DIMENSION_COLUMN_PREFIX + dimension["dimension_to_display"].values[0]
         )
 
         to_rename.update({dim_column: dimension_name_to_display_name})
@@ -71,13 +71,10 @@ def update_dimensional_columns(
         to_replace: dict[str, str] = dict(
             dimension[["code_value", "title_value"]].values
         )
-        if (
-            dimension_name_to_display_name
-            == DIMENSION_COLUMN_PREFIX + "sex"
-        ):
+        if dimension_name_to_display_name == DIMENSION_COLUMN_PREFIX + "sex":
             to_replace = RECODE_SEX
         df[dim_column] = df[dim_column].replace(to_replace)
-        
+
     df.rename(columns=to_rename, inplace=True)
     return df
 
@@ -108,7 +105,9 @@ def transform_indicator(
     df: pd.DataFrame = filter_by_country_and_year(df)
 
     if df.empty:
-        raise ValueError("No data to transform after filtering by country and year dimensions")
+        raise ValueError(
+            "No data to transform after filtering by country and year dimensions"
+        )
     to_rename_columns: dict[str, str] = TO_RENAME_BASE_COLUMNS.copy()
 
     to_rename_columns = handle_value_column(df, to_rename_columns)
@@ -116,22 +115,29 @@ def transform_indicator(
     df = update_dimensional_columns(df, df_full_dimension_map, to_rename_columns)
 
     assert df["value"].notna().any(), "All values are null"
-    df[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df.apply(handle_value, axis=1, result_type="expand")
+    df[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df.apply(
+        handle_value, axis=1, result_type="expand"
+    )
     df["source"] = BASE_URL
     df["series_id"] = indicator["IndicatorCode"]
     df["series_name"] = indicator["IndicatorName"]
     df = ensure_canonical_columns(df)
 
-
     to_select_columns = [
         col
         for col in df.columns
-        if any([col.startswith(DIMENSION_COLUMN_PREFIX),
-                col.startswith(SERIES_PROPERTY_PREFIX)]) and col not in CANONICAL_COLUMN_NAMES]
+        if any(
+            [
+                col.startswith(DIMENSION_COLUMN_PREFIX),
+                col.startswith(SERIES_PROPERTY_PREFIX),
+            ]
+        )
+        and col not in CANONICAL_COLUMN_NAMES
+    ]
 
     df = df[to_select_columns + CANONICAL_COLUMN_NAMES]
     df = sort_columns_canonically(df)
-   
+
     assert (
         df.drop("value", axis=1).duplicated().sum() == 0
     ), "Duplicate rows per country year found after transformation, make sure that any dimension columns are not omitted from the transformed data."

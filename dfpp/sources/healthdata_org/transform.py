@@ -19,11 +19,11 @@ BASE_URL = "https://www.healthdata.org/"
 
 
 SEX_VALUES_TO_REPLACE = {
-            "Male": SexEnum.MALE.value,
-            "Female": SexEnum.FEMALE.value,
-            "Both sexes": SexEnum.BOTH.value,
-            "All sexes": SexEnum.TOTAL.value,
-        }
+    "Male": SexEnum.MALE.value,
+    "Female": SexEnum.FEMALE.value,
+    "Both sexes": SexEnum.BOTH.value,
+    "All sexes": SexEnum.TOTAL.value,
+}
 
 
 PRIMARY_COLUMNS_TO_RENAME = {
@@ -33,6 +33,7 @@ PRIMARY_COLUMNS_TO_RENAME = {
     "age_name": DIMENSION_COLUMN_PREFIX + "age",
     "cause_name": DIMENSION_COLUMN_PREFIX + "cause",
 }
+
 
 def transform_series(df: pd.DataFrame, coco: coco.CountryConverter) -> pd.DataFrame:
     """
@@ -63,8 +64,12 @@ def transform_series(df: pd.DataFrame, coco: coco.CountryConverter) -> pd.DataFr
         inplace=True,
     )
 
-    df[DIMENSION_COLUMN_PREFIX + "sex"] = df[DIMENSION_COLUMN_PREFIX + "sex"].replace(SEX_VALUES_TO_REPLACE)
-    assert df[DIMENSION_COLUMN_PREFIX + "sex"].isna().any() == False, exceptions.DIMENSION_REMAP_ERROR_MESSAGE
+    df[DIMENSION_COLUMN_PREFIX + "sex"] = df[DIMENSION_COLUMN_PREFIX + "sex"].replace(
+        SEX_VALUES_TO_REPLACE
+    )
+    assert (
+        df[DIMENSION_COLUMN_PREFIX + "sex"].isna().any() == False
+    ), exceptions.DIMENSION_REMAP_ERROR_MESSAGE
 
     disagr_columns = [
         col
@@ -77,9 +82,13 @@ def transform_series(df: pd.DataFrame, coco: coco.CountryConverter) -> pd.DataFr
         for col in df.columns
         if col.startswith(SERIES_PROPERTY_PREFIX) and col not in CANONICAL_COLUMN_NAMES
     ]
-    df[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df.apply(handle_value, axis=1, result_type="expand")
+    df[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df.apply(
+        handle_value, axis=1, result_type="expand"
+    )
     df = ensure_canonical_columns(df)
     df = df[CANONICAL_COLUMN_NAMES + disagr_columns + property_columns]
     df = sort_columns_canonically(df)
-    assert df.drop("value", axis=1).duplicated().sum() == 0, exceptions.DUPLICATE_ERROR_MESSAGE
+    assert (
+        df.drop("value", axis=1).duplicated().sum() == 0
+    ), exceptions.DUPLICATE_ERROR_MESSAGE
     return df

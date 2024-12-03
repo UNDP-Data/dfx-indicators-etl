@@ -62,7 +62,6 @@ class StorageManager:
         properties = await blob_client.get_blob_properties()
         return properties["content_settings"]["content_md5"]
 
-
     async def close(self):
         await self.container_client.close()
 

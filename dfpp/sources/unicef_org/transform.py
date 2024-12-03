@@ -48,9 +48,7 @@ def remap_dimension(
     df: pd.DataFrame, dimension_code: str, to_remap: dict, column_name: str
 ) -> pd.DataFrame:
     """Remap dimension values and create canonical columns for dimension codes and names."""
-    df[f"{DIMENSION_COLUMN_PREFIX}{column_name}"] = df[
-        dimension_code
-    ].replace(to_remap)
+    df[f"{DIMENSION_COLUMN_PREFIX}{column_name}"] = df[dimension_code].replace(to_remap)
     unmapped_values = set(df[dimension_code]) - set(to_remap.keys())
     if unmapped_values:
         logging.warning(
@@ -84,9 +82,7 @@ def remap_attribute(
     df: pd.DataFrame, attribute_code: str, to_remap: dict, column_name: str
 ) -> pd.DataFrame:
     """Remap attribute values and create canonical columns for attribute codes and names."""
-    df[f"{SERIES_PROPERTY_PREFIX}{column_name}"] = df[
-        attribute_code
-    ].replace(to_remap)
+    df[f"{SERIES_PROPERTY_PREFIX}{column_name}"] = df[attribute_code].replace(to_remap)
     unmapped_values = set(df[attribute_code]) - set(to_remap.keys())
     if unmapped_values:
         logging.warning(
@@ -127,7 +123,9 @@ def validate_and_rename_year_column(df: pd.DataFrame) -> pd.DataFrame:
                     df.rename(columns={year_column: "year"}, inplace=True)
                     return df
             except ValueError:
-                logging.warning(f"Could not convert {year_column} to Int64", exc_info=True)
+                logging.warning(
+                    f"Could not convert {year_column} to Int64", exc_info=True
+                )
     raise ValueError("No valid 4-digit year column found")
 
 
@@ -162,14 +160,16 @@ def transform(
     df_indicator = remap_attributes(df_indicator, df_attributes)
     df_indicator = validate_and_rename_year_column(df_indicator)
     df_indicator.rename(columns=PRIMARY_COLUMNS_TO_RENAME, inplace=True)
-    df_indicator[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df_indicator.apply(handle_value, axis=1, result_type="expand")
+    df_indicator[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = (
+        df_indicator.apply(handle_value, axis=1, result_type="expand")
+    )
     df_indicator = ensure_canonical_columns(df_indicator)
 
     columns_to_select = [
         col
         for col in df_indicator.columns.tolist()
-        if col not in CANONICAL_COLUMN_NAMES and any([DIMENSION_COLUMN_PREFIX in col,
-                                                      SERIES_PROPERTY_PREFIX in col])
+        if col not in CANONICAL_COLUMN_NAMES
+        and any([DIMENSION_COLUMN_PREFIX in col, SERIES_PROPERTY_PREFIX in col])
     ]
     df_indicator = df_indicator[CANONICAL_COLUMN_NAMES + columns_to_select]
     df_indicator = sort_columns_canonically(df_indicator)
@@ -177,5 +177,7 @@ def transform(
         df_indicator = df_indicator[
             df_indicator["alpha_3_code"].isin(iso_3_map.keys())
         ].reset_index(drop=True)
-    assert df_indicator.drop("value", axis=1).duplicated().sum() == 0, exceptions.DUPLICATE_ERROR_MESSAGE
+    assert (
+        df_indicator.drop("value", axis=1).duplicated().sum() == 0
+    ), exceptions.DUPLICATE_ERROR_MESSAGE
     return df_indicator

@@ -57,9 +57,7 @@ def replace_sex_values(df: pd.DataFrame, remap_sex: dict[str, str]) -> pd.DataFr
     Replace the values in the 'sex' column with the remapped values.
     """
     if "sex" in df.columns:
-        df[f"{DIMENSION_COLUMN_PREFIX}sex"] = df[
-            "sex"
-        ].replace(remap_sex)
+        df[f"{DIMENSION_COLUMN_PREFIX}sex"] = df["sex"].replace(remap_sex)
         df.drop(columns=["sex"], inplace=True)
     return df
 
@@ -128,26 +126,18 @@ def replace_dimension_values(
     """
 
     if dimension_one and dimension_one in df.columns:
-        dimension_one_map = dict(
-            df_classif1[
-                ["classif1", "classif1_label"]
-            ].values
+        dimension_one_map = dict(df_classif1[["classif1", "classif1_label"]].values)
+        df[f"{DIMENSION_COLUMN_PREFIX}{dimension_one}"] = df[dimension_one].replace(
+            dimension_one_map
         )
-        df[
-            f"{DIMENSION_COLUMN_PREFIX}{dimension_one}"
-        ] = df[dimension_one].replace(dimension_one_map)
 
         df.drop(columns=[dimension_one], inplace=True)
 
     if dimension_two and dimension_two in df.columns:
-        dimension_two_map = dict(
-            df_classif2[
-                ["classif2", "classif2_label"]
-            ].values
+        dimension_two_map = dict(df_classif2[["classif2", "classif2_label"]].values)
+        df[f"{DIMENSION_COLUMN_PREFIX}{dimension_two}"] = df[dimension_two].replace(
+            dimension_two_map
         )
-        df[
-            f"{DIMENSION_COLUMN_PREFIX}{dimension_two}"
-        ] = df[dimension_two].replace(dimension_two_map)
         df.drop(columns=[dimension_two], inplace=True)
     return df
 
@@ -211,17 +201,19 @@ def transform_indicator(
         observation_type_map = dict(
             data_codes["obs_status"][["obs_status", "obs_status_label"]].values
         )
-        df[
-            SERIES_PROPERTY_PREFIX + "observation_type"
-        ] = df["observation_type"].replace(observation_type_map)
+        df[SERIES_PROPERTY_PREFIX + "observation_type"] = df[
+            "observation_type"
+        ].replace(observation_type_map)
         df.drop(columns=["observation_type"], inplace=True)
     df["series_id"] = indicator["id"]
     df["series_name"] = indicator["indicator_label"]
-    df[SERIES_PROPERTY_PREFIX + "unit"] = (
-        extract_last_braket_string(df["series_name"].values[0])
+    df[SERIES_PROPERTY_PREFIX + "unit"] = extract_last_braket_string(
+        df["series_name"].values[0]
     )
     df["source"] = BASE_URL
-    df[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df.apply(handle_value, axis=1, result_type="expand")
+    df[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df.apply(
+        handle_value, axis=1, result_type="expand"
+    )
     df = ensure_canonical_columns(df)
     df = sort_columns_canonically(df)
     assert (

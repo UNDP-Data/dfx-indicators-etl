@@ -5,6 +5,7 @@ import pandas as pd
 
 __all__ = ["handle_value"]
 
+
 def handle_value(row: pd.Series) -> tuple[str | float, str]:
     """Process a row to coerce strings to numeric.
     If string value cannot be coerced return None
