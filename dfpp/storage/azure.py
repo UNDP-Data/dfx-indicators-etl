@@ -18,7 +18,7 @@ class StorageManager:
         self.sources_cfg_path = "config/sources"
         self.utilities_path = "config/utilities"
         self.sources_path = "sources/raw"
-        self.output_path = os.environ["STORAGE_OUTPUT_PATH"]
+        self.output_path = os.environ.get("STORAGE_OUTPUT_PATH", "output")
         self.backup_path = "backup"
 
     @property
