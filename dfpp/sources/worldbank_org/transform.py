@@ -89,9 +89,9 @@ def transform_series(df: pd.DataFrame, iso_3_map: dict) -> pd.DataFrame:
     # Filter and organize dataframe columns
     df = df[CANONICAL_COLUMN_NAMES + to_select_columns]
 
-    # Convert year to integer type, selecting only convertible rows
-    # Leave out rows that have year annotations such as querters, future targets
-    # E.g. 2020Q1, 2050 Target
+    # Convert year to integer, selecting only convertible rows
+    # Leave out rows that have year annotations such as quarters, future targets
+    # E.g. `2020Q1`, `2050 Target`
     df = df[df["year"].apply(lambda x: str(x).isdigit())]
     df["year"] = df["year"].astype(int)
 
