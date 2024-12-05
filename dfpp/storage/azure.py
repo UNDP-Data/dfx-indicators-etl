@@ -7,7 +7,7 @@ from azure.storage.blob.aio import ContainerClient
 
 
 logger = logging.getLogger(__name__)
-
+logger.setLevel(logging.WARNING)
 
 class StorageManager:
     def __init__(self, clear_cache: bool = False):

@@ -6,7 +6,7 @@ import pandas as pd
 import sdmx
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
     format="%(asctime)s - %(levelname)s - %(module)s - %(message)s",
     handlers=[logging.StreamHandler()],
 )

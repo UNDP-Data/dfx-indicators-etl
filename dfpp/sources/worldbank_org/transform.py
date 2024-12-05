@@ -18,7 +18,7 @@ from dfpp.transformation import exceptions
 from dfpp.sources.worldbank_org.retrieve import BASE_URL
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
     format="%(asctime)s - %(levelname)s - %(module)s - %(message)s",
     handlers=[logging.StreamHandler()],
 )

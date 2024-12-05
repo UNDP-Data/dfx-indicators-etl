@@ -10,7 +10,7 @@ from tqdm.asyncio import tqdm
 __all__ = ["Connector"]
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
     format="%(asctime)s - %(levelname)s - %(module)s - %(message)s",
     handlers=[logging.StreamHandler()],
 )
