@@ -69,7 +69,7 @@ def transform_series(df: pd.DataFrame, iso_3_map: dict) -> pd.DataFrame:
         "countryiso3code",
         "alpha_3_code_id",
     ]
-    
+
     for col_name in alpha_3_code_candidates:
         if not df[col_name].isna().all():
             # if any unique value is alpha2 but not alpha3 code raise ValueError
@@ -82,15 +82,16 @@ def transform_series(df: pd.DataFrame, iso_3_map: dict) -> pd.DataFrame:
             if any(value in iso_3_map.values() for value in unique_values if value):
                 to_rename_columns[col_name] = "alpha_3_code"
                 break
-    
+
     if "alpha_3_code" not in to_rename_columns.values():
         df["alpha_3_code"] = df["country_name"].replace(iso_3_map)
-        
 
     # Rename primary columns using predefined mapping
     df.rename(columns=to_rename_columns, inplace=True)
 
-    assert "alpha_3_code" in df.columns, "alpha_3_code column not found (has not been assigned)"
+    assert (
+        "alpha_3_code" in df.columns
+    ), "alpha_3_code column not found (has not been assigned)"
 
     # Apply value handling to transform values and value labels
     df[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df.apply(

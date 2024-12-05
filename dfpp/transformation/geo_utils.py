@@ -7,7 +7,11 @@ import pandas as pd
 
 from dfpp.storage import StorageManager
 
-__all__ = ["get_iso3_to_official_name_map", "get_numeric_to_iso3_map", "get_string_to_iso3_map"]
+__all__ = [
+    "get_iso3_to_official_name_map",
+    "get_numeric_to_iso3_map",
+    "get_string_to_iso3_map",
+]
 
 
 async def get_iso3_to_official_name_map() -> dict:
@@ -53,4 +57,3 @@ async def get_string_to_iso3_map() -> dict:
     df_country_map = pd.read_excel(BytesIO(data), sheet_name="country_lookup")
     iso_3_country = dict(df_country_map[["countryname", "iso3"]].values)
     return iso_3_country
-    
