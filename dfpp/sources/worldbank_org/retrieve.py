@@ -5,7 +5,7 @@ import logging
 
 import httpx
 import pandas as pd
-from tqdm.asyncio import tqdm
+import asyncio
 
 __all__ = ["Connector"]
 
@@ -68,7 +68,7 @@ class Connector:
             tasks = [
                 client.get(url, params=self.params | {"page": page}) for page in pages
             ]
-            for response in await tqdm.gather(*tasks):
+            for response in await asyncio.gather(*tasks):
                 _, records = response.json()
                 data.extend(records)
         df = pd.DataFrame(data)
