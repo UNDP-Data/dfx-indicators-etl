@@ -1,4 +1,5 @@
-pandas[excel, pyarrow] ~= 2.2.3
+pandas[excel, fss, pyarrow] ~= 2.2.3
+adlfs ~= 2024.12.0
 azure-storage-blob ~= 12.21.0
 aiohttp ~= 3.9.5
 httpx ~= 0.27.2
