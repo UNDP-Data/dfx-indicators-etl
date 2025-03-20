@@ -1,1 +1,1 @@
-from .azure import StorageManager
+from .azure import *

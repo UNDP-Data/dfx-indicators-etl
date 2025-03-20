@@ -5,9 +5,20 @@ import os
 from azure.storage.blob import ContentSettings
 from azure.storage.blob.aio import ContainerClient
 
+__all__ = ["CONTAINER_NAME", "FOLDER_NAME", "STORAGE_OPTIONS", "StorageManager"]
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
+
+
+CONTAINER_NAME = os.environ["AZURE_STORAGE_CONTAINER_NAME"]
+FOLDER_NAME = os.environ["AZURE_STORAGE_FOLDER_NAME"]
+STORAGE_OPTIONS = {
+    "account_name": os.environ["AZURE_STORAGE_ACCOUNT_NAME"],
+    "sas_token": os.environ["AZURE_STORAGE_SAS_TOKEN"],
+}
+
 
 class StorageManager:
     def __init__(self, clear_cache: bool = False):
