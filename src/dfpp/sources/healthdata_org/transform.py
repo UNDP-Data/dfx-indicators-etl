@@ -36,7 +36,7 @@ PRIMARY_COLUMNS_TO_RENAME = {
 }
 
 
-def transform_series(df: pd.DataFrame, coco: coco.CountryConverter) -> pd.DataFrame:
+def transform(df: pd.DataFrame) -> pd.DataFrame:
     """
     Transform a DataFrame containing multiple series into a structured format.
 
@@ -47,9 +47,9 @@ def transform_series(df: pd.DataFrame, coco: coco.CountryConverter) -> pd.DataFr
     Returns:
         pd.DataFrame: The transformed DataFrame with structured series data.
     """
-
+    cc = coco.CountryConverter()
     df["source"] = BASE_URL
-    df["alpha_3_code"] = coco.pandas_convert(df["location_name"], to="ISO3")
+    df["alpha_3_code"] = cc.pandas_convert(df["location_name"], to="ISO3")
 
     df["series_name"] = df["measure_name"] + ", " + df["cause_name"]
 
