@@ -1,11 +1,20 @@
 import logging
 import math
 import os
+from dataclasses import dataclass, field
 
 from azure.storage.blob import ContentSettings
 from azure.storage.blob.aio import ContainerClient
 
-__all__ = ["CONTAINER_NAME", "FOLDER_NAME", "STORAGE_OPTIONS", "StorageManager"]
+from ._base import BaseStorage
+
+__all__ = [
+    "CONTAINER_NAME",
+    "FOLDER_NAME",
+    "STORAGE_OPTIONS",
+    "AzureStorage",
+    "StorageManager",
+]
 
 
 logger = logging.getLogger(__name__)
@@ -18,6 +27,19 @@ STORAGE_OPTIONS = {
     "account_name": os.environ["AZURE_STORAGE_ACCOUNT_NAME"],
     "sas_token": os.environ["AZURE_STORAGE_SAS_TOKEN"],
 }
+
+
+@dataclass(frozen=True)
+class AzureStorage(BaseStorage):
+    """
+    Storage interface for Azure Blob Storage.
+    """
+
+    container_name: str = CONTAINER_NAME
+    storage_options: dict = field(default_factory=lambda: STORAGE_OPTIONS)
+
+    def join_path(self, file_path: str) -> str:
+        return f"az://{self.container_name}/{self.version}/{file_path}"
 
 
 class StorageManager:
