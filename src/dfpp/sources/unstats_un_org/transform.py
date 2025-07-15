@@ -3,16 +3,16 @@
 import pandas as pd
 
 from dfpp.sources.unstats_un_org.retrieve import BASE_URL
+from dfpp.transformation import exceptions
 from dfpp.transformation.column_name_template import (
     CANONICAL_COLUMN_NAMES,
     DIMENSION_COLUMN_PREFIX,
     SERIES_PROPERTY_PREFIX,
     SexEnum,
-    sort_columns_canonically,
     ensure_canonical_columns,
+    sort_columns_canonically,
 )
 from dfpp.transformation.value_handler import handle_value
-from dfpp.transformation import exceptions
 
 SEX_REMAP = {
     "BOTHSEX": SexEnum.BOTH.value,

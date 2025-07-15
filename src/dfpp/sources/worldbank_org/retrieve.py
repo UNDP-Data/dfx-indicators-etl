@@ -1,11 +1,11 @@
 """retrieve series via api from world bank"""
 
-from urllib.parse import urljoin
+import asyncio
 import logging
+from urllib.parse import urljoin
 
 import httpx
 import pandas as pd
-import asyncio
 
 __all__ = ["Connector"]
 
