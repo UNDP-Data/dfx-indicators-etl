@@ -66,7 +66,7 @@ class BaseStorage(ABC):
         return file_path
 
     @final
-    def read_dataset(self, file_path: str) -> pd.DataFrame:
+    def read_dataset(self, file_path: str, **kwargs) -> pd.DataFrame:
         """
         Read a dataset from the remote storage.
 
@@ -74,10 +74,28 @@ class BaseStorage(ABC):
         ----------
         file_path : str
             Full path to the file on the remote storage.
+        **kwargs
+            Additional keyword arguments to pass to a reading
+            function in `pandas`.
 
         Returns
         -------
         pd.DataFrame
             Dataset data as a data frame.
         """
-        return pd.read_parquet(file_path, storage_options=self.storage_options)
+        _, extension = os.path.splitext(file_path)
+        match extension:
+            case ".parquet":
+                return pd.read_parquet(
+                    file_path, storage_options=self.storage_options, **kwargs
+                )
+            case ".csv":
+                return pd.read_csv(
+                    file_path, storage_options=self.storage_options, **kwargs
+                )
+            case ".xlsx":
+                return pd.read_excel(
+                    file_path, storage_options=self.storage_options, **kwargs
+                )
+            case _:
+                raise ValueError(f"`{extension}` extension is not supported.")
