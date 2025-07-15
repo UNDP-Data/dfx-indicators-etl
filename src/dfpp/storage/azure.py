@@ -39,7 +39,7 @@ class AzureStorage(BaseStorage):
     storage_options: dict = field(default_factory=lambda: STORAGE_OPTIONS)
 
     def join_path(self, file_path: str) -> str:
-        return f"az://{self.container_name}/{self.version}/{file_path}"
+        return f"az://{self.container_name}/{file_path}"
 
 
 class StorageManager:

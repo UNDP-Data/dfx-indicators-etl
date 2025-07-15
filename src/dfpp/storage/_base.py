@@ -60,12 +60,8 @@ class BaseStorage(ABC):
         """
         if getattr(df, "name") is None:
             raise AttributeError("Data frame name must be provided.")
-        file_path = os.path.join(folder_path, f"{df.name}.parquet")
+        file_path = os.path.join(self.version, folder_path, f"{df.name}.parquet")
         file_path = self.join_path(file_path)
-        if not self.version in file_path:
-            raise ValueError(
-                "Version is missing in the file path. Ensure `join_path` uses it."
-            )
         df.to_parquet(file_path, storage_options=self.storage_options)
         return file_path
 
