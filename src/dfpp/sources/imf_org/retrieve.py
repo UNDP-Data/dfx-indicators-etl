@@ -1,6 +1,8 @@
-"""retrive ILO datamapper API data"""
+"""
+Functions to retrieve data from IMF DataMapper API.
+See https://www.imf.org/external/datamapper/api/help.
+"""
 
-import json
 from urllib.parse import urljoin
 
 import httpx
@@ -8,43 +10,55 @@ import pandas as pd
 
 BASE_URL = "https://www.imf.org/external/datamapper/api/v1/"
 
-__all__ = ["list_indicators", "get_indicator_data"]
+__all__ = ["get_series_metadata", "get_series_data"]
 
 
-def list_indicators() -> pd.DataFrame:
-    """Retrieve a DataFrame containing a list of indicators and their metadata.
-
-    Returns:
-        pd.DataFrame: A DataFrame with the indicators' metadata, including their IDs.
+def get_series_metadata() -> pd.DataFrame:
     """
-    url: str = urljoin(BASE_URL, "indicators")
-    response: httpx.Response = httpx.get(url)
+    Get series metadata from the IMF DataMapper API indicators endpoint.
+
+    Returns
+    -------
+    pd.DataFrame
+        Data frame with twthree columns: `series_id`, `series_name` and `prop_unit`.
+    """
+    response = httpx.get(urljoin(BASE_URL, "indicators"))
     response.raise_for_status()
-    data: dict = response.json()
-    indicators: dict = data.get("indicators", {})
-
-    indicator_list: list[dict] = []
-    for key, value in indicators.items():
-        value["id"] = key
-        indicator_list.append(value)
-
-    df: pd.DataFrame = pd.DataFrame(indicator_list)
+    data = response.json()
+    data = [
+        {"series_id": series_id} | metadata
+        for series_id, metadata in data["indicators"].items()
+        if series_id
+    ]
+    columns = {"series_id": "series_id", "label": "series_name", "unit": "prop_unit"}
+    df = pd.DataFrame(data).reindex(columns=columns).rename(columns=columns)
+    df["series_name"] = df["series_name"].str.strip()
     return df
 
 
-async def get_indicator_data(
-    client: httpx.AsyncClient,
-    indicator_id: str,
-) -> pd.DataFrame:
-    response = await client.get(urljoin(BASE_URL, indicator_id))
+def get_series_data(series_id: str) -> pd.DataFrame:
+    """
+    Get series data from the IMF DataMapper API endpoint.
 
+    Parameters
+    ----------
+    series_id : str
+        Series ID. See `get_series_metadata`.
+
+    Returns
+    -------
+    pd.DataFrame or None
+        Data frame with panel data from the API. When no data is available,
+        None is returned.
+    """
+    response = httpx.get(urljoin(BASE_URL, series_id))
     response.raise_for_status()
-    response_body = json.loads(response.text)
-    response_values = response_body.get("values")
-
-    if not response_values:
-        return pd.DataFrame()
-
-    df_indicator = pd.DataFrame.from_records(response_values[indicator_id]).sort_index()
-
-    return df_indicator
+    data = response.json()
+    if (values := data.get("values")) is None:
+        return None
+    dfs = []
+    for country_code, records in values[series_id].items():
+        df = pd.DataFrame(records.items(), columns=["year", "value"])
+        df.insert(0, "alpha_3_code", country_code)
+        dfs.append(df)
+    return pd.concat(dfs, axis=0, ignore_index=True)
