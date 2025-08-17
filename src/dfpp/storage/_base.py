@@ -1,5 +1,5 @@
 """
-Base class to build storage interfaces.
+Base class to build storage interfaces for remote and local file systems.
 """
 
 import os
@@ -20,11 +20,14 @@ class BaseStorage(ABC):
     """
 
     container_name: str = field(
-        metadata={"description": "Container or bucket name of the remote storage."},
-    )
-    storage_options: dict[str, Any] = field(
         metadata={
-            "description": "Storage options to be passed to `to_parquet` in `pandas`"
+            "description": "Container name, bucket name or path to a local folder."
+        },
+    )
+    storage_options: dict[str, Any] | None = field(
+        default=None,
+        metadata={
+            "description": "Storage options to be passed to `to_parquet` in `pandas`."
         },
     )
     version: str = field(
@@ -37,7 +40,7 @@ class BaseStorage(ABC):
     @abstractmethod
     def join_path(self, file_path: str) -> str:
         """
-        Get a full path a file on the remote.
+        Get a full path to a file.
         """
 
     @final
