@@ -8,25 +8,11 @@ from azure.storage.blob.aio import ContainerClient
 
 from ._base import BaseStorage
 
-__all__ = [
-    "CONTAINER_NAME",
-    "FOLDER_NAME",
-    "STORAGE_OPTIONS",
-    "AzureStorage",
-    "StorageManager",
-]
+__all__ = ["AzureStorage", "StorageManager"]
 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
-
-
-CONTAINER_NAME = os.environ["AZURE_STORAGE_CONTAINER_NAME"]
-FOLDER_NAME = os.environ["AZURE_STORAGE_FOLDER_NAME"]
-STORAGE_OPTIONS = {
-    "account_name": os.environ["AZURE_STORAGE_ACCOUNT_NAME"],
-    "sas_token": os.environ["AZURE_STORAGE_SAS_TOKEN"],
-}
 
 
 @dataclass(frozen=True)
@@ -35,8 +21,13 @@ class AzureStorage(BaseStorage):
     Storage interface for Azure Blob Storage.
     """
 
-    container_name: str = CONTAINER_NAME
-    storage_options: dict = field(default_factory=lambda: STORAGE_OPTIONS)
+    container_name: str = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
+    storage_options: dict = field(
+        default_factory=lambda: {
+            "account_name": os.getenv("AZURE_STORAGE_ACCOUNT_NAME"),
+            "sas_token": os.getenv("AZURE_STORAGE_SAS_TOKEN"),
+        }
+    )
 
     def join_path(self, file_path: str) -> str:
         return f"az://{self.container_name}/{file_path}"
