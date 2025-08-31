@@ -151,18 +151,8 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 .idea/
 
-# Manually added
-data/
-**/*.DS_Store
-**/*.sqlite
+# macOS
+.DS_Store
 
-# Misc
-config
-*.csv
-*.json
-.vscode
-*.xlsx
-
-# Execution outputs
-**/indicator_execution/*
-check_configs.ipynb
+# Data folder
+/data/
