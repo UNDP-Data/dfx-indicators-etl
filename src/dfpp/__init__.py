@@ -1,5 +1,5 @@
-from dotenv import load_dotenv
+"""
+An ETL pipeline for managing indicator data for the Data Futures Exchange (DFx).
+"""
 
 from . import storage, transformation
-
-load_dotenv()
