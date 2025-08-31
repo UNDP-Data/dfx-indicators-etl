@@ -1,171 +1,103 @@
-"""retrieve sdmx UNICEF data"""
+"""
+Functions to retrieve data from UNICEF SDMX API.
+See https://data.unicef.org/sdmx-api-documentation/ and
+https://sdmx.data.unicef.org/overview.html.
+"""
 
-import logging
-
+import httpx
 import pandas as pd
-import sdmx
 
-logging.basicConfig(
-    level=logging.WARNING,
-    format="%(asctime)s - %(levelname)s - %(module)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
+__all__ = ["get_series_metadata", "get_query_options", "get_series_data"]
 
-BASE_URL = "https://sdmx.data.unicef.org/"
-
-__all__ = ["get_indicator", "get_sdmx_client", "get_dataflow_codebook"]
+BASE_URL = "https://sdmx.data.unicef.org/ws/public/sdmxapi/rest"
 
 
-def get_sdmx_client() -> sdmx.Client:
+def _get_dataflow(name: str) -> str:
+    params = {
+        "format": "fusion-json",
+        "dimensionAtObservation": "AllDimensions",
+        "detail": "structureOnly",
+        "includeMetrics": True,
+        "includeMetadata": True,
+        "match": "all",
+        "includeAllAnnotations": True,
+    }
+    response = httpx.get(f"{BASE_URL}/data/{name}", params=params, timeout=30)
+    response.raise_for_status()
+    return response.json()
+
+
+def get_query_options(dataflow: str) -> list[str]:
+    data = _get_dataflow(dataflow)
+    observation = data["structure"]["dimensions"]["observation"]
+    return [x["id"].lower() for x in observation]
+
+
+def get_series_metadata(dataflow: str) -> pd.DataFrame:
     """
-    Get sdmx client.
+    Get series metadata from UNICEF Indicator Data Warehouse.
 
-    Returns:
-        sdmx.Client: The sdmx client instance.
+    Returns
+    -------
+    pd.DataFrame
+        Data frame with metadata columns.
     """
-    client = sdmx.Client("UNICEF")
-    return client
+    to_rename = {
+        "id": "series_id",
+        "name": "series_name",
+        "description": "series_description",
+    }
+    data = _get_dataflow(dataflow)
+    observation = data["structure"]["dimensions"]["observation"]
+    indicators = [x for x in observation if x["id"] == "INDICATOR"][0]["values"]
+    indicators = [indicator for indicator in indicators if indicator["inDataset"]]
+    return pd.DataFrame(indicators).reindex(columns=to_rename).rename(columns=to_rename)
 
 
-def list_dataflows(client: sdmx.Client) -> pd.DataFrame:
+def get_series_data(dataflow: str, **kwargs):
     """
-    List dataflows.
+    Get series data from UNICEF Indicator Data Warehouse.
 
-    Args:
-        client (sdmx.Client): The sdmx client instance.
+    Parameters
+    ----------
+    dataflow : str
+        Dataflow to retrieve data from.
+    **kwargs
+        Dataflow-specific keyword arguments that typically include
+        indicator IDs, geographic area etc. Check `get_query_options`
+        for valid values.
 
-    Returns:
-        pd.DataFrame: A DataFrame with dataflow IDs and names.
+    Returns
+    -------
+    pd.DataFrame or None
+        Data frame with country data in the wide format.
+
+    Examples
+    --------
+    >>> get_series_data(
+    ...    "UNICEF,GLOBAL_DATAFLOW,1.0",
+    ...    indicator="DM_POP_TOT",
+    ...    time_period=["2020", "2021"],
+    ... )
+    #       REF_AREA Geographic area INDICATOR  ... Current age
+    # 0     AFG      Afghanistan	 DM_POP_TOT ... Total
+    # ...
+    # 69041 ZWE      Zimbabwe        DM_POP_TOT ... Total
     """
-    flow_msg = client.dataflow()
-    dataflows = sdmx.to_pandas(flow_msg.dataflow)
-    df_dataflows = pd.DataFrame(dataflows).reset_index()
-    df_dataflows.columns = ["id", "name"]
-    return df_dataflows
-
-
-def get_dataflow_codebook(
-    client: sdmx.Client, dataflow_id: str
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Retrieve and organize dataflow dimensions and attributes into a codebook.
-
-    Args:
-        client (sdmx.Client): The sdmx client instance
-        dataflow_id (str): The id of the dataflow to retrieve the codebook for
-
-    Returns:
-        tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: (df_indicators, df_dimensions, df_attributes) where
-            - df_indicators is a DataFrame with the following columns:
-                - indicator_code (str): The code for the indicator
-                - indicator_name (str): The name of the indicator
-            - df_dimensions is a DataFrame with the following columns:
-                - dimension_value_code (str): The code for the dimension value
-                - dimension_value_name (str): The name of the dimension value
-                - dimension_code (str): The code for the dimension
-                - dimension_name (str): The name of the dimension
-            - df_attributes is a DataFrame with the following columns:
-                - attribute_value_code (str): The code for the attribute value
-                - attribute_value_name (str): The name of the attribute value
-                - attribute_code (str): The code for the attribute
-                - attribute_name (str): The name of the attribute
-    """
-    flow_msg = client.dataflow(dataflow_id)
-    dataflow_structure = flow_msg.dataflow[dataflow_id].structure
-    df_indicators = get_indicator_list(dataflow_structure)
-    to_concat_dims = []
-    to_concat_attrs = []
-    for dimension in dataflow_structure.dimensions.components:
-        if dimension.id == "INDICATOR":
-            continue
-        schema = dataflow_structure.dimensions.get(
-            dimension
-        ).local_representation.enumerated
-        if not schema:
-            logging.warning(
-                f"Missing codebook for the dimension {dimension} in {dataflow_id}"
-            )
-            continue
-
-        df_dimension_code = sdmx.to_pandas(schema).reset_index()
-
-        if "parent" in df_dimension_code:
-            df_dimension_code.drop(columns=["parent"], inplace=True)
-
-        assert len(df_dimension_code.columns) == 2
-        dimension_name = df_dimension_code.columns[1]
-        df_dimension_code.columns = ["dimension_value_code", "dimension_value_name"]
-        df_dimension_code["dimension_code"] = dimension.id
-        df_dimension_code["dimension_name"] = dimension_name
-        to_concat_dims.append(df_dimension_code)
-
-    for attribute in dataflow_structure.attributes.components:
-        try:
-            schema = dataflow_structure.attributes.get(
-                attribute
-            ).local_representation.enumerated
-            if not schema:
-                logging.warning(
-                    f"Missing codebook for the attribute {attribute} codebook in {dataflow_id}"
+    options = get_query_options(dataflow)
+    if set(options) & set(kwargs):
+        values = []
+        for option in options:
+            value = kwargs.get(option, "")
+            if isinstance(value, str):
+                values.append(value)
+            elif isinstance(value, list):
+                values.append("+".join(value))
+            else:
+                raise ValueError(
+                    f"{option} must be either a string or list of strings, got {type(value)}."
                 )
-                continue
-
-            df_attribute_code = sdmx.to_pandas(schema).reset_index()
-
-            if "parent" in df_attribute_code:
-                df_attribute_code.drop(columns=["parent"], inplace=True)
-
-            assert len(df_attribute_code.columns) == 2
-            attribute_name = df_attribute_code.columns[1]
-            df_attribute_code.columns = ["attribute_value_code", "attribute_value_name"]
-            df_attribute_code["attribute_code"] = attribute.id
-            df_attribute_code["attribute_name"] = attribute_name
-            to_concat_attrs.append(df_attribute_code)
-        except Exception as e:
-            logging.warning(
-                f"Missing codebook for the attribute {attribute} in {dataflow_id}: {e}",
-            )
-
-    df_dims = pd.concat(to_concat_dims, ignore_index=True)
-    df_attrs = pd.concat(to_concat_attrs, ignore_index=True)
-    return df_indicators, df_dims, df_attrs
-
-
-def get_indicator_list(dataflow_structure) -> pd.DataFrame:
-    """
-    Get the list of indicators from the dataflow structure.
-
-    Args:
-        dataflow_structure: The dataflow structure
-
-    Returns:
-        pd.DataFrame: The DataFrame with the list of indicators
-    """
-    df_indicators = sdmx.to_pandas(
-        dataflow_structure.dimensions.get("INDICATOR").local_representation.enumerated
-    ).reset_index()
-    if len(df_indicators.columns) == 3:
-        df_indicators.columns = ["indicator_code", "indicator_name", "parent"]
-    if len(df_indicators.columns) == 2:
-        df_indicators.columns = [
-            "indicator_code",
-            "indicator_name",
-        ]
-    return df_indicators
-
-
-def get_indicator(
-    client: sdmx.Client,
-    dataflow_id: str = None,
-    indicator_id: str = None,
-):
-    """
-    GET a single indicator from dataflow
-    """
-    dsd = client.dataflow(dataflow_id).structure[0]
-    data = client.data(dataflow_id, key=dict(INDICATOR=indicator_id), dsd=dsd)
-    data = data.data[0]
-    df = sdmx.to_pandas(data)
-    df = pd.DataFrame(df).reset_index()
-    if df["value"].isna().all():
-        raise ValueError("All values are None")
-    return df
+        options = ".".join(values)
+    else:
+        options = "all"
+    return pd.read_csv(f"{BASE_URL}/data/{dataflow}/{options}?format=csv&labels=both")
