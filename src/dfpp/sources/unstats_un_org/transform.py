@@ -2,159 +2,52 @@
 
 import pandas as pd
 
-from dfpp.sources.unstats_un_org.retrieve import BASE_URL
-from dfpp.transformation import exceptions
 from dfpp.transformation.column_name_template import (
-    CANONICAL_COLUMN_NAMES,
-    DIMENSION_COLUMN_PREFIX,
-    SERIES_PROPERTY_PREFIX,
-    SexEnum,
     ensure_canonical_columns,
     sort_columns_canonically,
 )
-from dfpp.transformation.value_handler import handle_value
 
-SEX_REMAP = {
-    "BOTHSEX": SexEnum.BOTH.value,
-    "MALE": SexEnum.MALE.value,
-    "FEMALE": SexEnum.FEMALE.value,
-}
-
-PRIMARY_COLUMNS_TO_RENAME = {
-    "geoAreaCode": "alpha_3_code",
-    "timePeriodStart": "year",
-    "seriesDescription": "series_name",
-    "indicator": DIMENSION_COLUMN_PREFIX + "sdg_indicator",
-}
+from ...utils import to_snake_case, replace_country_metadata
+from ...validation import check_duplicates
 
 
-__all__ = ["transform_series"]
-
-
-def transform_series(
-    series_id: str,
-    df: pd.DataFrame,
-    df_dimension_codebook: pd.DataFrame = None,
-    df_attribute_codebook: pd.DataFrame = None,
-    iso_3_map_numeric_to_alpha: dict = None,
-) -> pd.DataFrame:
+def transform(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Transform a DataFrame containing series data retrieved via the UN API into a publishable format.
+    Transform UN Stats SDG API data.
 
-    Args:
-        series_id (str): The ID of the series to be transformed.
-        df (pd.DataFrame): The DataFrame containing the series data.
-        df_dimension_codebook (pd.DataFrame, optional): The DataFrame containing the dimension codebook. Defaults to None.
-        df_attribute_codebook (pd.DataFrame, optional): The DataFrame containing the attribute codebook. Defaults to None.
-        iso_3_map_numeric_to_alpha (dict, optional): A dictionary mapping numeric to alpha 3 country codes. Defaults to None.
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Raw data frame.
 
-    Returns:
-        pd.DataFrame: The transformed DataFrame.
+    Returns
+    -------
+    pd.DataFrame
+        Transformed data frame in the canonical format.
     """
-    df_dimensions = pd.json_normalize(df["dimensions"])
-    df_attributes = pd.json_normalize(df["attributes"])
-
-    df = pd.concat(
-        [df.drop(columns=["dimensions", "attributes"]), df_dimensions, df_attributes],
-        axis=1,
+    columns = {
+        "series": "series_id",
+        "seriesDescription": "series_name",
+        "alpha_3_code": "alpha_3_code",
+        "timePeriodStart": "year",
+        "value": "value",
+        "prop_units": "prop_unit",
+        "prop_nature": "prop_observation_type",
+    }
+    df["alpha_3_code"] = replace_country_metadata(
+        df["geoAreaCode"], "m49", "iso-alpha-3"
     )
-
-    dimension_columns = df_dimension_codebook["id"].unique().tolist()
-
-    for column in dimension_columns:
-        if not column in df.columns:
-            continue
-
-        to_remap = dict(
-            df_dimension_codebook[df_dimension_codebook["id"] == column][
-                ["code", "description"]
-            ].values
+    df.dropna(subset=["alpha_3_code"], ignore_index=True, inplace=True)
+    for column, prefix in (("attributes", "prop"), ("dimensions", "disagr")):
+        df = df.join(
+            pd.DataFrame(df[column].tolist()).rename(
+                lambda name: to_snake_case(name, prefix=prefix), axis=1
+            )
         )
-        column_name_formatted = column.lower().replace(" ", "_")
-
-        if column_name_formatted == "sex":
-            to_remap = SEX_REMAP
-
-        df[f"{DIMENSION_COLUMN_PREFIX}{column_name_formatted}"] = df[column].replace(
-            to_remap
-        )
-
-    series_property_column_map = {"Nature": "observation_type", "Units": "unit"}
-    for column in df_attribute_codebook["id"].unique().tolist():
-        if not column in df.columns:
-            continue
-
-        to_remap = dict(
-            df_attribute_codebook[df_attribute_codebook["id"] == column][
-                ["code", "description"]
-            ].values
-        )
-        column_name_formatted = column.lower().replace(" ", "_")
-
-        if column in series_property_column_map.keys():
-            column_name_formatted = series_property_column_map[column]
-
-        df[f"{SERIES_PROPERTY_PREFIX}{column_name_formatted}"] = df[column].replace(
-            to_remap
-        )
-
-    columns_to_rename = PRIMARY_COLUMNS_TO_RENAME.copy()
-
-    df.rename(columns=columns_to_rename, inplace=True)
-
-    df[["value", SERIES_PROPERTY_PREFIX + "value_label"]] = df.apply(
-        handle_value, axis=1, result_type="expand"
-    )
-
-    to_select_columns = [
-        col
-        for col in df.columns
-        if any(
-            [
-                col.startswith(DIMENSION_COLUMN_PREFIX),
-                col.startswith(SERIES_PROPERTY_PREFIX),
-            ]
-        )
-        and col not in CANONICAL_COLUMN_NAMES
-    ]
-
-    df["series_id"] = series_id
-    df["source"] = BASE_URL
-    df = df[CANONICAL_COLUMN_NAMES + to_select_columns]
-
-    df = resolve_many_indicators_to_one_observation(df)
-    df["alpha_3_code"] = df["alpha_3_code"].astype(int)
-    df["alpha_3_code"] = df["alpha_3_code"].replace(iso_3_map_numeric_to_alpha)
-    df = df[df["alpha_3_code"].apply(lambda x: isinstance(x, str))].reset_index(
-        drop=True
-    )
+    df = df.rename(columns=columns)
+    df["year"] = df["year"].astype(int)
+    df["source"] = "https://unstats.un.org"
     df = ensure_canonical_columns(df)
     df = sort_columns_canonically(df)
-    df[DIMENSION_COLUMN_PREFIX + "sdg_indicator"] = df[
-        DIMENSION_COLUMN_PREFIX + "sdg_indicator"
-    ].apply(tuple)
-    assert (
-        df.drop("value", axis=1).duplicated().sum() == 0
-    ), exceptions.DUPLICATE_ERROR_MESSAGE
-    df[DIMENSION_COLUMN_PREFIX + "sdg_indicator"] = df[
-        DIMENSION_COLUMN_PREFIX + "sdg_indicator"
-    ].apply(list)
-    df["value"] = df["value"].replace({"NaN": None})
-    return df
-
-
-def resolve_many_indicators_to_one_observation(df: pd.DataFrame) -> pd.DataFrame:
-    """some series have repeating rows linked to different SDG indicator goals, this function
-    removes the duplicates and returns a dataframe with one observation and all SDG indicators linked to it
-    """
-    df_grouped = df.groupby(
-        df.columns.difference([DIMENSION_COLUMN_PREFIX + "sdg_indicator"]).tolist(),
-        dropna=False,
-    )
-
-    df_result = (
-        df_grouped[DIMENSION_COLUMN_PREFIX + "sdg_indicator"]
-        .apply(lambda x: list(set(item for sublist in x for item in sublist)))
-        .reset_index()
-    )
-    return df_result
+    check_duplicates(df)
+    return df.reset_index(drop=True)
