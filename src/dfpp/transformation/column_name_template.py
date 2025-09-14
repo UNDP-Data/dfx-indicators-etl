@@ -38,17 +38,10 @@ class SexEnum(StrEnum, Enum):
     NON_RESPONSE = "non response"
 
 
-def sort_columns_canonically(df):
+def sort_columns_canonically(df: pd.DataFrame) -> pd.DataFrame:
     assert all(
         col in df.columns for col in CANONICAL_COLUMN_NAMES
     ), f"DataFrame does not contain all canonical columns. Missing columns: {set(CANONICAL_COLUMN_NAMES) - set(df.columns)}"
-
-    canonical_cols_start = [col for col in CANONICAL_COLUMN_NAMES if col in df.columns][
-        :3
-    ]
-    canonical_cols_end = [col for col in CANONICAL_COLUMN_NAMES if col in df.columns][
-        3:
-    ]
 
     grouped_disagr_cols = [
         col
@@ -74,15 +67,16 @@ def sort_columns_canonically(df):
         )
     ]
 
+    if other_cols:
+        df["metadata"] = df[other_cols].to_dict(orient="records")
     sorted_columns = (
-        canonical_cols_start
+        CANONICAL_COLUMN_NAMES[:3]
         + grouped_disagr_cols
-        + other_cols
         + grouped_property_cols
-        + canonical_cols_end
+        + CANONICAL_COLUMN_NAMES[3:]
+        + ["metadata"]
     )
-
-    return df[sorted_columns]
+    return df.reindex(columns=sorted_columns)
 
 
 def ensure_canonical_columns(df: pd.DataFrame) -> pd.DataFrame:
