@@ -3,6 +3,7 @@ Utility functions for reading axillary data distributed with the package and
 performing minor data munging routines.
 """
 
+import re
 from importlib import resources
 from io import StringIO
 from typing import Literal, Sequence, TypeAlias
@@ -17,6 +18,7 @@ __all__ = [
     "read_data_csv",
     "get_country_metadata",
     "replace_country_metadata",
+    "to_snake_case",
 ]
 
 CountryField: TypeAlias = Literal["name", "m49", "iso-alpha-2", "iso-alpha-3"]
@@ -150,3 +152,36 @@ def replace_country_metadata(
         )
     )
     return [mapping.get(value) for value in values]
+
+
+def to_snake_case(value: str, prefix: str = "", suffix: str = "") -> str:
+    """
+    Convert a string value to snake case, optionally adding a prefix and/or suffix.
+
+    Parameters
+    ----------
+    value : str
+        String to be converted to snake case.
+    prefix : str, optional
+        String value to add as a prefix.
+    suffix : str, optional
+        String value to add as a suffix.
+
+    Returns
+    -------
+    str
+        Input value in snake case with the prefix and/or suffix if applicable.
+
+    Examples
+    --------
+    >>> to_snake_case("Time Period")
+    'time_period'
+    >>> to_snake_case(" Time\n\n\nPeriod  ", prefix="dim", suffix="years")
+    'dim_time_period_years'
+    """
+    value = re.sub(r"\s+", "_", value.strip().lower())
+    if prefix:
+        value = f"{prefix}_{value}"
+    if suffix:
+        value = f"{value}_{suffix}"
+    return value
