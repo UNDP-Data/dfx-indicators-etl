@@ -1,81 +1,78 @@
-import asyncio
+"""
+Functions to retrieve data from WHO GHO API.
+See https://www.who.int/data/gho/info/gho-odata-api.
+"""
+
 from urllib.parse import urljoin
 
-import aiohttp
+import httpx
 import pandas as pd
-import requests
 
 BASE_URL = "https://ghoapi.azureedge.net/api/"
 
-__all__ = [
-    "list_indicators",
-    "get_dimension_value_codes",
-    "get_indicator_data",
-    "get_dimension_values",
-]
+__all__ = ["get_series_metadata", "get_dimensions", "get_series_data"]
 
 
-def list_indicators():
-    """Retrieve a list of indicators from the GHO API."""
-    response = requests.get(urljoin(BASE_URL, "Indicator"))
+def get_series_metadata() -> pd.DataFrame:
+    """
+    Get series metadata from the WHO GHO API.
+
+    Returns
+    -------
+    pd.DataFrame
+        Data with series metadata.
+    """
+    response = httpx.get(urljoin(BASE_URL, "Indicator"))
+    response.raise_for_status()
+    return pd.DataFrame(response.json()["value"])
+
+
+def get_dimensions() -> dict:
+    """
+    Get series dimensions from the WHO GHO API.
+
+    Returns
+    -------
+    dict
+        Dimensions dictionary.
+    """
+    response = httpx.get(urljoin(BASE_URL, "DIMENSION"))
     response.raise_for_status()
     return response.json()["value"]
 
 
-def list_dimensions():
-    """Retrieve a list of dimensions from the GHO API."""
-    response = requests.get(urljoin(BASE_URL, "DIMENSION"))
-    response.raise_for_status()
-    return response.json()["value"]
+def get_series_data(series_id: str, **kwargs) -> pd.DataFrame | None:
+    """
+    Get series data from the WHO GHO API.
 
+    Parameters
+    ----------
+    series_id : str
+        Series ID. See `get_series_metadata`.
+    **kwargs
+        Keywords arguments used as filters for the data.
 
-async def get_all_dimension_values(df_dimensions: pd.DataFrame) -> pd.DataFrame:
-    """Get values associated with each dimension available in WHO API.
-    This version retrieves the dimension values and processes them separately."""
-    raw_dimension_values = await get_dimension_values(df_dimensions)
-    concatenated_data = pd.concat(raw_dimension_values, ignore_index=True)
-    return concatenated_data
-
-
-async def get_dimension_values(
-    df_dimensions: pd.DataFrame, max_concurrency: int = 1
-) -> list:
-    """Asynchronously retrieve raw dimension values for each dimension with a semaphore to limit concurrent requests."""
-    raw_dimension_data = []
-    semaphore = asyncio.Semaphore(max_concurrency)
-
-    async with aiohttp.ClientSession() as session:
-        tasks = [
-            get_dimension_value_codes(code, session, semaphore)
-            for code in df_dimensions.Code.tolist()
-        ]
-        results = await asyncio.gather(*tasks)
-
-        for code, dimension_values in results:
-            if dimension_values:
-                df_dimension_values = pd.DataFrame(dimension_values)
-                raw_dimension_data.append(df_dimension_values)
-
-    return raw_dimension_data
-
-
-async def get_dimension_value_codes(dimension, session, semaphore):
-    """Retrieve dimension values for a specific dimension code with a semaphore."""
-    async with semaphore:
-        async with session.get(
-            urljoin(BASE_URL, f"DIMENSION/{dimension}/DimensionValues")
-        ) as response:
+    Returns
+    -------
+    pd.DataFrame or None
+        Data frame with data as returned by the API or None of no data is present.
+    """
+    filters = ["NumericValue ne null"]
+    for k, v in kwargs.items():
+        if isinstance(v, (str, int)):
+            filters.append(f"{k} eq '{v}'")
+        elif isinstance(v, list):
+            filters.append(f"{k} in {tuple(v)}")
+        else:
+            raise ValueError(f"{k} must be one of (str, int, list). Found {type(v)}")
+    filters = f"?$filter={' and '.join(filters)}" if filters else ""
+    try:
+        with httpx.Client(timeout=30) as client:
+            response = client.get(urljoin(BASE_URL, f"{series_id}{filters}"))
             response.raise_for_status()
-            data = await response.json()
-            return dimension, data.get("value", [])
-
-
-async def get_indicator_data(indicator_code):
-    """Retrieve data for a specific indicator using its code."""
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            urljoin(BASE_URL, indicator_code),
-            timeout=aiohttp.ClientTimeout(total=60),
-        ) as response:
-            response.raise_for_status()
-            return await response.json()
+        return pd.DataFrame(response.json()["value"])
+    except pd.errors.EmptyDataError:
+        return None
+    except httpx.HTTPError as error:
+        print(series_id, error)
+        return None
