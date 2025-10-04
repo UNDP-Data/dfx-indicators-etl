@@ -1,101 +1,105 @@
-"""retrieve series via api from world bank"""
+"""
+Functions to retrieve data from the World Bank Indicator API.
+See https://datahelpdesk.worldbank.org/knowledgebase/topics/125589-developer-information.
+"""
 
-import asyncio
-import logging
 from urllib.parse import urljoin
 
 import httpx
 import pandas as pd
-
-__all__ = ["Connector"]
-
-logging.basicConfig(
-    level=logging.WARNING,
-    format="%(asctime)s - %(levelname)s - %(module)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
-
-NOT_FOUND_MESSAGE = "The indicator was not found. It may have been deleted or archived."
+from tqdm import tqdm
 
 BASE_URL = "https://api.worldbank.org/v2/"
 
+__all__ = ["get_series_metadata", "get_series_data"]
 
-class Connector:
-    def __init__(self, connections: int = 10, timeout: int = 60) -> None:
-        """
-        Initialize the Connector with specified parameters.
 
-        Args:
-            connections (int): The maximum number of concurrent connections. Default is 10.
-            timeout (int): The timeout for HTTP requests in seconds. Default is 60.
+def __get_series_metadata(
+    client: httpx.Client, page: int, per_page: int
+) -> list[dict, list[dict]]:
+    """
+    Get a single metadata page.
+    """
+    response = client.get(
+        urljoin(BASE_URL, "indicator"),
+        params={"format": "json", "page": page, "per_page": per_page},
+    )
+    response.raise_for_status()
+    return response.json()
 
-        Returns:
-            None
-        """
-        self.base_url = BASE_URL
-        self.connections = connections
-        self.timeout = timeout
-        self.limits = httpx.Limits(max_connections=self.connections)
-        self.params = {
-            "page": 1,
-            "per_page": 100,
+
+def get_series_metadata(per_page: int = 100) -> pd.DataFrame:
+    """
+    Get series metadata from the World Bank Indicator API.
+
+    Returns
+    -------
+    pd.DataFrame
+        Data with series metadata.
+    """
+    data = []
+    with httpx.Client() as client:
+        metadata, indicators = __get_series_metadata(client, 1, per_page)
+        data.extend(indicators)
+        for page in tqdm(range(2, metadata["pages"])):
+            _, indicators = __get_series_metadata(client, page, per_page)
+            data.extend(indicators)
+    return pd.DataFrame(data)
+
+
+def __get_series_data(
+    client: httpx.Client, series_id: str, page: int, per_page: int, **kwargs
+) -> pd.DataFrame | None:
+    """
+    Get a single series data page.
+    """
+    response = client.get(
+        urljoin(BASE_URL, f"country/all/indicator/{series_id}"),
+        params={
+            "date": "2015:2025",
+            "page": page,
+            "per_page": per_page,
             "format": "json",
-        }
+        },
+    )
+    response.raise_for_status()
+    metadata, data = None, None
+    if len(data := response.json()) == 1:
+        metadata = data[0]
+        if "message" in metadata:
+            print(metadata)
+        metadata = None
+    elif len(data) == 2:
+        metadata, data = data
+    return metadata, data
 
-    async def get_results(self, url: str) -> pd.DataFrame:
-        """
-        Retrieve data from World Bank API.
 
-        Args:
-            url (str): The URL of the API endpoint.
+def get_series_data(series_id: str, **kwargs) -> pd.DataFrame | None:
+    """
+    Get series data from the the World Bank Indicator API.
 
-        Returns:
-            pd.DataFrame: A Pandas DataFrame containing the retrieved data.
-        """
-        async with httpx.AsyncClient(
-            timeout=self.timeout, limits=self.limits
-        ) as client:
-            response = await client.get(url, params=self.params)
-            response_content = response.json()
-            if (
-                len(response_content) == 1
-                and response_content[0]["message"][0]["value"] == NOT_FOUND_MESSAGE
-            ):
-                logging.warning(NOT_FOUND_MESSAGE)
-                return pd.DataFrame()
-            metadata, data = response_content
-            pages = range(2, metadata["pages"] + 1)
-            tasks = [
-                client.get(url, params=self.params | {"page": page}) for page in pages
-            ]
-            for response in await asyncio.gather(*tasks):
-                _, records = response.json()
+    Parameters
+    ----------
+    series_id : str
+        Series ID. See `get_series_metadata`.
+    **kwargs
+        Keywords arguments used as filters for the data.
+
+    Returns
+    -------
+    pd.DataFrame or None
+        Data frame with data as returned by the API or None of no data is present.
+    """
+    data = []
+    with httpx.Client(timeout=30) as client:
+        metadata, records = __get_series_data(client, series_id, page=1, per_page=100)
+        data.extend(records)
+        if metadata is not None:
+            for page in tqdm(range(2, metadata["pages"])):
+                metadata, records = __get_series_data(
+                    client, series_id, page=page, per_page=100
+                )
                 data.extend(records)
-        df = pd.DataFrame(data)
-        return df
-
-    async def get_indicators(self) -> pd.DataFrame:
-        """
-        Retrieve a DataFrame containing indicators.
-
-        Returns:
-            pd.DataFrame: A DataFrame with columns 'id' and 'name'.
-        """
-        url: str = urljoin(self.base_url, "indicator")
-        df: pd.DataFrame = await self.get_results(url)
-        df = df.reindex(columns=["id", "name"])
-        return df
-
-    async def get_series(self, indicator_id: str) -> pd.DataFrame:
-        """
-        Retrieve a DataFrame containing time series for an indicator.
-
-        Args:
-            indicator_id (str): The World Bank indicator ID.
-
-        Returns:
-            pd.DataFrame: A DataFrame with the time series data.
-        """
-        url = urljoin(self.base_url, f"country/all/indicator/{indicator_id}")
-        df = await self.get_results(url)
-        return df
+        else:
+            data = None
+    return pd.DataFrame(data)
