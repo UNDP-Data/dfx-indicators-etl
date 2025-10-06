@@ -9,8 +9,8 @@ from dfpp.transformation.column_name_template import (
     sort_columns_canonically,
 )
 
-from ...validation import check_duplicates
 from ...utils import generate_id
+from ...validation import check_duplicates
 
 
 def transform(df: pd.DataFrame) -> pd.DataFrame:

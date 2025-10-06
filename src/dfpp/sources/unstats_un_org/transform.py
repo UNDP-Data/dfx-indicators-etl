@@ -7,7 +7,7 @@ from dfpp.transformation.column_name_template import (
     sort_columns_canonically,
 )
 
-from ...utils import to_snake_case, replace_country_metadata
+from ...utils import replace_country_metadata, to_snake_case
 from ...validation import check_duplicates
 
 

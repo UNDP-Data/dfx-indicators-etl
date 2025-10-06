@@ -8,8 +8,8 @@ from ...transformation.column_name_template import (
     ensure_canonical_columns,
     sort_columns_canonically,
 )
-from .retrieve import DISAGGREGATIONS, get_codelist_mapping
 from ...validation import check_duplicates
+from .retrieve import DISAGGREGATIONS, get_codelist_mapping
 
 __all__ = ["transform"]
 
