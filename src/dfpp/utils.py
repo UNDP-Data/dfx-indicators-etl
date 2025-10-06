@@ -4,6 +4,7 @@ performing minor data munging routines.
 """
 
 import re
+from hashlib import md5
 from importlib import resources
 from io import StringIO
 from typing import Literal, Sequence, TypeAlias
@@ -19,6 +20,7 @@ __all__ = [
     "get_country_metadata",
     "replace_country_metadata",
     "to_snake_case",
+    "generate_id",
 ]
 
 CountryField: TypeAlias = Literal["name", "m49", "iso-alpha-2", "iso-alpha-3"]
@@ -185,3 +187,24 @@ def to_snake_case(value: str, prefix: str = "", suffix: str = "") -> str:
     if suffix:
         value = f"{value}_{suffix}"
     return value
+
+
+def generate_id(value: str, length: int = 8) -> str:
+    """
+    Generate an ID based on a truncated MD5 hash.
+
+    Parameters
+    ----------
+    value : str
+        Input value to generate an ID for.
+    length : int
+        Desired lenght of the ID.
+
+    Returns
+    -------
+    str
+        Truncated MD5 hash value.
+    """
+    hash_object = md5(value.encode())
+    hex_digest = hash_object.hexdigest()
+    return hex_digest[:length]
