@@ -83,7 +83,7 @@ class Pipeline(BaseModel):
         country_codes = get_country_metadata("iso-alpha-3")
         df = df.loc[df["country_code"].isin(country_codes)].copy()
         # add source
-        df["source"] = self.url
+        df["source"] = str(self.url)
         df.reset_index(drop=True, inplace=True)
         self.df_transformed = df
         return self
