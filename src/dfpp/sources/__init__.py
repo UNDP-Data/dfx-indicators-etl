@@ -1,1 +1,111 @@
-from . import energydata_info
+"""
+Pipelines and pipeline components for data sources.
+"""
+
+from typing import Annotated, Self, final
+
+import pandas as pd
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, StringConstraints
+from tqdm import tqdm
+
+from ..storage import BaseStorage
+from ..validation import schema
+from ..utils import get_country_metadata
+
+from ._base import BaseRetriever, BaseTransformer
+
+
+__all__ = ["Pipeline"]
+
+
+class Pipeline(BaseModel):
+    """
+    ETL pipeline to process a single source.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    name: str = Field(
+        description="Short formal name of the source",
+        examples=["ILO", "UNICEF"],
+    )
+    directory: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True,
+            to_lower=True,
+            min_length=3,
+            max_length=64,
+            pattern="\w+",
+        ),
+    ] = Field(
+        description="Short unique source name used as a directory name",
+        examples=["ilo_org", "unicef_org"],
+    )
+    url: HttpUrl = Field(
+        description="Full URL to the source website",
+        examples=["https://ilostat.ilo.org", "https://sdmx.data.unicef.org"],
+    )
+    retriever: BaseRetriever
+    transformer: BaseTransformer
+    storage: BaseStorage
+    df_raw: pd.DataFrame | None = None
+    df_transformed: pd.DataFrame | None = None
+    df_validated: pd.DataFrame | None = None
+
+    def __call__(self) -> pd.DataFrame:
+        """
+        Run all steps of the ETL pipeline.
+        """
+        self.retrieve()
+        self.transform()
+        self.validate()
+        self.load()
+        return self.df_validated
+
+    @final
+    def retrieve(self, **kwargs) -> Self:
+        """
+        Run the retrieval step to obtain raw data.
+        """
+        self.df_raw = self.retriever(**kwargs)
+        return self.df_raw
+
+    @final
+    def transform(self, **kwargs) -> Self:
+        """
+        Run the transformation step of the raw data.
+        """
+        if self.df_raw is None:
+            raise ValueError("No raw data. Run the retrieval first")
+        df = self.transformer(self.df_raw, **kwargs)
+        # ensure only areas from UN M49 are present
+        country_codes = get_country_metadata("iso-alpha-3")
+        df = df.loc[df["country_code"].isin(country_codes)].copy()
+        # add source
+        df["source"] = self.url
+        df.reset_index(drop=True, inplace=True)
+        self.df_transformed = df
+        return self
+
+    @final
+    def validate(self) -> Self:
+        """
+        Run the validation of the transformed data, coercing data types if applicable.
+        """
+        if self.df_transformed is None:
+            raise ValueError("No transformed data. Run the transformation first")
+        self.df_validated = schema.validate(self.df_transformed)
+        return self
+
+    @final
+    def load(self) -> Self:
+        """
+        Run the load step to push the data to the storage.
+        """
+        if self.df_validated is None:
+            raise ValueError("No validated data. Run the validation first")
+        for indicator_code, df in tqdm(self.df_validated.groupby("indicator_code")):
+            df.name = indicator_code
+            self.storage.publish_dataset(df, folder_path=self.directory)
+        return self
