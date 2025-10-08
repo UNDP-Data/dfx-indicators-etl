@@ -65,7 +65,7 @@ class BaseStorage(ABC):
             raise AttributeError("Data frame name must be provided.")
         file_path = os.path.join(self.version, folder_path, f"{df.name}.parquet")
         file_path = self.join_path(file_path)
-        df.to_parquet(file_path, storage_options=self.storage_options)
+        df.to_parquet(file_path, storage_options=self.storage_options, index=False)
         return file_path
 
     @final
