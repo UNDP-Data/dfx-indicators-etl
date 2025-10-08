@@ -3,6 +3,7 @@ Storage interface for I/O operations with Azure Storage.
 """
 
 import os
+import re
 from dataclasses import dataclass, field
 
 from ._base import BaseStorage
@@ -23,6 +24,11 @@ class AzureStorage(BaseStorage):
             "sas_token": os.getenv("AZURE_STORAGE_SAS_TOKEN"),
         }
     )
+
+    def __repr__(self):
+        return re.sub(
+            r"'sas_token': '\S+'", "'sas_token': 'REDACTED'", super().__repr__()
+        )
 
     def join_path(self, file_path: str) -> str:
         return f"az://{self.container_name}/{file_path}"
