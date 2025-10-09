@@ -96,13 +96,13 @@ schema = pa.DataFrameSchema(
         ),
         rf"^{PREFIX_DISAGGREGATION}*": pa.Column(
             dtype=str,
-            nullable=False,
+            nullable=True,
             regex=True,
             required=False,
         ),
         rf"^{PREFIX_PROPERTY}*": pa.Column(
             dtype=str,
-            nullable=False,
+            nullable=True,
             regex=True,
             required=False,
         ),
@@ -116,5 +116,6 @@ schema = pa.DataFrameSchema(
     ],
     strict="filter",
     name="Standardised Data Frame",
+    add_missing_columns=True,
     description="Standardised data frame to be returned by a transformer",
 )
