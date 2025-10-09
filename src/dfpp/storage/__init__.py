@@ -2,12 +2,17 @@
 Storage interfaces for I/O operations.
 """
 
+import logging
+
 from pydantic import ValidationError
+
 from ._base import BaseStorage
 from .azure import AzureStorage
 from .local import LocalStorage
 
 __all__ = ["AzureStorage", "LocalStorage", "get_storage"]
+
+logger = logging.getLogger(__name__)
 
 
 def get_storage(**kwargs) -> BaseStorage:
@@ -27,6 +32,8 @@ def get_storage(**kwargs) -> BaseStorage:
         Storage class.
     """
     try:
-        return AzureStorage(**kwargs)
+        storage = AzureStorage(**kwargs)
     except ValidationError:
-        return LocalStorage(**kwargs)
+        storage = LocalStorage(**kwargs)
+    logger.info(f"Using {storage=} storage")
+    return storage

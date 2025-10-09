@@ -2,6 +2,7 @@
 Pipelines and pipeline components for data sources.
 """
 
+import logging
 from typing import Annotated, Self, final
 
 import pandas as pd
@@ -14,6 +15,8 @@ from ..validation import schema
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Pipeline"]
+
+logger = logging.getLogger(__name__)
 
 
 class Pipeline(BaseModel):
@@ -56,8 +59,11 @@ class Pipeline(BaseModel):
         Run all steps of the ETL pipeline.
         """
         self.retrieve()
+        logger.info(f"Raw data shape: {self.df_raw.shape}")
         self.transform()
+        logger.info(f"Transformed data shape: {self.df_transformed.shape}")
         self.validate()
+        logger.info(f"Validated data shape: {self.df_validated.shape}")
         self.load()
         return self.df_validated
 
