@@ -25,7 +25,7 @@ def count_duplicates(df: pd.DataFrame) -> int:
     int
         Count of duplicates in the data frame.
     """
-    panel_columns = ["indicator_code", "country_code", "year"]
+    panel_columns = ["indicator_code", "country_code", "year", "unit"]
     disaggregation_columns = df.filter(
         like=PREFIX_DISAGGREGATION, axis=1
     ).columns.tolist()
