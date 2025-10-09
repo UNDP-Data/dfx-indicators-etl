@@ -76,7 +76,7 @@ class Retriever(BaseRetriever):
             .apply(lambda x: not set(x) - DISAGGREGATIONS)
         )
         df = df.loc[mask].reset_index(drop=True)
-        indicator_codes = df["indicator_code"].sample(10).tolist()
+        indicator_codes = df["indicator_code"].tolist()
         data = []
         with self.client as client:
             for indicator_code in tqdm(indicator_codes):

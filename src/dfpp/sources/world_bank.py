@@ -37,7 +37,7 @@ class Retriever(BaseRetriever):
             Raw data from the API for the indicators with supported disaggregations.
         """
         df_metadata = self._get_metadata()
-        indicator_codes = df_metadata["indicator_code"].sample(10).tolist()
+        indicator_codes = df_metadata["indicator_code"].tolist()
         data = []
         with httpx.Client(timeout=30) as client:
             for indicator_code in tqdm(indicator_codes):
