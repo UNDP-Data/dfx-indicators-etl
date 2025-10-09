@@ -83,7 +83,6 @@ class Retriever(BaseRetriever):
                 df = self._get_data(indicator_code, client=client, **kwargs)
                 if df is None:
                     continue
-                df["indicator_code"] = indicator_code
                 data.append(df)
         return pd.concat(data, axis=0, ignore_index=True)
 
@@ -132,6 +131,9 @@ class Retriever(BaseRetriever):
             "startPeriod": start_period,
             "endPeriod": end_period,
         } | kwargs
+        df = self.read_csv(f"data/ILO,{indicator_code}/", params, client)
+        if df is not None:
+            df["indicator_code"] = indicator_code
         return self.read_csv(f"data/ILO,{indicator_code}/", params, client)
 
 
