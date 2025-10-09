@@ -1,6 +1,7 @@
 pandas[excel, fss, pyarrow] ~= 2.3.3
 adlfs ~= 2025.8.0
 pydantic ~= 2.11.10
+pydantic-settings ~= 2.11.0
 pandera ~= 0.26.1
 httpx ~= 0.28.1
 tqdm ~= 4.67.1
