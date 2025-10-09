@@ -70,7 +70,7 @@ schema = pa.DataFrameSchema(
         ),
         "indicator_name": pa.Column(
             dtype=str,
-            checks=[pa.Check.str_length(min_value=2, max_value=128)],
+            checks=[pa.Check.str_length(min_value=2, max_value=512)],
             nullable=False,
         ),
         "country_code": pa.Column(
