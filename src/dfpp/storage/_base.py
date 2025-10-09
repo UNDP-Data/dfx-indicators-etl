@@ -4,7 +4,6 @@ Base class to build storage interfaces for remote and local file systems.
 
 import os
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, final
 
@@ -13,29 +12,30 @@ import pandas as pd
 __all__ = ["BaseStorage"]
 
 
-@dataclass(frozen=True)
 class BaseStorage(ABC):
     """
     Abstract class to build storage interfaces.
     """
 
-    container_name: str = field(
-        metadata={
-            "description": "Container name, bucket name or path to a local folder."
-        },
-    )
-    storage_options: dict[str, Any] | None = field(
-        default=None,
-        metadata={
-            "description": "Storage options to be passed to `to_parquet` in `pandas`."
-        },
-    )
-    version: str = field(
-        default_factory=lambda: datetime.now(UTC).strftime("v%y-%m-%d"),
-        metadata={
-            "description": "String name to be used as a folder name for versioning runs."
-        },
-    )
+    @property
+    @abstractmethod
+    def storage_options(self) -> dict[str, Any] | None:
+        """
+        Storage options to be passed to `read_parquet` and `to_parquet` in `pandas`.
+        """
+
+    @final
+    @property
+    def version(self) -> str:
+        """
+        Get a version timestamp for versioning data in the storage.
+
+        Returns
+        -------
+        str
+            Version string in the format vYYYY-MM-DD.
+        """
+        return datetime.now(UTC).strftime("v%y-%m-%d")
 
     @abstractmethod
     def join_path(self, file_path: str) -> str:
@@ -46,7 +46,7 @@ class BaseStorage(ABC):
     @final
     def publish_dataset(self, df: pd.DataFrame, folder_path: str = "") -> str:
         """
-        Publish a dataset to the remote storage.
+        Publish a dataset to the storage.
 
         Parameters
         ----------
@@ -59,19 +59,19 @@ class BaseStorage(ABC):
         Returns
         -------
         str
-            Full path to the file on the remote storage.
+            Full path to the file in the storage.
         """
         if getattr(df, "name") is None:
             raise AttributeError("Data frame name must be provided.")
         file_path = os.path.join(self.version, folder_path, f"{df.name}.parquet")
         file_path = self.join_path(file_path)
         df.to_parquet(file_path, storage_options=self.storage_options, index=False)
-        return file_path
+        return str(file_path)
 
     @final
     def read_dataset(self, file_path: str, **kwargs) -> pd.DataFrame:
         """
-        Read a dataset from the remote storage.
+        Read a dataset from the storage.
 
         Parameters
         ----------
@@ -94,7 +94,10 @@ class BaseStorage(ABC):
                 )
             case ".csv":
                 return pd.read_csv(
-                    file_path, storage_options=self.storage_options, **kwargs
+                    file_path,
+                    storage_options=self.storage_options,
+                    low_memory=False,
+                    **kwargs,
                 )
             case ".xlsx":
                 return pd.read_excel(
