@@ -9,9 +9,9 @@ from pathlib import Path
 import pandas as pd
 from pydantic import Field
 
-from ._base import BaseRetriever, BaseTransformer
 from ..storage import BaseStorage
 from ..utils import generate_id
+from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Retriever", "Transformer"]
 

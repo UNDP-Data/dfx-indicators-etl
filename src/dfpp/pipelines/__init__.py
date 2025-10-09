@@ -9,11 +9,9 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl, StringConstraints
 from tqdm import tqdm
 
 from ..storage import BaseStorage
-from ..validation import schema
 from ..utils import get_country_metadata
-
+from ..validation import schema
 from ._base import BaseRetriever, BaseTransformer
-
 
 __all__ = ["Pipeline"]
 

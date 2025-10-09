@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
+
 from ._base import BaseStorage
 
 __all__ = ["AzureStorage"]

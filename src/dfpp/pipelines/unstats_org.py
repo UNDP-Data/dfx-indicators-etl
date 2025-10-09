@@ -8,8 +8,8 @@ import pandas as pd
 from pydantic import Field, HttpUrl
 from tqdm import tqdm
 
-from ._base import BaseRetriever, BaseTransformer
 from ..utils import replace_country_metadata, to_snake_case
+from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Retriever", "Transformer"]
 

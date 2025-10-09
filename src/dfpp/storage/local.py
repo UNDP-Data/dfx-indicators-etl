@@ -4,7 +4,7 @@ Storage class for a local file system.
 
 from typing import Any
 
-from pydantic import Field, DirectoryPath
+from pydantic import DirectoryPath, Field
 from pydantic_settings import BaseSettings
 
 from ._base import BaseStorage

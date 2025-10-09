@@ -9,11 +9,10 @@ import country_converter as coco
 import pandas as pd
 from pydantic import Field
 
-from ..validation import PREFIX_DISAGGREGATION, SexEnum
 from ..storage import BaseStorage
 from ..utils import generate_id
+from ..validation import PREFIX_DISAGGREGATION, SexEnum
 from ._base import BaseRetriever, BaseTransformer
-
 
 BASE_URL = "https://www.healthdata.org/"
 

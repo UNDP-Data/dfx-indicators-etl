@@ -10,7 +10,6 @@ from tqdm import tqdm
 
 from ._base import BaseRetriever, BaseTransformer
 
-
 __all__ = ["Retriever", "Transformer"]
 
 
