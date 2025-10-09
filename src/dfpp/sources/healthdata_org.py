@@ -9,9 +9,8 @@ import country_converter as coco
 import pandas as pd
 from pydantic import Field
 
-from ..validation import PREFIX_DISAGGREGATION
+from ..validation import PREFIX_DISAGGREGATION, SexEnum
 from ..storage import BaseStorage
-from ..transformation.column_name_template import SexEnum
 from ..utils import generate_id
 from ._base import BaseRetriever, BaseTransformer
 

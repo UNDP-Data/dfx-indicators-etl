@@ -2,6 +2,8 @@
 Validation function to ensure data integrity and consistency.
 """
 
+from enum import StrEnum
+
 import pandas as pd
 import pandera.pandas as pa
 
@@ -9,6 +11,17 @@ __all__ = ["count_duplicates", "check_duplicates", "schema"]
 
 PREFIX_DISAGGREGATION = "disagr_"
 PREFIX_PROPERTY = "prop_"
+
+
+class SexEnum(StrEnum):
+    MALE = "male"
+    FEMALE = "female"
+    BOTH = "both"
+    OTHER = "other"
+    TOTAL = "total"
+    NOT_APPLICABLE = "not applicable"
+    UNKNOWN = "unknown"
+    NON_RESPONSE = "non response"
 
 
 def count_duplicates(df: pd.DataFrame) -> int:
