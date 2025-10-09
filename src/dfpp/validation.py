@@ -114,7 +114,7 @@ schema = pa.DataFrameSchema(
             name="Check duplicates",
         )
     ],
-    strict=True,
+    strict="filter",
     name="Standardised Data Frame",
     description="Standardised data frame to be returned by a transformer",
 )
