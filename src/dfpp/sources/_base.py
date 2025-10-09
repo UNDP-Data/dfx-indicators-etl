@@ -8,7 +8,15 @@ from typing import final
 
 import httpx
 import pandas as pd
-from pydantic import BaseModel, ConfigDict, Field, FilePath, HttpUrl
+from pydantic import (
+    AnyUrl,
+    BaseModel,
+    ConfigDict,
+    Field,
+    FilePath,
+    HttpUrl,
+    ValidationError,
+)
 
 __all__ = ["BaseRetriever", "BaseTransformer"]
 
@@ -20,23 +28,25 @@ class BaseRetriever(BaseModel, ABC):
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
-    uri: HttpUrl | FilePath = Field(
+    uri: AnyUrl | FilePath = Field(
         ...,
         frozen=True,
         description="URL or file path to the source.",
     )
-    headers: dict = Field(
-        default_factory=lambda: {"User-Agent": "python"},
+    headers: dict | None = Field(
+        default=None,
         description="Headers to be used by `httpx.Client` for HTTP requests",
     )
 
     @property
     def client(self) -> httpx.Client:
-        if not isinstance(self.uri, HttpUrl):
+        try:
+            uri = HttpUrl(self.uri)
+        except ValidationError:
             raise TypeError(
                 "`client` is only applicable when `uri` is an HTTP location"
             )
-        return httpx.Client(base_url=str(self.uri), headers=self.headers, timeout=30)
+        return httpx.Client(base_url=str(uri), headers=self.headers, timeout=30)
 
     @abstractmethod
     def __call__(self, **kwargs) -> pd.DataFrame:
