@@ -39,14 +39,16 @@ class Retriever(BaseRetriever):
         df_metadata = self._get_metadata()
         indicator_codes = df_metadata["indicator_code"].tolist()
         data = []
-        with httpx.Client(timeout=30) as client:
+        with self.client as client:
             for indicator_code in tqdm(indicator_codes):
-                metadata, records = self._get_data(client, indicator_code, page=1)
-                data.extend(records)
+                metadata, records = self._get_data(indicator_code, 1, client)
+                if records is not None:
+                    data.extend(records)
                 if metadata is not None:
                     for page in tqdm(range(2, metadata["pages"])):
-                        _, records = self._get_data(client, indicator_code, page=page)
-                        data.extend(records)
+                        _, records = self._get_data(indicator_code, page, client)
+                        if records is not None:
+                            data.extend(records)
         return pd.DataFrame(data)
 
     def _get_metadata(self) -> pd.DataFrame:
@@ -55,14 +57,20 @@ class Retriever(BaseRetriever):
         """
         data = []
         params = {"format": "json", "per_page": 100, "page": 1}
-        with self.Client() as client:
-            metadata, indicators = client.get("indicator", params=params)
+        with self.client as client:
+            response = client.get("indicator", params=params)
+            response.raise_for_status()
+            metadata, indicators = response.json()
             data.extend(indicators)
             for page in tqdm(range(2, metadata["pages"])):
                 params["page"] = page
-                metadata, indicators = client.get("indicator", params=params)
+                response = client.get("indicator", params=params)
+                response.raise_for_status()
+                metadata, indicators = response.json()
                 data.extend(indicators)
-        return pd.DataFrame(data)
+        columns = {"id": "indicator_code", "name": "indicator_name"}
+        df = pd.DataFrame(data)
+        return df.reindex(columns=columns).rename(columns=columns)
 
     def _get_data(
         self,
@@ -95,15 +103,12 @@ class Retriever(BaseRetriever):
             },
         )
         response.raise_for_status()
-        metadata, data = None, None
         if len(data := response.json()) == 1:
             metadata = data[0]
             if "message" in metadata:
                 print(metadata)
-            metadata = None
-        elif len(data) == 2:
-            metadata, data = data
-        return metadata, data
+            return None, None
+        return data
 
 
 class Transformer(BaseTransformer):
@@ -143,6 +148,8 @@ class Transformer(BaseTransformer):
 
         # keep only yearly data
         df = df.loc[df["date"].str.isdigit()].copy()
+
+        df.dropna(subset=["value"], inplace=True)
 
         columns = {
             "indicator_id": "indicator_code",
