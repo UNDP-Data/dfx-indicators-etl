@@ -56,7 +56,7 @@ class Pipeline(Metadata):
 
     retriever: BaseRetriever
     transformer: BaseTransformer
-    storage: BaseStorage
+    storage: BaseStorage = Field(repr=False)
     df_raw: pd.DataFrame | None = None
     df_transformed: pd.DataFrame | None = None
     df_validated: pd.DataFrame | None = None

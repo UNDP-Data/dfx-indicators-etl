@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     sas_token: str = Field(
         validation_alias="AZURE_STORAGE_SAS_TOKEN",
         description="SAS token for a container in the Azure Storage account. See https://docs.azure.cn/en-us/ai-services/language-service/native-document-support/shared-access-signatures",
+        repr=False,
     )
 
 
@@ -30,9 +31,6 @@ class AzureStorage(BaseStorage, Settings):
     """
     Storage interface for Azure Blob Storage.
     """
-
-    def __repr__(self):
-        return re.sub(r"sas_token='\S+'", "sas_token='REDACTED'", super().__repr__())
 
     @property
     def storage_options(self) -> dict[str, Any] | None:
