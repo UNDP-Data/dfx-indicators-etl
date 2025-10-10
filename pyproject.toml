@@ -5,6 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dfx-etl"
 version = "0.1.0"
+description = "An ETL pipeline to collect and process indicator data for the Data Futures Exchange (DFx) at UNDP."
 dynamic = ["dependencies", "optional-dependencies"]
 
 [tool.setuptools.dynamic]
