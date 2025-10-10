@@ -19,12 +19,10 @@ __all__ = ["Pipeline"]
 logger = logging.getLogger(__name__)
 
 
-class Pipeline(BaseModel):
+class Metadata(BaseModel):
     """
-    ETL pipeline to process a single source.
+    Metadata properties of the pipeline.
     """
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: str = Field(
         description="Short formal name of the source",
@@ -40,13 +38,22 @@ class Pipeline(BaseModel):
             pattern="\w+",
         ),
     ] = Field(
-        description="Short unique source name used as a directory name",
+        description="Short unique source name used as a directory name when publishing the data",
         examples=["ilo_org", "unicef_org"],
     )
     url: HttpUrl = Field(
-        description="Full URL to the source website",
+        description="Full URL to the source website used to overwrite `source` column in the output data",
         examples=["https://ilostat.ilo.org", "https://sdmx.data.unicef.org"],
     )
+
+
+class Pipeline(Metadata):
+    """
+    An ETL pipeline to process a single source.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     retriever: BaseRetriever
     transformer: BaseTransformer
     storage: BaseStorage
