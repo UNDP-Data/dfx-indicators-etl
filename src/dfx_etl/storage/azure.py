@@ -2,7 +2,6 @@
 Storage interface for I/O operations with Azure Storage.
 """
 
-import re
 from typing import Any
 
 from pydantic import Field
