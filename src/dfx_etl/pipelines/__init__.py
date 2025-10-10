@@ -57,9 +57,23 @@ class Pipeline(Metadata):
     retriever: BaseRetriever
     transformer: BaseTransformer
     storage: BaseStorage = Field(repr=False)
-    df_raw: pd.DataFrame | None = None
-    df_transformed: pd.DataFrame | None = None
-    df_validated: pd.DataFrame | None = None
+    df_raw: pd.DataFrame | None = Field(default=None, repr=False)
+    df_transformed: pd.DataFrame | None = Field(default=None, repr=False)
+    df_validated: pd.DataFrame | None = Field(default=None, repr=False)
+
+    def __repr__(self) -> str:
+        """
+        Overwrite the represetnation to avoid data frame clutter.
+        """
+        string = super().__repr__()[:-1]  # strip the last `)`
+        for k, v in self.model_dump().items():
+            # for data frames, only show the shape
+            if k.startswith("df_"):
+                if v is not None:
+                    v = f"<DataFrame shape={v.shape}>"
+                string += f", {k}={v}"
+        string += ")"
+        return string
 
     def __call__(self) -> pd.DataFrame:
         """
