@@ -23,6 +23,7 @@ class Retriever(BaseRetriever):
         default="https://www.sipri.org/sites/default/files/SIPRI-Milex-data-1949-2024_2.xlsx",
         frozen=True,
         validate_default=True,
+        description="See https://www.sipri.org/databases/milex.",
         examples=[
             "https://www.sipri.org/sites/default/files/SIPRI-Milex-data-1948-2023.xlsx"
         ],

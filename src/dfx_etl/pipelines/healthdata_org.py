@@ -29,7 +29,7 @@ class Retriever(BaseRetriever):
         default="inputs/IHME-GBD_2021_DATA-c13547d7-1.csv",
         frozen=True,
         validate_default=True,
-        description="Path to a file downloaded from IHME's website.",
+        description="Path to a file downloaded from IHME's website. See https://ghdx.healthdata.org/gbd-2021.",
     )
     storage: BaseStorage
 
