@@ -39,7 +39,7 @@ class Metadata(BaseModel):
             to_lower=True,
             min_length=3,
             max_length=64,
-            pattern="\w+",
+            pattern=r"\w+",
         ),
     ] = Field(
         description="Short unique source name used as a directory name when publishing the data",
@@ -89,11 +89,11 @@ class Pipeline(Metadata):
             Validated data frame in the standard form.
         """
         self.retrieve()
-        logger.info(f"Raw data shape: {self.df_raw.shape}")
+        logger.info("Raw data shape: %s", self.df_raw.shape)
         self.transform()
-        logger.info(f"Transformed data shape: {self.df_transformed.shape}")
+        logger.info("Transformed data shape: %s", self.df_transformed.shape)
         self.validate()
-        logger.info(f"Validated data shape: {self.df_validated.shape}")
+        logger.info("Validated data shape: %s", self.df_validated.shape)
         self.load()
         return self.df_validated
 

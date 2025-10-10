@@ -35,5 +35,5 @@ def get_storage(**kwargs) -> BaseStorage:
         storage = AzureStorage(**kwargs)
     except ValidationError:
         storage = LocalStorage(**kwargs)
-    logger.info(f"Using {storage=} storage")
+    logger.info("Using %s storage", storage)
     return storage

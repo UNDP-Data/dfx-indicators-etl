@@ -144,7 +144,7 @@ class Transformer(BaseTransformer):
 
         # Subset only relevant columns
         columns = ["Country", "indicator_code", "indicator_name", "unit"]
-        df = df[columns].join(df.filter(regex="\d+"))
+        df = df[columns].join(df.filter(regex=r"\d+"))
         # Reshape from wide to long
         df = df.melt(id_vars=columns, var_name="year", value_name="value")
         # Remove missing values
