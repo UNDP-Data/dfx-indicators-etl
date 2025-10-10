@@ -21,6 +21,10 @@ __all__ = ["Retriever", "Transformer"]
 
 
 class Retriever(BaseRetriever):
+    """
+    A class for retrieving data from the IHME.
+    """
+
     uri: Path = Field(
         default="inputs/IHME-GBD_2021_DATA-c13547d7-1.csv",
         frozen=True,
@@ -48,6 +52,9 @@ class Retriever(BaseRetriever):
 
 
 class Transformer(BaseTransformer):
+    """
+    A class for transforming raw data from the IHME.
+    """
 
     def __call__(self, df: pd.DataFrame, **kwargs):
         """

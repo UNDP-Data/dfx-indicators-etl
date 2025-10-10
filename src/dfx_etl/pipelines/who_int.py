@@ -26,6 +26,10 @@ warnings.warn(
 
 
 class Retriever(BaseRetriever):
+    """
+    A class for retrieving data from the WHO GHO API.
+    """
+
     uri: HttpUrl = Field(
         default="https://ghoapi.azureedge.net/api/",
         frozen=True,
@@ -129,6 +133,9 @@ class Retriever(BaseRetriever):
 
 
 class Transformer(BaseTransformer):
+    """
+    A class for transforming raw data from the WHO GHO API.
+    """
 
     def __call__(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """

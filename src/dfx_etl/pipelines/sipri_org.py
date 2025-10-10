@@ -15,6 +15,10 @@ __all__ = ["Retriever", "Transformer"]
 
 
 class Retriever(BaseRetriever):
+    """
+    A class for retrieving data from the SIPRI Milex.
+    """
+
     uri: HttpUrl = Field(
         default="https://www.sipri.org/sites/default/files/SIPRI-Milex-data-1949-2024_2.xlsx",
         frozen=True,
@@ -119,6 +123,9 @@ class Retriever(BaseRetriever):
 
 
 class Transformer(BaseTransformer):
+    """
+    A class for transforming raw data from the SIPRI Milex.
+    """
 
     def __call__(self, df: pd.DataFrame, **kwargs):
         """

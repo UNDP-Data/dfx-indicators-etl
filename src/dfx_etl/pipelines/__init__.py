@@ -1,5 +1,9 @@
 """
 Pipelines and pipeline components for data sources.
+
+Source-specific processing logic is defined in their respective submodules.
+The `Pipeline` class is generic and can be used to process any resource, given
+the correct implementation of `retriever` and `transformer` components.
 """
 
 import logging
@@ -42,7 +46,7 @@ class Metadata(BaseModel):
         examples=["ilo_org", "unicef_org"],
     )
     url: HttpUrl = Field(
-        description="Full URL to the source website used to overwrite `source` column in the output data",
+        description="URL to the website used to overwrite `source` column in the output data",
         examples=["https://ilostat.ilo.org", "https://sdmx.data.unicef.org"],
     )
 
@@ -78,6 +82,11 @@ class Pipeline(Metadata):
     def __call__(self) -> pd.DataFrame:
         """
         Run all steps of the ETL pipeline.
+
+        Returns
+        -------
+        pd.DataFrame
+            Validated data frame in the standard form.
         """
         self.retrieve()
         logger.info(f"Raw data shape: {self.df_raw.shape}")
@@ -92,14 +101,29 @@ class Pipeline(Metadata):
     def retrieve(self, **kwargs) -> Self:
         """
         Run the retrieval step to obtain raw data.
+
+        Syntactic sugar that calls the underlying retriever.
+
+        Parameters
+        ----------
+        **kwargs
+            Keyword arguments to be passed to the retriever call.
         """
         self.df_raw = self.retriever(**kwargs)
-        return self.df_raw
+        return self
 
     @final
     def transform(self, **kwargs) -> Self:
         """
-        Run the transformation step of the raw data.
+        Run the transformation step on the raw data.
+
+        This function also ensures that only the rows with an M49 ISO code
+        are kept.
+
+        Parameters
+        ----------
+        **kwargs
+            Keyword arguments to be passed to the transformer call.
         """
         if self.df_raw is None:
             raise ValueError("No raw data. Run the retrieval first")
@@ -116,7 +140,9 @@ class Pipeline(Metadata):
     @final
     def validate(self) -> Self:
         """
-        Run the validation of the transformed data, coercing data types if applicable.
+        Run the validation on the transformed data, coercing data types if applicable.
+
+        This function ensures that the data frame is valid and data types are consistent.
         """
         if self.df_transformed is None:
             raise ValueError("No transformed data. Run the transformation first")
@@ -126,7 +152,10 @@ class Pipeline(Metadata):
     @final
     def load(self) -> Self:
         """
-        Run the load step to push the data to the storage.
+        Run the load step to push the validated data to the storage.
+
+        The function writes one parquet file per indicator code, using the code
+        as a file name.
         """
         if self.df_validated is None:
             raise ValueError("No validated data. Run the validation first")

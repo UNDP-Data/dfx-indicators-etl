@@ -14,6 +14,10 @@ PREFIX_PROPERTY = "prop_"
 
 
 class SexEnum(StrEnum):
+    """
+    Standardised names for sex disaggregation categories.
+    """
+
     MALE = "male"
     FEMALE = "female"
     BOTH = "both"

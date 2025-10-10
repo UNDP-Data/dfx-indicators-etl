@@ -17,6 +17,10 @@ __all__ = ["Retriever", "Transformer"]
 
 
 class Retriever(BaseRetriever):
+    """
+    A class for retrieving data from the UNAIDS Key Population Atlas.
+    """
+
     uri: Path = Field(
         default="inputs/KPAtlasDB_2025_en.csv",
         frozen=True,
@@ -45,6 +49,9 @@ class Retriever(BaseRetriever):
 
 
 class Transformer(BaseTransformer):
+    """
+    A class for transforming raw data from the UNAIDS Key Population Atlas.
+    """
 
     def __call__(self, df: pd.DataFrame, **kwargs):
         """

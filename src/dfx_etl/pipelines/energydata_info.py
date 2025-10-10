@@ -1,5 +1,6 @@
 """
-ETL routines for data from https://energydata.info.
+ETL routines for data from ENERGYDATA.INFO.
+See https://energydata.info.
 """
 
 import country_converter as coco
@@ -13,6 +14,10 @@ __all__ = ["Retriever", "Transformer"]
 
 
 class Retriever(BaseRetriever):
+    """
+    A class for retrieving data from ENERGYDATA.INFO.
+    """
+
     uri: HttpUrl = Field(
         default="https://energydata.info/dataset/b33e5af4-bd51-4ee0-a062-29438471db27/resource/6938ec3a-f7bb-4493-86ba-f28faa62f139/download/eleccap_20220404-201215.xlsx",
         frozen=True,
@@ -37,6 +42,9 @@ class Retriever(BaseRetriever):
 
 
 class Transformer(BaseTransformer):
+    """
+    A class for transforming raw data from the ENERGYDATA.INFO.
+    """
 
     def __call__(self, df: pd.DataFrame, **kwargs):
         """

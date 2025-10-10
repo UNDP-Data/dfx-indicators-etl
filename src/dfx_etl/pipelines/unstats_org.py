@@ -15,6 +15,10 @@ __all__ = ["Retriever", "Transformer"]
 
 
 class Retriever(BaseRetriever):
+    """
+    A class for retrieving data from the UN Stats SDG API.
+    """
+
     uri: HttpUrl = Field(
         default="https://unstats.un.org/sdgapi/v1/sdg/",
         frozen=True,
@@ -125,6 +129,9 @@ class Retriever(BaseRetriever):
 
 
 class Transformer(BaseTransformer):
+    """
+    A class for transforming raw data from the UN Stats SDG API.
+    """
 
     def __call__(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """

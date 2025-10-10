@@ -14,6 +14,10 @@ __all__ = ["Retriever", "Transformer"]
 
 
 class Retriever(BaseRetriever):
+    """
+    A class for retrieving data from the IMF DataMapper API.
+    """
+
     uri: HttpUrl = Field(
         default="https://www.imf.org/external/datamapper/api/v1/",
         frozen=True,
@@ -115,6 +119,9 @@ class Retriever(BaseRetriever):
 
 
 class Transformer(BaseTransformer):
+    """
+    A class for transforming raw data from the IMF DataMapper API.
+    """
 
     def __call__(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """

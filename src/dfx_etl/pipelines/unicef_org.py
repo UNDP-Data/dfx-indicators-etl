@@ -16,6 +16,10 @@ __all__ = ["Retriever", "Transformer"]
 
 
 class Retriever(BaseRetriever):
+    """
+    A class for retrieving data from the UNICEF SDMX API.
+    """
+
     uri: HttpUrl = Field(
         default="https://sdmx.data.unicef.org/ws/public/sdmxapi/rest",
         frozen=True,
@@ -160,6 +164,9 @@ class Retriever(BaseRetriever):
 
 
 class Transformer(BaseTransformer):
+    """
+    A class for transforming raw data from the UNICEF SDMX API.
+    """
 
     def __call__(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
