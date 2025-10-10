@@ -1,173 +1,143 @@
-## The Data Futures Platform Backend Pipeline - an ETL pipeline for the Data Futures Platform
+# DFx ETL Pipeline
 
-### Table of Contents
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/release/python-3120/)
+[![License](https://img.shields.io/github/license/undp-data/dfx-etl-pipeline)](https://github.com/undp-data/dfx-etl-pipeline/blob/main/LICENSE)
+[![Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-%23FE5196?logo=conventionalcommits&logoColor=white)](https://conventionalcommits.org)
+
+A Python package containing an ETL pipeline for processing indicator data used by the [Data Futures Exchange](https://data.undp.org) (DFx).
+
+> [!WARNING]  
+> The package is currently undergoing a major revamp. Some features may be missing or not working as intended. Feel free to [open an issue](https://github.com/UNDP-Data/dfx-etl-pipeline/issues).
+
+# Table of Contents
 1. [Introduction](#introduction)
 2. [Installation](#installation)
 3. [Usage](#usage)
-4. [Contributing](#contributing)
-5. [License](#license)
+4. [Sources](#sources)
+5. [Contributing](#contributing)
+6. [License](#license)
+7. [Contact](#contact)
+---
 
-### Introduction
-The Data Futures Platform Backend Pipeline is an ETL pipeline that transforms data from various sources and translates it into a format that can be used by the [Data Futures Platform](data.undp.org). The pipeline is written in Python.
-The list of sources that the pipeline currently supports can be found [here](#sources).
+## Introduction
 
-### Installation
-The pipeline requires Python 3.10 or higher. To install the pipeline as a Python package, run the following command:
+The Data Futures Exchange (DFx) is an analytics platform designed to support data-driven decision-making at UNDP. This repository hosts a Python package developed to collect, process and consolidate indicator data from various sources for the use on the DFx. The project is structured as follows:
+
 ```bash
-pip install git+https://github.com/UNDP-Data/dv-data-pipeline.git
+.
+├── .github/                  # GitHub templates and settings
+│   └── ...
+├── src/                      # package source code
+│   └── dfx_etl/
+│       ├── data/             # auxiliary data shipped with the package
+│       │   └── unsd-m49.csv  # https://unstats.un.org/unsd/methodology/m49
+│       ├── pipelines/        # ETL pipelines for various sources
+│       │   ├── __init__.py
+│       │   ├── _base.py      # base classes to inherit from for new sources
+│       │   ├── energydata_info.py 
+│       │   ├── ...
+│       │   └── world_bank.py # source-specific ETL steps
+│       ├── storage/          # supported storage backends
+│       │   ├── __init__.py
+│       │   ├── _base.py      # base class to inherit from for new backends
+│       │   ├── azure.py      # Azure Blob Storage backend
+│       │   └── local.py      # local storage backend
+│       ├── __init__.py
+│       ├── utils.py          # utility functions
+│       └── validation.py     # validation schemas and functions
+├── .env.example              # .env files example
+├── .gitattributes            # special git attributes
+├── .gitignore                # untracked path patterns
+├── CONTRIBUTING.md           # guidelines for contributors
+├── LICENSE                   # license terms for the package
+├── main.ipynb                # main notebook for execuring pipelines
+├── Makefile                  # make commands for routine operations
+├── pyproject.toml            # Python package metadata
+├── README.md                 # this file
+├── requirements_dev.txt      # development dependencies
+└── requirements.txt          # core dependencies
 ```
 
-### Usage
-There are several components to the pipeline, each of which can be run independently. The pipeline can be run in its entirety by running the following command:
+
+## Installation
+
+Currently, the package is distributed via GitHub only. You can install it with `pip`:
+
 ```bash
-python3 -m dfpp.cli run
+ pip install git+https://github.com/undp-data/dfx-etl-pipeline
 ```
 
-Before running the pipeline, you need to set the following environment variables:
-```bash
-AZURE_STORAGE_CONNECTION_STRING=<connection string for Azure storage account>
-AZURE_STORAGE_CONTAINER_NAME=<name of Azure storage container>
-ROOT_FOLDER=<Root folder of the storage>
-``` 
-```Usage: python dfpp.cli [OPTIONS]
--h, --help                           Show this message and exit.
--l log-level, --log-level log-level  Set the log levell. {INDO, DEBUG, TRACE}
--i --indicators                      Run the indicator pipeline.
--f --filter                          Filter the indicators to run using specific phrases/substrings etc.
--e, --load-env-file                  Load the environment variables from the .env file.
+See [VCS Support](https://pip.pypa.io/en/stable/topics/vcs-support/#vcs-support) for more details.
 
+## Usage
 
-Commands:
-  list
-  run
+The package provides ETL – or rather RTVL – routines for a range of supported sources. Running a pipeline involves 4 steps:
 
-Stage 1: Downloading data
-Usage: python3 -m dfpp.cli -e run download [OPTIONS]
+1. **R**etriving raw data using a source-specific `Retriever`.
+2. **T**ransforming raw data using a source-specific `Transformer`.
+3. **V**alidating transformed data against a fixed data schema.
+4. **L**oading validated data to a supported storage backend.
 
-Options:
-  -s, --indicators [<indicator>]  Run the download pipeline for a specific indicator. It is going to download the sources for this indicator.
-  -h, --help                   Show this message and exit.
-  
-Stage 2: Transforming data
-Usage: python3 -m dfpp.cli -e run transform [OPTIONS]
+These 4 steps are abstracted away in a single `Pipeline` class. The basic usage is demonstrated below.
 
-Options:
-  -i, --indicators [<indicator>]  Run the transform pipeline for a specific indicator. It is going to transform the sources for this indicator.
-  -h, --help                      Show this message and exit.
-  
-Stage 3: Publishing data
-Usage: python3 -m dfpp.cli -e run publish [OPTIONS]
+```python
+# import a supported backend and source
+from dfx_etl.storage import AzureStorage
+from dfx_etl.pipelines import who_int as source, Pipeline
 
-Options:
-  -i, --indicators [<indicator>]  Run the publish section of the pipeline for a specific indicator. It is going to upload data sources for this indicator.
-  -h, --help                      Show this message and exit.
-  
+# instantiate a pipeline with relevant metadata
+pipeline = Pipeline(
+    name="WHO",
+    directory="who_int",
+    url="https://ghoapi.azureedge.net/api/",
+    retriever=source.Retriever(),
+    transformer=source.Transformer(),
+    storage=storage,
+)
 
-All stages:
-Usage: python3 -m dfpp.cli -e run [OPTIONS]
-
-Options:
-  -i, --indicators [<indicator>]  Run the pipeline for a specific indicator(s). It is going to download, transform and upload the sources for the specified indicator(s). If
-                                  no indicator is specified, it is going to run the pipeline for all indicators.
-  -h, --help                      Show this message and exit.
+# run the RTVL steps one by one
+pipeline.retrieve()
+pipeline.transform()
+pipeline.validate()
+pipeline.load()
+# or just call the `pipeline` to run them all at once
+pipeline()
 ```
 
-#### Indicators
-The pipeline is designed to be run for indicators. This means that the starting point of the pipeline is indicator based.
-The list of indicators that the pipeline currently supports can be found [here](indicators.md).
+For more details see [`main.ipynb`](main.ipynb).
 
-##### Adding a new indicator
-To add a new indicator to the pipeline, you need to create a new file in the `config/indicators` directory. The name of the file should be the name of the intended `indicator id`. Make sure that the filename is unique and that there is no indicator id similar to it
-in the `config/indicators` directory. The file should be a `cfg or ini` file and should contain the following fields:
-```ini
-[indicator]
-indicator_id = <indicator id>
-indicator_name = <indicator name>
-display_name = <display name>
-source_id = <source id>
-data_type = float
-frequency = <frequency of updates>
-aggregatetype = <aggregation type>
-preprocessing = <preprocessing function>
-transform_function = <transform function>
-group_name = <group name>
-value_column = <value column>
-year = <year column>
-column_substring = <column substring>
-sheet_name = <sheet name>
-[metadata]
-initial_download_date = <initial download date>
-last_download_date = <last download date>
-last_transform_date = <last transform date>
-last_upload_date = <last upload date>
-```
-
-The `indicator` section contains the following fields:
-- `indicator_id`: The id of the indicator. This is the id that will be used to identify the indicator in the pipeline.
-- `indicator_name`: The name of the indicator. This is the name that will be used to identify the indicator in the pipeline.
-- `display_name`: The display name of the indicator. This is the name that will be used to display the indicator in the Data Futures Platform.
-- `source_id`: The id of the source. This is the id that will be used to identify the source in the pipeline. The source id should be unique. 
-- `data_type`: The data type of the indicator. This can be either `float`,`int`,`boolean` or `string` depending on the data type of the column(s) indicator in the source file.
-- `frequency`: The frequency of updates for the indicator.
-- `aggregatetype`: The aggregation type of the indicator. This can be either `sum`,`mean`,`median`,`mode`,`min`,`max`,`first`,`last` or `count` depending on the aggregation type of the indicator in the source file.
-- `preprocessing`: The preprocessing function of the indicator. As the name suggests, this function is used to preprocess the data before it is transformed. This function should be defined in the `dfpp.preprocessing` module.
-- `transform_function`: The transform function of the indicator. This function is used to transform the data into a format that can be used by the Data Futures Platform. This function should be defined in the `dfpp.transform_functions` module.
-- `group_name`: The group name of the indicator.
-- `value_column`: The name of the column that contains the values of the indicator.
-- `year`: The year for which the indicator is calculated. Note that if the indicator is calculated for multiple years, the year column value should be `None`.
-- `column_substring`: The substring that is used to identify the column(s) that contain the values of the years for the indicator.
-- `sheet_name`: The name of the sheet that contains the data for the indicator.
-- `metadata`: The metadata section contains the following fields:
-    - `initial_download_date`: The date on which the indicator was first downloaded.
-    - `last_download_date`: The date on which the indicator was last downloaded.
-    - `last_transform_date`: The date on which the indicator was last transformed.
-    - `last_upload_date`: The date on which the indicator was last uploaded.
-
-##### Adding a new source
-Once the indicator has been added, you need to add the source for the indicator. The source should be added to the `config/sources/<source_id>/<source_id>.cfg` directory. The name of the file should be the name of the intended `source id`. Make sure that the filename is unique and that there is no source id similar to it.
-The file should be a `cfg or ini` file and should contain the following fields:
-```ini
-[source]
-id = <source id>
-name = <source name>
-url = <source url>
-frequency = <frequency of updates>
-source_type = <source type>
-save_as = <save as>
-file_format = <file format>
-downloader_function = <downloader function>
-country_iso3_column = <country iso3 column>
-country_name_column = <country name column>
-datetime_column = <datetime column>
-year = <year column>
-group_column = <group column>
-country_code_aggregate = <country code aggregate>
-aggregate = <aggregate>
-
-[downloader_params]
-file_name = <file name>
-```
-
-The `source` section contains the following fields:
-- `id`: The id of the source. This is the id that will be used to identify the source in the pipeline. The source id should be unique.
-- `name`: The name of the source. This is the name that will be used to identify the source in the pipeline.
-- `url`: The url of the source.
-- `frequency`: The frequency of updates for the source.
-- `source_type`: The type of the source. This can be either `csv`,`excel`,`json` or `xml` depending on the type of the source.
-- `save_as`: The name of the file in which the source will be saved.
-- `file_format`: The format of the file in which the source will be saved. This can be either `csv`,`excel`,`json` or `xml` depending on the format of the file in which the source will be saved.
-- `downloader_function`: The downloader function of the source. This function is used to download the source. This function should be defined in the `dfpp.downloader_functions` module.
-- `country_iso3_column`: The name of the column that contains the iso3 codes of the countries.
-- `country_name_column`: The name of the column that contains the names of the countries.
-- `datetime_column`: The name of the column that contains the datetime values.
-- `year`: The name of the column that contains the year values.
-- `group_column`: The name of the column that contains the group values.
-- `country_code_aggregate`: The country code aggregate of the source. This can be either `sum`,`mean`,`median`,`mode`,`min`,`max`,`first`,`last` or `count` depending on the country code aggregate of the source.
-- `aggregate`: The aggregate of the source. This can be either `sum`,`mean`,`median`,`mode`,`min`,`max`,`first`,`last` or `count` depending on the aggregate of the source.
-- `downloader_params`: This section contains the parameters that are required by the downloader function of the source.
-- `file_name`: The name of the file in a zip, in case the source file downloaded as a zip file.
-
-#### Deployment
-The pipeline is (intended) deployed on Azure using Azure Functions. The deployment process is automated using GitHub Actions.
+> [!WARNING]  
+> Running the pipeline requires the `.env` file at the root of the project. Depending on the storage backend, you might need to set different types of variables. See [`.env.example`](.env.example).
 
 
+## Sources
+
+Below is the list of sources currently supported by the package.
+
+| **Name**         | **URL**                                                                                                          |
+|------------------|------------------------------------------------------------------------------------------------------------------|
+| Energydata.info  | [ELECCAP dataset](https://energydata.info/dataset/installed-electricity-capacity-by-country-area-mw-by-country)  |
+| IHME             | [GBD 2021 dataset](https://ghdx.healthdata.org/gbd-2021)                                                         |
+| ILO              | [ILOSTAT SDMX API](https://ilostat.ilo.org/resources/sdmx-tools/)                                                |
+| IMF              | [IMF DataMapper API](https://www.imf.org/external/datamapper/api/help)                                           |
+| SIPRI            | [SIPRI Milex dataset](https://www.sipri.org/databases/milex)                                                     |
+| UNAIDS           | [UNAIDS Key Population Atlas](https://kpatlas.unaids.org)                                                        |
+| UNICEF           | [UNICEF SDMX API](https://sdmx.data.unicef.org/overview.html)                                                    |
+| UN Stats         | [UN Stats SDG API](https://unstats.un.org/sdgs/UNSDGAPIV5/swagger/index.html)                                    |
+| WHO              | [WHO GHO API](https://www.who.int/data/gho/info/gho-odata-api)                                                   |
+| World Bank       | [World Bank Indicator API](https://datahelpdesk.worldbank.org/knowledgebase/topics/125589-developer-information) |
+
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## License
+
+This project is licensed under the GNU General Public License. See the [`LICENSE`](LICENSE) file.
+
+## Contact
+
+This project is part of [Data Futures Exchange (DFx)](https://data.undp.org) at UNDP. If you are facing any issues or would like to make some suggestions, feel free to [open an issue](https://github.com/undp-data/dfx-etl-pipeline/issues/new/choose). For enquiries about DFx, visit [Contact Us](https://data.undp.org/contact-us).

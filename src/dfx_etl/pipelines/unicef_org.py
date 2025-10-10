@@ -1,0 +1,198 @@
+"""
+ETL components to process data from the UNICEF SDMX API
+by United Nations Children's Fund (UNICEF).
+See https://data.unicef.org/sdmx-api-documentation/ and
+https://sdmx.data.unicef.org/overview.html.
+"""
+
+import httpx
+import pandas as pd
+from pydantic import Field, HttpUrl
+from tqdm import tqdm
+
+from ._base import BaseRetriever, BaseTransformer
+
+__all__ = ["Retriever", "Transformer"]
+
+
+class Retriever(BaseRetriever):
+    """
+    A class for retrieving data from the UNICEF SDMX API.
+    """
+
+    uri: HttpUrl = Field(
+        default="https://sdmx.data.unicef.org/ws/public/sdmxapi/rest",
+        frozen=True,
+        validate_default=True,
+    )
+    dataflow: str = Field(
+        default="UNICEF,GLOBAL_DATAFLOW,1.0",
+        frozen=True,
+        validate_default=True,
+        description="Dataflow value as it should appear in the query.",
+    )
+
+    def __call__(self, **kwargs) -> pd.DataFrame:
+        """
+        Retrieve data from the UNICEF SDMX API,
+
+        Parameters
+        ----------
+        **kwargs
+            Extra arguments to pass to `_get_data`.
+
+        Returns
+        -------
+        pd.DataFrame
+            Raw data from the API for the indicators with supported disaggregations.
+        """
+        df_metadata = self._get_metadata()
+        fields = self._get_query_fields()
+        indicator_codes = df_metadata["indicator_code"].tolist()
+        data = []
+        with self.client as client:
+            for indicator_code in tqdm(indicator_codes):
+                df = self._get_data(indicator_code, fields, client=client, **kwargs)
+                if df is None:
+                    continue
+                data.append(df)
+        df_data = pd.concat(data, axis=0, ignore_index=True)
+        return df_data
+
+    def _get_dataflow(self) -> dict:
+        params = {
+            "format": "fusion-json",
+            "dimensionAtObservation": "AllDimensions",
+            "detail": "structureOnly",
+            "includeMetrics": True,
+            "includeMetadata": True,
+            "match": "all",
+            "includeAllAnnotations": True,
+        }
+        response = self.client.get(f"data/{self.dataflow}", params=params)
+        response.raise_for_status()
+        return response.json()
+
+    def _get_query_fields(self) -> list[str]:
+        data = self._get_dataflow()
+        observation = data["structure"]["dimensions"]["observation"]
+        return [x["id"].lower() for x in observation]
+
+    def _set_query_options(self, fields: list[str], **kwargs) -> list[str]:
+        if set(fields) & set(kwargs):
+            values = []
+            for option in fields:
+                value = kwargs.get(option, "")
+                if isinstance(value, str):
+                    values.append(value)
+                elif isinstance(value, list):
+                    values.append("+".join(value))
+                else:
+                    raise ValueError(
+                        f"{option} must be either a string or list of strings, got {type(value)}."
+                    )
+            options = ".".join(values)
+        else:
+            options = "all"
+        return options
+
+    def _get_metadata(self) -> pd.DataFrame:
+        """
+        Get series metadata from UNICEF Indicator Data Warehouse.
+
+        Returns
+        -------
+        pd.DataFrame
+            Data frame with metadata columns.
+        """
+        to_rename = {
+            "id": "indicator_code",
+            "name": "indicator_name",
+            "description": "indicator_description",
+        }
+        data = self._get_dataflow()
+        observation = data["structure"]["dimensions"]["observation"]
+        indicators = [x for x in observation if x["id"] == "INDICATOR"][0]["values"]
+        indicators = [indicator for indicator in indicators if indicator["inDataset"]]
+        return (
+            pd.DataFrame(indicators)
+            .reindex(columns=to_rename)
+            .rename(columns=to_rename)
+        )
+
+    def _get_data(
+        self,
+        indicator_code: str,
+        fields: list[str] | None = None,
+        client: httpx.Client | None = None,
+        **kwargs,
+    ) -> pd.DataFrame | None:
+        """
+        Get series data from UNICEF Indicator Data Warehouse.
+
+        Parameters
+        ----------
+        indicator_code : str
+            Indicator code to retrieve data for.
+        **kwargs
+            Dataflow-specific keyword arguments that typically include
+            indicator IDs, geographic area etc. Check `get_query_options`
+            for valid values.
+
+        Returns
+        -------
+        pd.DataFrame or None
+            Data frame with country data in the wide format.
+
+        Examples
+        --------
+        >>> _get_data(
+        ...    "UNICEF,GLOBAL_DATAFLOW,1.0",
+        ...    indicator_code="DM_POP_TOT",
+        ...    time_period=["2020", "2021"],
+        ... )
+        #       REF_AREA Geographic area INDICATOR  ... Current age
+        # 0     AFG      Afghanistan	 DM_POP_TOT ... Total
+        # ...
+        # 69041 ZWE      Zimbabwe        DM_POP_TOT ... Total
+        """
+        if fields is None:
+            fields = self._get_query_fields()
+        options = self._set_query_options(fields, indicator=indicator_code, **kwargs)
+        params = {"format": "csv", "labels": "both"}
+        return self.read_csv(f"data/{self.dataflow}/{options}", params, client)
+
+
+class Transformer(BaseTransformer):
+    """
+    A class for transforming raw data from the UNICEF SDMX API.
+    """
+
+    def __call__(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        """
+        Transform raw data from UNICEF SDMX API.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Raw data frame.
+
+        Returns
+        -------
+        pd.DataFrame
+            Transformed data frame in the canonical format.
+        """
+        columns = {
+            "REF_AREA": "country_code",
+            "series_id": "indicator_code",
+            "Indicator": "indicator_name",
+            "Sex": "disagr_sex",
+            "Current age": "disagr_age",
+            "TIME_PERIOD": "year",
+            "OBS_VALUE": "value",
+            "Unit of measure": "unit",
+        }
+        # handle values like <1 or <100 or >95%
+        # the values now represent and upper/lower bound respectively
+        df["OBS_VALUE"] = df["OBS_VALUE"].str.strip("<>")
+        return df.reindex(columns=columns).rename(columns=columns)

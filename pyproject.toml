@@ -3,28 +3,11 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dfpp"
+name = "dfx-etl"
+description = "An ETL pipeline to collect and process indicator data for the Data Futures Exchange (DFx) at UNDP."
+dynamic = ["dependencies", "optional-dependencies", "version"]
 
-version = "0.0.1"
-description = "UNDP's Data Futures Platform Backend Pipeline"
-readme = "README.md"
-requires-python = ">=3.8"
-dependencies = [
-    "pandas",
-    'azure-storage-blob',
-    'aiohttp',
-    'python-dotenv',
-    'build',
-    'openpyxl==3.0.10',
-    'xlrd',
-    'scipy',
-]
-
-[tool.setuptools.packages.find]
-where = ["./"]
-
-[tool.distutils.bdist_wheel]
-universal = true
-
-[project.scripts]
-dfp_pipeline = "dfpp.cli:run_pipeline"
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+optional-dependencies.dev = { file = ["requirements_dev.txt"] }
+version = { attr = "dfx_etl.__init__.__version__" }
