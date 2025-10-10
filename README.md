@@ -1,142 +1,143 @@
-## The Data Futures Platform Backend Pipeline - an ETL pipeline for the Data Futures Platform
+# DFx ETL Pipeline
 
-### Table of Contents
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/release/python-3120/)
+[![License](https://img.shields.io/github/license/undp-data/dfx-etl-pipeline)](https://github.com/undp-data/dfx-etl-pipeline/blob/main/LICENSE)
+[![Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-%23FE5196?logo=conventionalcommits&logoColor=white)](https://conventionalcommits.org)
+
+A Python package containing an ETL pipeline for processing indicator data used by the [Data Futures Exchange](https://data.undp.org) (DFx).
+
+> [!WARNING]  
+> The package is currently undergoing a major revamp. Some features may be missing or not working as intended. Feel free to [open an issue](https://github.com/UNDP-Data/dfx-etl-pipeline/issues).
+
+# Table of Contents
 1. [Introduction](#introduction)
-2. [Usage](#usage)
-3. [Contributing](#contributing)
+2. [Installation](#installation)
+3. [Usage](#usage)
 4. [Sources](#sources)
----
-### Introduction
-
-The Data Futures Platform Backend Pipeline is an ETL pipeline that transforms data from various sources and translates it into a format that can be used by the [Data Futures Platform](data.undp.org). The pipeline is written in Python.
-The list of sources that the pipeline currently supports can be found [here](#sources).
-
----
-### Usage
-
-The **Data Futures Platform Backend Pipeline** enables users to process and transform data from diverse sources into a standardized schema. Below are the key components and how to use them:
-
-#### Jupyter Notebooks for Execution
-
-The pipeline provides executable Jupyter notebooks stored in the [.notebooks](./notebooks) folder. These notebooks can be run using [papermill](https://papermill.readthedocs.io), which supports parameterized execution and automation. This setup simplifies batch processing and ensures consistency across runs.
-
-#### Azure Integration
-
-The pipeline supports seamless integration with Azure infrastructure for scalable execution:
-- **Azure Data Factory (ADF)**: Incorporate the pipeline notebooks into ADF for orchestration and scheduling.
-- **Azure Blob Storage**: Currently stores outputs and utility configuration files for the pipeline. Please see [`.env.example`](./.env.example), you need to provide Azure Blob Container SAS token to interact with the Azure Blob Storage.
-  
+5. [Contributing](#contributing)
+6. [License](#license)
+7. [Contact](#contact)
 ---
 
-#### General Workflow Overview
+## Introduction
 
-The data is extracted from various APIs (see [sources](#sources)) or, in rare cases, from ad-hoc sources. The ETL process operates within a Jupyter notebook located in the [`.notebooks`](./notebooks/) folder for a specific source, utilizing the [dfpp.sources](./dfpp/sources/) module to facilitate the ETL. While the notebooks enable execution, the modules house the scripts that govern data retrieval and transformation.
+The Data Futures Exchange (DFx) is an analytics platform designed to support data-driven decision-making at UNDP. This repository hosts a Python package developed to collect, process and consolidate indicator data from various sources for the use on the DFx. The project is structured as follows:
 
-The ETL pipeline for each source extracts data from a supported list of external APIs and transforms it into a [tidy data format](https://cran.r-project.org/web/packages/tidyr/vignettes/tidy-data.html).
+```bash
+.
+├── .github/                  # GitHub templates and settings
+│   └── ...
+├── src/                      # package source code
+│   └── dfx_etl/
+│       ├── data/             # auxiliary data shipped with the package
+│       │   └── unsd-m49.csv  # https://unstats.un.org/unsd/methodology/m49
+│       ├── pipelines/        # ETL pipelines for various sources
+│       │   ├── __init__.py
+│       │   ├── _base.py      # base classes to inherit from for new sources
+│       │   ├── energydata_info.py 
+│       │   ├── ...
+│       │   └── world_bank.py # source-specific ETL steps
+│       ├── storage/          # supported storage backends
+│       │   ├── __init__.py
+│       │   ├── _base.py      # base class to inherit from for new backends
+│       │   ├── azure.py      # Azure Blob Storage backend
+│       │   └── local.py      # local storage backend
+│       ├── __init__.py
+│       ├── utils.py          # utility functions
+│       └── validation.py     # validation schemas and functions
+├── .env.example              # .env files example
+├── .gitattributes            # special git attributes
+├── .gitignore                # untracked path patterns
+├── CONTRIBUTING.md           # guidelines for contributors
+├── LICENSE                   # license terms for the package
+├── main.ipynb                # main notebook for execuring pipelines
+├── Makefile                  # make commands for routine operations
+├── pyproject.toml            # Python package metadata
+├── README.md                 # this file
+├── requirements_dev.txt      # development dependencies
+└── requirements.txt          # core dependencies
+```
 
-> - Each variable is a column; each column is a variable.  
-> - Each observation is a row; each row is an observation.  
-> - Each value is a cell; each cell is a single value.
 
-Schema column names and variable naming conventions are defined in [dfpp.transformation.column_name_template.py](./dfpp/transformation/column_name_template.py). 
+## Installation
 
-**Key Highlights**:
-- Indicator series dimensions must be prefixed with `DIMENSION_COLUMN_PREFIX = "disagr_"`.
-- Series observation properties must be prefixed with `SERIES_PROPERTY_PREFIX = "prop_"`.
-- `CANONICAL_COLUMN_NAMES` must be present in the set; if missing, they are generated and set to `None`.
+Currently, the package is distributed via GitHub only. You can install it with `pip`:
 
-| source                | series_id       | series_name                             | alpha_3_code | year | disagr_region | disagr_area | disagr_gender | prop_unit | prop_observation_type | value | prop_value_label |
-|-----------------------|-----------------|-----------------------------------------|--------------|------|---------------|-------------|---------------|-----------|------------------------|-------|------------------|
-| https://example.com   | SERIES_ID_CODE | Safely Managed Drinking Water Services | IND          | 2020 | Asia          | Urban       | Female        | Percent   | Estimated Value       | 88.2  |                  |
+```bash
+ pip install git+https://github.com/undp-data/dfx-etl-pipeline
+```
 
----
+See [VCS Support](https://pip.pypa.io/en/stable/topics/vcs-support/#vcs-support) for more details.
 
-#### ETL Workflow Pattern Overview Illustrated Using `unstats_un_org` example
+## Usage
 
-1. **Run the ETL Notebook**: Execute the code in the Jupyter notebook [notebooks.unstats_un_org.ipynb](./notebooks/unstats_un_org.ipynb).
+The package provides ETL – or rather RTVL – routines for a range of supported sources. Running a pipeline involves 4 steps:
 
-2. **Retrieve Indicator Metadata**:  
-   Use the [sources.unstats_un_org.retrieve](./dfpp/sources/unstats_un_org/retrieve.py) submodule methods to fetch a list of available indicator series. At this stage, it is also typically possible to retrieve a list of available observation dimensions/disaggregations (e.g., age, sex, locality). Additionally, consult the API’s documentation to access a codebook that defines the available data.
+1. **R**etriving raw data using a source-specific `Retriever`.
+2. **T**ransforming raw data using a source-specific `Transformer`.
+3. **V**alidating transformed data against a fixed data schema.
+4. **L**oading validated data to a supported storage backend.
 
-3. **Fetch Indicator Data**:  
-   Retrieve the raw indicator data from the API.
+These 4 steps are abstracted away in a single `Pipeline` class. The basic usage is demonstrated below.
 
-4. **Transform Data into Tidy Format**:  
-   Using the codebook schema, transform the data into the [tidy data format](https://cran.r-project.org/web/packages/tidyr/vignettes/tidy-data.html). Key transformation steps include:
-   - Rename observation dimension and property variables to adhere to prefix conventions.  
-   - Ensure that dimension and property values are human-readable; use codebook to facilitate the code to human-readable value replacement.
-   - Convert country codes to alphabetic ISO3 format.
-   - Coerce `value` to numeric, setting invalid values to `None` using the [transformation.value_handler](./dfpp/transformation/value_handler.py) module. This module emulates the [Pandas `coerce on error` policy](https://pandas.pydata.org/docs/reference/api/pandas.to_numeric.html) but attempts additional cleaning before conversion.  
-   - Rename remaining columns to match canonical column names.  
-   - Fill missing canonical column names with `None`.  
-   - Drop non-country observations (e.g., regions).  
-   - Drop non-annual observations (e.g., quarter, monthly).  
-   - Validate that the series contains observations after transformation.  
-   - Ensure no dimension is missing or redundant by validating for duplicates after dropping observation `value`.
-> [!TIP]
->  See [transformation.value_handler](./dfpp/transformation/) for modules that help with handling canonical values, alphabetic iso3 country codes. Also this module depends on [country-converter](https://pypi.org/project/country-converter/1.3/) module for some country code transformations.
+```python
+# import a supported backend and source
+from dfx_etl.storage import AzureStorage
+from dfx_etl.pipelines import who_int as source, Pipeline
 
-5. **Publish the Transformed Data**:  
-   Save the transformed data as a Parquet file and publish it to an Azure Blob Storage container using the [dfpp.publishing](./dfpp/publishing) module.
----
-### Contributing
-Follow these guidelines contribute:
+# instantiate a pipeline with relevant metadata
+pipeline = Pipeline(
+    name="WHO",
+    directory="who_int",
+    url="https://ghoapi.azureedge.net/api/",
+    retriever=source.Retriever(),
+    transformer=source.Transformer(),
+    storage=storage,
+)
 
-#### Source Modules and Common Schema
+# run the RTVL steps one by one
+pipeline.retrieve()
+pipeline.transform()
+pipeline.validate()
+pipeline.load()
+# or just call the `pipeline` to run them all at once
+pipeline()
+```
 
-The [dfpp.sources](./dfpp/sources) folder contains modules designed for individual data sources. Each module has the following components:
-1. **Retrieval Submodule**: Responsible for fetching raw data from APIs or datasets provided by the supported sources.
-2. **Transform Submodule**: Processes the raw data and maps it to a common schema format used by the platform.
+For more details see [`main.ipynb`](main.ipynb).
 
-This modular architecture allows for easy integration of new data sources and efficient updates to existing ones.
+> [!WARNING]  
+> Running the pipeline requires the `.env` file at the root of the project. Depending on the storage backend, you might need to set different types of variables. See [`.env.example`](.env.example).
 
-#### Modifying an Existing Source
-1. Locate the relevant module in the [dfpp.sources](./dfpp/sources) directory.
-2. Update the **retrieval submodule** to handle changes in the API endpoint, data format, or source structure.
-3. Adjust the **transform submodule** to ensure the output conforms to the common schema format.
-> [!TIP]
->  In particular, check [dfpp.transformation](./dfpp/transformation/) for the expected output schema after the transformations.
-5. Test the modifications using the Jupyter notebooks in the [.notebooks](./notebooks) folder.
 
-#### Adding a new API source
-0. Make sure the API source follows uniform schema and has a codebook allowing to consistently transform its series to comply with the target schema.
-1. Create a new module in the [dfpp.sources](./dfpp/sources) directory.
-2. Recommend to get familiar with `transform.py` submodules for several sources to get an idea on the sequence of actions during the transformation and the implicit rules and assumptions.
-3. Develop a **retrieval submodule** for fetching data from the new source's API or dataset.
-4. Implement a **transform submodule** to standardize the data to the common schema format.
-5. Develop a Jupyter notebook. Get familiar with the structure of the several source notebooks to get the idea which operations are offloaded to a source notebook vs a source module.
+## Sources
 
-#### Ad-hoc indicators
-> [!CAUTION]
-> **Indicators from one file per source or sources that do not support APIs are discouraged due to poor maintainability.**
-> Check if there are any similar or equivalent indicators that are available for API sources prior to proceeding with ad-hoc indicator integration requests.
+Below is the list of sources currently supported by the package.
 
-In case one integrates **a single file from a single source** you may implement the transformation logics directly in a notebook and do not develop a module within [dfpp.sources](./dfpp/sources). 
+| **Name**         | **URL**                                                                                                          |
+|------------------|------------------------------------------------------------------------------------------------------------------|
+| Energydata.info  | [ELECCAP dataset](https://energydata.info/dataset/installed-electricity-capacity-by-country-area-mw-by-country)  |
+| IHME             | [GBD 2021 dataset](https://ghdx.healthdata.org/gbd-2021)                                                         |
+| ILO              | [ILOSTAT SDMX API](https://ilostat.ilo.org/resources/sdmx-tools/)                                                |
+| IMF              | [IMF DataMapper API](https://www.imf.org/external/datamapper/api/help)                                           |
+| SIPRI            | [SIPRI Milex dataset](https://www.sipri.org/databases/milex)                                                     |
+| UNAIDS           | [UNAIDS Key Population Atlas](https://kpatlas.unaids.org)                                                        |
+| UNICEF           | [UNICEF SDMX API](https://sdmx.data.unicef.org/overview.html)                                                    |
+| UN Stats         | [UN Stats SDG API](https://unstats.un.org/sdgs/UNSDGAPIV5/swagger/index.html)                                    |
+| WHO              | [WHO GHO API](https://www.who.int/data/gho/info/gho-odata-api)                                                   |
+| World Bank       | [World Bank Indicator API](https://datahelpdesk.worldbank.org/knowledgebase/topics/125589-developer-information) |
 
-**An example**: 
-[energydata.info](./notebooks/energydata_info.ipynb) - one requires to transform only one file per the whole source of origin.
 
-[sipri.org](./notebooks/sipri_org.ipynb) - only one indicator from one an Excel file sheet is processed.
+## Contributing
 
-However if one requires to transform **multiple files/indicator series from one source** that does not support API calls, you can develop a module within [dfpp.sources](./dfpp/sources) to handle that.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-**An example:**
- [healthdata.org](.notebooks/healthdata_org.ipynb) - one has to transform multiple series concatenated into one file that follow the same schema. Thus, it contains `transform.py` submodule only since the source file will never be updated.
+## License
 
----
-### Sources
-# Supported Sources and Documentation
+This project is licensed under the GNU General Public License. See the [`LICENSE`](LICENSE) file.
 
-| **Source**       | **API Endpoint Base URL**                                         | **Documentation Page**                                                        |
-|------------------|------------------------------------------------------------------|-------------------------------------------------------------------------------|
-| **ILO**          | [https://rplumber.ilo.org/](https://rplumber.ilo.org/)             | [ilostat web service](https://rplumber.ilo.org/__docs__/)                      |
-|  **ILO(bulk file download)**         | [Bulk file download endpoint](https://webapps.ilo.org/ilostat-files/WEB_bulk_download/html/bulk_indicator.html) | [Bulk download guide](https://webapps.ilo.org/ilostat-files/WEB_bulk_download/html/bulk_main.html)                      |
-| **UN SDG API**   | [https://unstats.un.org/sdgapi/swagger#/](https://unstats.un.org/sdgapi/swagger#/)| [UN SDG API Documentation](https://unstats.un.org/sdgapi/swagger#/)| 
-| **WHO GHO API**  | [https://www.who.int/data/gho/info/gho-odata-api](https://www.who.int/data/gho/info/gho-odata-api) | [WHO GHO API Documentation](https://www.who.int/data/gho/info/gho-odata-api) |
-| **UNICEF**       | [https://sdmx.data.unicef.org/](https://sdmx.data.unicef.org/)     | [UNICEF Data](https://sdmx.data.unicef.org/)                                    |
-| **IMF**          | [https://www.imf.org/external/datamapper/api/](https://www.imf.org/external/datamapper/api/) | [IMF Data API Documentation](https://www.imf.org/external/datamapper/api/help)|
-| **World Bank**   | [http://api.worldbank.org/v2/](http://api.worldbank.org/v2/)       | [World Bank API Documentation](https://data.worldbank.org/developers)          |
-| **SIPRI**        | Not specified, Individual files transformed                       | [SIPRI Data](https://sipri.org/databases)                                      |
-| **HealthData.org**| Not specified, Individual files transformed                      | [HealthData.org](https://www.healthdata.org/)                                  |
-| **EnergyData.info** | Not specified, Individual files transformed                    | [EnergyData.info](https://energydata.info/)                                    |
+## Contact
 
+This project is part of [Data Futures Exchange (DFx)](https://data.undp.org) at UNDP. If you are facing any issues or would like to make some suggestions, feel free to [open an issue](https://github.com/undp-data/dfx-etl-pipeline/issues/new/choose). For enquiries about DFx, visit [Contact Us](https://data.undp.org/contact-us).
