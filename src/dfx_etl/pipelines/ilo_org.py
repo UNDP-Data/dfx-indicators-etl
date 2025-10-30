@@ -138,7 +138,7 @@ class Retriever(BaseRetriever):
         df = self.read_csv(f"data/ILO,{indicator_code}/", params, client)
         if df is not None:
             df["indicator_code"] = indicator_code
-        return self.read_csv(f"data/ILO,{indicator_code}/", params, client)
+        return df
 
 
 class Transformer(BaseTransformer):
