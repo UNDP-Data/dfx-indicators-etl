@@ -12,7 +12,6 @@ from urllib.parse import urlparse
 
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, computed_field
-from tqdm import tqdm
 
 from ..storage import BaseStorage
 from ..utils import get_country_metadata
@@ -141,7 +140,9 @@ class Pipeline(Metadata):
         """
         if self.df_transformed is None:
             raise ValueError("No transformed data. Run the transformation first")
-        self.df_validated = schema.validate(self.df_transformed)
+        df = schema.validate(self.df_transformed)
+        df.name = self.name
+        self.df_validated = df
         return self
 
     @final
@@ -154,7 +155,5 @@ class Pipeline(Metadata):
         """
         if self.df_validated is None:
             raise ValueError("No validated data. Run the validation first")
-        for indicator_code, df in tqdm(self.df_validated.groupby("indicator_code")):
-            df.name = indicator_code
-            self.storage.publish_dataset(df, folder_path=self.directory)
+        self.storage.publish_dataset(self.df_validated)
         return self
