@@ -6,8 +6,9 @@ from enum import StrEnum
 
 import pandas as pd
 import pandera.pandas as pa
+from pandera.typing.pandas import Series
 
-__all__ = ["count_duplicates", "check_duplicates", "schema"]
+__all__ = ["count_duplicates", "check_duplicates", "MetadataSchema", "schema"]
 
 PREFIX_DISAGGREGATION = "disagr_"
 PREFIX_PROPERTY = "prop_"
@@ -70,6 +71,35 @@ def check_duplicates(df: pd.DataFrame) -> None:
         If any duplicates found.
     """
     assert (n := count_duplicates(df)) == 0, f"{n:,} duplicates found."
+
+
+class MetadataSchema(pa.DataFrameModel):
+    """
+    Indicator metadata schema.
+    """
+
+    code: Series[str] = pa.Field(
+        str_length={"min_value": 1, "max_value": 128}, nullable=False
+    )
+    name: Series[str] = pa.Field(
+        str_length={"min_value": 2, "max_value": 512}, nullable=False
+    )
+    unit: Series[str] = pa.Field(
+        str_length={"min_value": 1, "max_value": 128}, nullable=True
+    )
+
+    class Config:
+        name = "IndicatorMetadataSchema"
+        strict = "filter"
+        add_missing_columns = True
+
+    @pa.parser("code", "name", "unit")
+    def strip(cls, series):
+        return series.str.strip()
+
+    @pa.dataframe_check
+    def no_duplicates(cls, df: pd.DataFrame) -> bool:
+        return df.duplicated().sum() == 0
 
 
 schema = pa.DataFrameSchema(
