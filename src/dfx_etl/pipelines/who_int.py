@@ -50,23 +50,16 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data from the API for the indicators with supported disaggregations.
         """
-        df_metadata = self._get_metadata()
-        indicator_codes = df_metadata["indicator_code"].tolist()
+        df_metadata = self.get_metadata()
         data = []
         with self.client as client:
-            for indicator_code in tqdm(indicator_codes):
-                df = self._get_data(indicator_code, client=client, **kwargs)
+            for _, row in tqdm(df_metadata.iterrows(), total=len(df_metadata)):
+                df = self._get_data(row.code, client=client, **kwargs)
                 if df is None:
                     continue
+                df["indicator_name"] = f"{row['name']} [{row['code']}]"
                 data.append(df)
-        df_data = pd.concat(data, axis=0, ignore_index=True)
-        df_data = df_data.merge(
-            right=df_metadata,
-            how="left",
-            left_on="IndicatorCode",
-            right_on="indicator_code",
-        )
-        return df_data
+        return pd.concat(data, axis=0, ignore_index=True)
 
     def _get_dimensions(self) -> dict:
         """
@@ -93,7 +86,7 @@ class Retriever(BaseRetriever):
         response = self.client.get("Indicator")
         response.raise_for_status()
         df = pd.DataFrame(response.json()["value"])
-        columns = {"IndicatorCode": "indicator_code", "IndicatorName": "indicator_name"}
+        columns = {"IndicatorCode": "code", "IndicatorName": "name"}
         return df.reindex(columns=columns).rename(columns=columns)
 
     def _get_data(
@@ -152,7 +145,6 @@ class Transformer(BaseTransformer):
             Transformed data frame in the canonical format.
         """
         columns = {
-            "IndicatorCode": "indicator_code",
             "indicator_name": "indicator_name",
             "SpatialDim": "country_code",
             "TimeDim": "year",

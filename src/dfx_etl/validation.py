@@ -43,7 +43,7 @@ def count_duplicates(df: pd.DataFrame) -> int:
     int
         Count of duplicates in the data frame.
     """
-    panel_columns = ["indicator_code", "country_code", "year", "unit"]
+    panel_columns = ["indicator_name", "country_code", "year"]
     disaggregation_columns = df.filter(
         like=PREFIX_DISAGGREGATION, axis=1
     ).columns.tolist()
@@ -110,11 +110,6 @@ schema = pa.DataFrameSchema(
             nullable=False,
             description="Source of the data. Typically a URL",
         ),
-        "indicator_code": pa.Column(
-            dtype=str,
-            checks=[pa.Check.str_length(min_value=2, max_value=128)],
-            nullable=False,
-        ),
         "indicator_name": pa.Column(
             dtype=str,
             checks=[pa.Check.str_length(min_value=2, max_value=512)],
@@ -124,11 +119,6 @@ schema = pa.DataFrameSchema(
             dtype=str,
             checks=[pa.Check.str_matches(r"^[A-Z]{3}$")],
             nullable=False,
-        ),
-        "unit": pa.Column(
-            dtype=str,
-            checks=[pa.Check.str_length(min_value=2, max_value=128)],
-            nullable=True,
         ),
         "year": pa.Column(
             dtype=int,

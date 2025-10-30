@@ -70,23 +70,23 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data from the API for the indicators with supported disaggregations.
         """
-        df = self._get_metadata()
+        df_metadata = self.get_metadata()
         # indicator codes contain disaggregations, e.g., SDG_0852_SEX_AGE_RT
         # subset only some disaggregations and no classification (NOC)
         mask = (
-            df["indicator_code"]
+            df_metadata["code"]
             .str.split("_")
             .str.slice(2, -1)
             .apply(lambda x: not set(x) - DISAGGREGATIONS)
         )
-        df = df.loc[mask].reset_index(drop=True)
-        indicator_codes = df["indicator_code"].tolist()
+        df_metadata = df_metadata.loc[mask].reset_index(drop=True)
         data = []
         with self.client as client:
-            for indicator_code in tqdm(indicator_codes):
-                df = self._get_data(indicator_code, client=client, **kwargs)
+            for _, row in tqdm(df_metadata.iterrows(), total=len(df_metadata)):
+                df = self._get_data(row.code, client=client, **kwargs)
                 if df is None:
                     continue
+                df["indicator_name"] = f"{row['name']} [{row['code']}]"
                 data.append(df)
         return pd.concat(data, axis=0, ignore_index=True)
 
@@ -97,10 +97,10 @@ class Retriever(BaseRetriever):
         Returns
         -------
         pd.DataFrame
-            Data frame with two columns `indicator_code` and `indicator_name`.
+            Data frame with two columns `code` and `name`.
         """
         mapping = _get_codelist_mapping("INDICATOR")
-        df = pd.DataFrame(mapping.items(), columns=["indicator_code", "indicator_name"])
+        df = pd.DataFrame(mapping.items(), columns=["code", "name"])
         return df
 
     def _get_data(
@@ -135,10 +135,7 @@ class Retriever(BaseRetriever):
             "startPeriod": start_period,
             "endPeriod": end_period,
         } | kwargs
-        df = self.read_csv(f"data/ILO,{indicator_code}/", params, client)
-        if df is not None:
-            df["indicator_code"] = indicator_code
-        return df
+        return self.read_csv(f"data/ILO,{indicator_code}/", params, client)
 
 
 class Transformer(BaseTransformer):
@@ -163,7 +160,7 @@ class Transformer(BaseTransformer):
 
         columns = {
             "REF_AREA": "country_code",
-            "indicator_code": "indicator_code",  # assigned by the retriever
+            "indicator_name": "indicator_name",  # assigned by the retriever
             "SEX": "disagr_sex",
             "AGE": "disagr_age",
             "GEO": "disagr_geo",
@@ -195,8 +192,4 @@ class Transformer(BaseTransformer):
 
         # reindex and rename columns
         df = df.reindex(columns=columns).rename(columns=columns)
-
-        # add indicator name
-        mapping = _get_codelist_mapping("INDICATOR")
-        df["indicator_name"] = df["indicator_code"].map(mapping)
         return df

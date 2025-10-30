@@ -10,7 +10,6 @@ import pandas as pd
 from pydantic import Field
 
 from ..storage import BaseStorage
-from ..utils import generate_id
 from ..validation import PREFIX_DISAGGREGATION, SexEnum
 from ._base import BaseRetriever, BaseTransformer
 
@@ -75,7 +74,6 @@ class Transformer(BaseTransformer):
         df["country_code"] = cc.pandas_convert(df["location_name"], to="ISO3")
         # construct indicator names and derive indicator codes
         df["indicator_name"] = df["measure_name"] + ", " + df["cause_name"]
-        df["indicator_code"] = df["indicator_name"].apply(generate_id)
 
         # recode sex columns
         mapping = {

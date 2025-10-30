@@ -10,7 +10,6 @@ import pandas as pd
 from pydantic import Field
 
 from ..storage import BaseStorage
-from ..utils import generate_id
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Retriever", "Transformer"]
@@ -72,7 +71,6 @@ class Transformer(BaseTransformer):
             "Area ID": "country_code",
             "Time Period": "year",
             "Data value": "value",
-            "Unit": "unit",
             "Source": "source",
         }
         # remove unspecified disaggregations
@@ -80,6 +78,9 @@ class Transformer(BaseTransformer):
         # only keep indicators with just one or 'Total' disaggregation
         df["n_subgroups"] = df.groupby("Indicator")["Subgroup"].transform("nunique")
         df = df.loc[df["n_subgroups"].eq(1) | df["Subgroup"].eq("Total")].copy()
+        df["indicator_name"] = df.apply(
+            lambda row: f"{row.Indicator.strip()}, {row.Unit.strip()}", axis=1
+        )
         df = df.reindex(columns=columns).rename(columns=columns)
         # remove all duplicates
         df.drop_duplicates(
@@ -87,10 +88,6 @@ class Transformer(BaseTransformer):
             keep=False,
             ignore_index=True,
             inplace=True,
-        )
-        df["indicator_name"] = df["indicator_name"].str.strip()
-        df["indicator_code"] = df["indicator_name"].apply(
-            lambda x: "UNAIDS_" + generate_id(x)
         )
         # remove rows without values
         df.dropna(subset=["value"], inplace=True)
