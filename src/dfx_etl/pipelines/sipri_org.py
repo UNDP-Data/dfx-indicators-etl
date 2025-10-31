@@ -43,83 +43,52 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data from the API for the indicators with supported disaggregations.
         """
-        df_metadata = self._get_metadata()
         data = []
-        for indicator_code in tqdm(df_metadata["indicator_code"]):
-            df = self._get_data(indicator_code)
+        for sheet_name, indicator_name in tqdm(self.metadata.items()):
+            df = self._get_data(sheet_name)
             if df is None:
                 continue
-            df["indicator_code"] = indicator_code
+            df["indicator_name"] = indicator_name
             data.append(df)
-        df_data = pd.concat(data, axis=0, ignore_index=True)
-        df_data = df_data.merge(df_metadata, how="left", on="indicator_code")
-        return df_data
+        return pd.concat(data, axis=0, ignore_index=True)
 
-    def _get_metadata(self) -> pd.DataFrame:
+    @property
+    def metadata(self) -> dict[str, str]:
         """
-        Get series metadata for sheets in the Excel file.
+        Indicator metadata for sheets in the Excel file.
 
         Returns
         -------
-        pd.DataFrame
-            Data frame with twthree columns: `indicator_code`, `indicator_name` and `unit`.
+        dict[str, str]
+            Mapping of sheet names to indicator names
         """
-        return pd.DataFrame(
-            [
-                (
-                    "Current US$",
-                    "SIPRI_MILEXT_CURRENT_USD",
-                    "Military expenditure by country in current US$ m., presented according to calendar year.",
-                    "Million USD (current)",
-                ),
-                (
-                    "Share of GDP",
-                    "SIPRI_MILEXT_SHARE_OF_GDP",
-                    "Military expenditure by country as a share of gross domestic product (GDP), presented according to calendar year.",
-                    "Share of GDP",
-                ),
-                (
-                    "Per capita",
-                    "SIPRI_MILEXT_PER_CAPITA",
-                    "Military expenditure per capita, in current US$, presented according to calendar year (1988-2024 only).",
-                    "USD (current)",
-                ),
-                (
-                    "Share of Govt. spending",
-                    "SIPRI_MILEXT_SHARE_OF_GOV_SPENDING",
-                    "Military expenditure as a percentage of general government expenditure (1988-2024 only).",
-                    "Percent of Government Spending",
-                ),
-            ],
-            columns=["sheet_name", "indicator_code", "indicator_name", "unit"],
-        )
+        return {
+            "Current US$": "Military expenditure by country in $current US m., presented according to calendar year [SIPRI_MILEXT_CURRENT_USD]",
+            "Share of GDP": "Military expenditure by country as a share of gross domestic product (GDP), presented according to calendar year [SIPRI_MILEXT_SHARE_OF_GDP]",
+            "Per capita": "Military expenditure per capita, in current US$, presented according to calendar year, 1988-2024 only, [SIPRI_MILEXT_PER_CAPITA]",
+            "Share of Govt. spending": "Military expenditure as a percentage of general government expenditure, 1988-2024 only [SIPRI_MILEXT_SHARE_OF_GOV_SPENDING]",
+        }
 
-    def _get_data(self, indicator_code: str) -> pd.DataFrame:
+    def _get_data(self, sheet_name: str) -> pd.DataFrame:
         """
         Get series data from the the SIPRI Military Expenditure Database.
 
         Parameters
         ----------
-        series_id : str
-            Series ID. See `get_series_metadata`.
+        sheet_name : str
+            Sheet name to read from the Excel file. See `metadata`.
 
         Returns
         -------
-        pd.DataFrame or None
+        pd.DataFrame
             Data frame with country data in the wide format.
         """
-        df_metadata = self._get_metadata()
-        mapping = dict(df_metadata[["indicator_code", "sheet_name"]].values)
-        if (sheet_name := mapping[indicator_code]) is None:
-            return None
-        # Infer the header row
-        df = pd.read_excel(str(self.uri), sheet_name=sheet_name)
+        # infer the header row
+        xlsx = pd.ExcelFile(str(self.uri))
+        df = xlsx.parse(sheet_name=sheet_name)
         header = df.iloc[:, 0].eq("Country").idxmax() + 1
-        return pd.read_excel(
-            str(self.uri),
-            sheet_name=sheet_name,
-            header=header,
-            na_values=["xxx", "..."],
+        return xlsx.parse(
+            sheet_name=sheet_name, header=header, na_values=["xxx", "..."]
         )
 
 
@@ -144,7 +113,7 @@ class Transformer(BaseTransformer):
         """
 
         # Subset only relevant columns
-        columns = ["Country", "indicator_code", "indicator_name", "unit"]
+        columns = ["Country", "indicator_name"]
         df = df[columns].join(df.filter(regex=r"\d+"))
         # Reshape from wide to long
         df = df.melt(id_vars=columns, var_name="year", value_name="value")

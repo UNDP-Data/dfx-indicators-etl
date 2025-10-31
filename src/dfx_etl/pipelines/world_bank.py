@@ -41,16 +41,15 @@ class Retriever(BaseRetriever):
             Raw data from the API for the indicators with supported disaggregations.
         """
         df_metadata = self._get_metadata()
-        indicator_codes = df_metadata["indicator_code"].tolist()
         data = []
         with self.client as client:
-            for indicator_code in tqdm(indicator_codes):
-                metadata, records = self._get_data(indicator_code, 1, client)
+            for _, row in tqdm(df_metadata.iterrows(), total=len(df_metadata)):
+                metadata, records = self._get_data(row.code, 1, client)
                 if records is not None:
                     data.extend(records)
                 if metadata is not None:
                     for page in tqdm(range(2, metadata["pages"])):
-                        _, records = self._get_data(indicator_code, page, client)
+                        _, records = self._get_data(row.code, page, client)
                         if records is not None:
                             data.extend(records)
         return pd.DataFrame(data)
@@ -72,9 +71,9 @@ class Retriever(BaseRetriever):
                 response.raise_for_status()
                 metadata, indicators = response.json()
                 data.extend(indicators)
-        columns = {"id": "indicator_code", "name": "indicator_name"}
+        columns = {"id": "code", "name": "name"}
         df = pd.DataFrame(data)
-        return df.reindex(columns=columns).rename(columns=columns)
+        return df.reindex(columns=columns).rename(columns=columns).drop_duplicates()
 
     def _get_data(
         self,
@@ -158,9 +157,11 @@ class Transformer(BaseTransformer):
 
         df.dropna(subset=["value"], inplace=True)
 
+        df["indicator_name"] = df.apply(
+            lambda row: f"{row['indicator_value']} [{row['indicator_id']}]", axis=1
+        )
         columns = {
-            "indicator_id": "indicator_code",
-            "indicator_value": "indicator_name",
+            "indicator_name": "indicator_name",
             "countryiso3code": "country_code",
             "date": "year",
             "value": "value",

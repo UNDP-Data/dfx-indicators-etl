@@ -48,16 +48,14 @@ class Retriever(BaseRetriever):
         """
         df_metadata = self._get_metadata()
         fields = self._get_query_fields()
-        indicator_codes = df_metadata["indicator_code"].tolist()
         data = []
         with self.client as client:
-            for indicator_code in tqdm(indicator_codes):
-                df = self._get_data(indicator_code, fields, client=client, **kwargs)
+            for _, row in tqdm(df_metadata.iterrows(), total=len(df_metadata)):
+                df = self._get_data(row.code, fields, client=client, **kwargs)
                 if df is None:
                     continue
                 data.append(df)
-        df_data = pd.concat(data, axis=0, ignore_index=True)
-        return df_data
+        return pd.concat(data, axis=0, ignore_index=True)
 
     def _get_dataflow(self) -> dict:
         params = {
@@ -105,20 +103,12 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Data frame with metadata columns.
         """
-        to_rename = {
-            "id": "indicator_code",
-            "name": "indicator_name",
-            "description": "indicator_description",
-        }
+        columns = {"id": "code", "name": "name"}
         data = self._get_dataflow()
         observation = data["structure"]["dimensions"]["observation"]
         indicators = [x for x in observation if x["id"] == "INDICATOR"][0]["values"]
         indicators = [indicator for indicator in indicators if indicator["inDataset"]]
-        return (
-            pd.DataFrame(indicators)
-            .reindex(columns=to_rename)
-            .rename(columns=to_rename)
-        )
+        return pd.DataFrame(indicators).reindex(columns=columns).rename(columns=columns)
 
     def _get_data(
         self,
@@ -184,15 +174,17 @@ class Transformer(BaseTransformer):
         """
         columns = {
             "REF_AREA": "country_code",
-            "series_id": "indicator_code",
-            "Indicator": "indicator_name",
+            "indicator_name": "indicator_name",
             "Sex": "disagr_sex",
             "Current age": "disagr_age",
             "TIME_PERIOD": "year",
             "OBS_VALUE": "value",
-            "Unit of measure": "unit",
         }
         # handle values like <1 or <100 or >95%
         # the values now represent and upper/lower bound respectively
         df["OBS_VALUE"] = df["OBS_VALUE"].str.strip("<>")
+        df["indicator_name"] = df.apply(
+            lambda row: f"{row['Indicator']}, {row['Unit of measure']} [{row['INDICATOR']}]",
+            axis=1,
+        )
         return df.reindex(columns=columns).rename(columns=columns)

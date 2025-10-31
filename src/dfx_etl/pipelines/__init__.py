@@ -7,11 +7,11 @@ the correct implementation of `retriever` and `transformer` components.
 """
 
 import logging
-from typing import Annotated, Self, final
+from typing import Self, final
+from urllib.parse import urlparse
 
 import pandas as pd
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, StringConstraints
-from tqdm import tqdm
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, computed_field
 
 from ..storage import BaseStorage
 from ..utils import get_country_metadata
@@ -28,27 +28,21 @@ class Metadata(BaseModel):
     Metadata properties of the pipeline.
     """
 
-    name: str = Field(
-        description="Short formal name of the source",
-        examples=["ILO", "UNICEF"],
-    )
-    directory: Annotated[
-        str,
-        StringConstraints(
-            strip_whitespace=True,
-            to_lower=True,
-            min_length=3,
-            max_length=64,
-            pattern=r"\w+",
-        ),
-    ] = Field(
-        description="Short unique source name used as a directory name when publishing the data",
-        examples=["ilo_org", "unicef_org"],
-    )
     url: HttpUrl = Field(
         description="URL to the website used to overwrite `source` column in the output data",
         examples=["https://ilostat.ilo.org", "https://sdmx.data.unicef.org"],
     )
+
+    @computed_field
+    @property
+    def name(self) -> str:
+        """
+        A standardised name based on the source URL.
+
+        The name is used as file name when saving data.
+        """
+        netloc = urlparse(str(self.url)).netloc
+        return netloc.lower().replace(".", "-")
 
 
 class Pipeline(Metadata):
@@ -146,7 +140,9 @@ class Pipeline(Metadata):
         """
         if self.df_transformed is None:
             raise ValueError("No transformed data. Run the transformation first")
-        self.df_validated = schema.validate(self.df_transformed)
+        df = schema.validate(self.df_transformed)
+        df.name = self.name
+        self.df_validated = df
         return self
 
     @final
@@ -159,7 +155,5 @@ class Pipeline(Metadata):
         """
         if self.df_validated is None:
             raise ValueError("No validated data. Run the validation first")
-        for indicator_code, df in tqdm(self.df_validated.groupby("indicator_code")):
-            df.name = indicator_code
-            self.storage.publish_dataset(df, folder_path=self.directory)
+        self.storage.publish_dataset(self.df_validated)
         return self

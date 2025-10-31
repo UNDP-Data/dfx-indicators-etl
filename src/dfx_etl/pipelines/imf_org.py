@@ -38,18 +38,16 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data from the API for the indicators with supported disaggregations.
         """
-        df_metadata = self._get_metadata()
-        indicator_codes = df_metadata["indicator_code"].tolist()
+        df_metadata = self.get_metadata()
         data = []
         with self.client as client:
-            for indicator_code in tqdm(indicator_codes):
-                df = self._get_data(indicator_code, client=client, **kwargs)
+            for _, row in tqdm(df_metadata.iterrows(), total=len(df_metadata)):
+                df = self._get_data(row.code, client=client, **kwargs)
                 if df is None:
                     continue
+                df["indicator_name"] = f"{row['name']}, {row['unit']} [{row['code']}]"
                 data.append(df)
-        df_data = pd.concat(data, axis=0, ignore_index=True)
-        df_data = df_data.merge(df_metadata, how="left", on="indicator_code")
-        return df_data
+        return pd.concat(data, axis=0, ignore_index=True)
 
     def _get_metadata(self) -> pd.DataFrame:
         """
@@ -58,7 +56,7 @@ class Retriever(BaseRetriever):
         Returns
         -------
         pd.DataFrame
-            Data frame with twthree columns: `indicator_code`, `indicator_name` and `unit`.
+            Data frame with three columns: `code`, `name` and `unit`.
         """
         response = self.client.get("indicators")
         response.raise_for_status()
@@ -68,12 +66,9 @@ class Retriever(BaseRetriever):
             for series_id, metadata in data["indicators"].items()
             if series_id
         ]
-        columns = {
-            "series_id": "indicator_code",
-            "label": "indicator_name",
-            "unit": "unit",
-        }
-        return pd.DataFrame(data).reindex(columns=columns).rename(columns=columns)
+        columns = {"series_id": "code", "label": "name", "unit": "unit"}
+        df = pd.DataFrame(data).reindex(columns=columns).rename(columns=columns)
+        return df
 
     def _get_data(
         self,
@@ -113,7 +108,6 @@ class Retriever(BaseRetriever):
         for country_code, records in values[indicator_code].items():
             df = pd.DataFrame(records.items(), columns=["year", "value"])
             df["country_code"] = country_code
-            df["indicator_code"] = indicator_code
             dfs.append(df)
         return pd.concat(dfs, axis=0, ignore_index=True)
 

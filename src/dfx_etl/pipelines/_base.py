@@ -11,6 +11,7 @@ from typing import final
 
 import httpx
 import pandas as pd
+import pandera as pa
 from pydantic import (
     AnyUrl,
     BaseModel,
@@ -20,6 +21,8 @@ from pydantic import (
     HttpUrl,
     ValidationError,
 )
+
+from ..validation import MetadataSchema
 
 __all__ = ["BaseRetriever", "BaseTransformer"]
 
@@ -80,6 +83,32 @@ class BaseRetriever(BaseModel, ABC):
         in any format. The returned object is expected to be processed by a `BaseTransformer`
         class.
         """
+
+    def _get_metadata(self) -> pd.DataFrame:
+        """
+        Optional method to get indicator metadata from the source.
+
+        Returns
+        -------
+        pd.DataFrame
+            Indicator metadata data frame.
+        """
+        raise NotImplementedError(
+            "Subclasses should override `_get_metadata` if applicable."
+        )
+
+    @final
+    @pa.check_output(MetadataSchema)
+    def get_metadata(self) -> pd.DataFrame:
+        """
+        Get indicator metadata from the source if applicable.
+
+        Returns
+        -------
+        pd.DataFrame
+            Indicator metadata as per the schema.
+        """
+        return self._get_metadata()
 
     @final
     def read_csv(

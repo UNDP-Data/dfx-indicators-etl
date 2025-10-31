@@ -39,12 +39,11 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data from the API for the indicators with supported disaggregations.
         """
-        df_metadata = self._get_metadata()
-        indicator_codes = df_metadata["indicator_code"].tolist()
+        df_metadata = self.get_metadata()
         data = []
         with self.client as client:
-            for indicator_code in tqdm(indicator_codes):
-                df = self._get_data(indicator_code, client=client, **kwargs)
+            for _, row in tqdm(df_metadata.iterrows(), total=len(df_metadata)):
+                df = self._get_data(row.code, client=client, **kwargs)
                 if df is None:
                     continue
                 data.append(df)
@@ -62,7 +61,7 @@ class Retriever(BaseRetriever):
         """
         response = self.client.get("series/list", timeout=60)
         response.raise_for_status()
-        columns = {"code": "indicator_code", "description": "indicator_name"}
+        columns = {"code": "code", "description": "name"}
         df = pd.DataFrame(response.json())
         return df.reindex(columns=columns).rename(columns=columns)
 
@@ -148,12 +147,10 @@ class Transformer(BaseTransformer):
             Transformed data frame in the canonical format.
         """
         columns = {
-            "series": "indicator_code",
-            "seriesDescription": "indicator_name",
+            "indicator_name": "indicator_name",
             "alpha_3_code": "country_code",
             "timePeriodStart": "year",
             "value": "value",
-            "prop_units": "unit",
             "prop_nature": "observation_type",
         }
         df["alpha_3_code"] = replace_country_metadata(
@@ -167,4 +164,8 @@ class Transformer(BaseTransformer):
                 .rename(lambda name: to_snake_case(name, prefix=prefix), axis=1)
                 .fillna("Total")  # fill no disaggregation
             )
+        df["indicator_name"] = df.apply(
+            lambda row: f"{row['seriesDescription']}, {row['prop_units']} [{row['series']}]",
+            axis=1,
+        )
         return df.rename(columns=columns)
