@@ -15,7 +15,6 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl, computed_field
 
 from ..storage import BaseStorage
 from ..utils import get_country_metadata
-from ..validation import DataSchema
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Pipeline"]
@@ -57,7 +56,6 @@ class Pipeline(Metadata):
     storage: BaseStorage = Field(repr=False)
     df_raw: pd.DataFrame | None = Field(default=None, repr=False)
     df_transformed: pd.DataFrame | None = Field(default=None, repr=False)
-    df_validated: pd.DataFrame | None = Field(default=None, repr=False)
 
     def __repr__(self) -> str:
         """
@@ -86,10 +84,8 @@ class Pipeline(Metadata):
         logger.info("Raw data shape: %s", self.df_raw.shape)
         self.transform()
         logger.info("Transformed data shape: %s", self.df_transformed.shape)
-        self.validate()
-        logger.info("Validated data shape: %s", self.df_validated.shape)
         self.load()
-        return self.df_validated
+        return self.df_transformed
 
     @final
     def retrieve(self, **kwargs) -> Self:
@@ -128,32 +124,19 @@ class Pipeline(Metadata):
         # add source
         df["source"] = str(self.url)
         df.reset_index(drop=True, inplace=True)
-        self.df_transformed = df
-        return self
-
-    @final
-    def validate(self) -> Self:
-        """
-        Run the validation on the transformed data, coercing data types if applicable.
-
-        This function ensures that the data frame is valid and data types are consistent.
-        """
-        if self.df_transformed is None:
-            raise ValueError("No transformed data. Run the transformation first")
-        df = DataSchema.validate(self.df_transformed)
         df.name = self.name
-        self.df_validated = df
+        self.df_transformed = df
         return self
 
     @final
     def load(self) -> Self:
         """
-        Run the load step to push the validated data to the storage.
+        Run the load step to push the transformed data to the storage.
 
         The function writes one parquet file per indicator code, using the code
         as a file name.
         """
-        if self.df_validated is None:
+        if self.df_transformed is None:
             raise ValueError("No validated data. Run the validation first")
-        self.storage.publish_dataset(self.df_validated)
+        self.storage.publish_dataset(self.df_transformed)
         return self

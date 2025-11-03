@@ -22,7 +22,7 @@ from pydantic import (
     ValidationError,
 )
 
-from ..validation import MetadataSchema
+from ..validation import DataSchema, MetadataSchema
 
 __all__ = ["BaseRetriever", "BaseTransformer"]
 
@@ -168,6 +168,7 @@ class BaseTransformer(BaseModel, ABC):
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
     @final
+    @pa.check_output(DataSchema)
     def __call__(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
         Transform and validate raw data.
