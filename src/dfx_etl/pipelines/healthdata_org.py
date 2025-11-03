@@ -73,8 +73,9 @@ class Transformer(BaseTransformer):
         df["source"] = BASE_URL
         df["country_code"] = cc.pandas_convert(df["location_name"], to="ISO3")
         # construct indicator names and derive indicator codes
-        df["indicator_name"] = df["measure_name"] + ", " + df["cause_name"]
-
+        df["indicator_name"] = df.apply(
+            lambda row: f"{row.metric_name} of {row.measure_name}", axis=1
+        )
         # recode sex columns
         mapping = {
             "Male": SexEnum.MALE.value,
@@ -87,7 +88,6 @@ class Transformer(BaseTransformer):
         # rename columns
         mapping = {
             "val": "value",
-            "metric_name": "unit",
             "sex_name": PREFIX_DISAGGREGATION + "sex",
             "age_name": PREFIX_DISAGGREGATION + "age",
             "cause_name": PREFIX_DISAGGREGATION + "cause",
