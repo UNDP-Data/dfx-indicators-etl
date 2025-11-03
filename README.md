@@ -73,14 +73,13 @@ See [VCS Support](https://pip.pypa.io/en/stable/topics/vcs-support/#vcs-support)
 
 ## Usage
 
-The package provides ETL – or rather RTVL – routines for a range of supported sources. Running a pipeline involves 4 steps:
+The package provides ETL – or rather RTL – routines for a range of supported sources. Running a pipeline involves 3 steps:
 
 1. **R**etriving raw data using a source-specific `Retriever`.
-2. **T**ransforming raw data using a source-specific `Transformer`.
-3. **V**alidating transformed data against a fixed data schema.
-4. **L**oading validated data to a supported storage backend.
+2. **T**ransforming raw data using a source-specific `Transformer`, which also validates the data.
+3. **L**oading validated data to a supported storage backend.
 
-These 4 steps are abstracted away in a single `Pipeline` class. The basic usage is demonstrated below.
+These 3 steps are abstracted away in a single `Pipeline` class. The basic usage is demonstrated below.
 
 ```python
 # import a supported backend and source
@@ -89,18 +88,15 @@ from dfx_etl.pipelines import who_int as source, Pipeline
 
 # instantiate a pipeline with relevant metadata
 pipeline = Pipeline(
-    name="WHO",
-    directory="who_int",
     url="https://ghoapi.azureedge.net/api/",
     retriever=source.Retriever(),
     transformer=source.Transformer(),
     storage=storage,
 )
 
-# run the RTVL steps one by one
+# run the ETL steps one by one
 pipeline.retrieve()
 pipeline.transform()
-pipeline.validate()
 pipeline.load()
 # or just call the `pipeline` to run them all at once
 pipeline()
