@@ -19,14 +19,14 @@ class SexEnum(StrEnum):
     Standardised names for sex disaggregation categories.
     """
 
-    MALE = "male"
-    FEMALE = "female"
-    BOTH = "both"
-    OTHER = "other"
-    TOTAL = "total"
-    NOT_APPLICABLE = "not applicable"
-    UNKNOWN = "unknown"
-    NON_RESPONSE = "non response"
+    MALE = "Male"
+    FEMALE = "Female"
+    BOTH = "Both"
+    OTHER = "Other"
+    TOTAL = "Total"
+    NOT_APPLICABLE = "Not applicable"
+    UNKNOWN = "Unknown"
+    NON_RESPONSE = "Non response"
 
 
 def count_duplicates(df: pd.DataFrame) -> int:
