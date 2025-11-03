@@ -52,7 +52,7 @@ class Transformer(BaseTransformer):
     A class for transforming raw data from the UNAIDS Key Population Atlas.
     """
 
-    def __call__(self, df: pd.DataFrame, **kwargs):
+    def transform(self, df: pd.DataFrame, **kwargs):
         """
         Transform data from UNAIDS Key Population Atlas.
 

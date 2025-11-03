@@ -130,7 +130,7 @@ class Transformer(BaseTransformer):
     A class for transforming raw data from the WHO GHO API.
     """
 
-    def __call__(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def transform(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
         Transform raw data from GHO OData API.
 

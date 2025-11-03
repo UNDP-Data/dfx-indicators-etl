@@ -11,11 +11,9 @@ from typing import Self, final
 from urllib.parse import urlparse
 
 import pandas as pd
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, computed_field
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, PrivateAttr, computed_field
 
 from ..storage import BaseStorage
-from ..utils import get_country_metadata
-from ..validation import schema
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Pipeline"]
@@ -55,23 +53,8 @@ class Pipeline(Metadata):
     retriever: BaseRetriever
     transformer: BaseTransformer
     storage: BaseStorage = Field(repr=False)
-    df_raw: pd.DataFrame | None = Field(default=None, repr=False)
-    df_transformed: pd.DataFrame | None = Field(default=None, repr=False)
-    df_validated: pd.DataFrame | None = Field(default=None, repr=False)
-
-    def __repr__(self) -> str:
-        """
-        Overwrite the represetnation to avoid data frame clutter.
-        """
-        string = super().__repr__()[:-1]  # strip the last `)`
-        for k, v in self.model_dump().items():
-            # for data frames, only show the shape
-            if k.startswith("df_"):
-                if v is not None:
-                    v = f"<DataFrame shape={v.shape}>"
-                string += f", {k}={v}"
-        string += ")"
-        return string
+    _df_raw: pd.DataFrame | None = PrivateAttr(default=None)
+    _df_transformed: pd.DataFrame | None = PrivateAttr(default=None)
 
     def __call__(self) -> pd.DataFrame:
         """
@@ -86,10 +69,22 @@ class Pipeline(Metadata):
         logger.info("Raw data shape: %s", self.df_raw.shape)
         self.transform()
         logger.info("Transformed data shape: %s", self.df_transformed.shape)
-        self.validate()
-        logger.info("Validated data shape: %s", self.df_validated.shape)
         self.load()
-        return self.df_validated
+        return self.df_transformed
+
+    @property
+    def df_raw(self) -> pd.DataFrame:
+        """
+        Raw data as returned by the retriever.
+        """
+        return self._df_raw
+
+    @property
+    def df_transformed(self) -> pd.DataFrame:
+        """
+        Validated data as returned by the transformer.
+        """
+        return self._df_transformed
 
     @final
     def retrieve(self, **kwargs) -> Self:
@@ -103,16 +98,13 @@ class Pipeline(Metadata):
         **kwargs
             Keyword arguments to be passed to the retriever call.
         """
-        self.df_raw = self.retriever(**kwargs)
+        self._df_raw = self.retriever(**kwargs)
         return self
 
     @final
     def transform(self, **kwargs) -> Self:
         """
         Run the transformation step on the raw data.
-
-        This function also ensures that only the rows with an M49 ISO code
-        are kept.
 
         Parameters
         ----------
@@ -122,38 +114,22 @@ class Pipeline(Metadata):
         if self.df_raw is None:
             raise ValueError("No raw data. Run the retrieval first")
         df = self.transformer(self.df_raw, **kwargs)
-        # ensure only areas from UN M49 are present
-        country_codes = get_country_metadata("iso-alpha-3")
-        df = df.loc[df["country_code"].isin(country_codes)].copy()
         # add source
         df["source"] = str(self.url)
         df.reset_index(drop=True, inplace=True)
-        self.df_transformed = df
-        return self
-
-    @final
-    def validate(self) -> Self:
-        """
-        Run the validation on the transformed data, coercing data types if applicable.
-
-        This function ensures that the data frame is valid and data types are consistent.
-        """
-        if self.df_transformed is None:
-            raise ValueError("No transformed data. Run the transformation first")
-        df = schema.validate(self.df_transformed)
         df.name = self.name
-        self.df_validated = df
+        self._df_transformed = df
         return self
 
     @final
     def load(self) -> Self:
         """
-        Run the load step to push the validated data to the storage.
+        Run the load step to push the transformed data to the storage.
 
         The function writes one parquet file per indicator code, using the code
         as a file name.
         """
-        if self.df_validated is None:
+        if self.df_transformed is None:
             raise ValueError("No validated data. Run the validation first")
-        self.storage.publish_dataset(self.df_validated)
+        self.storage.publish_dataset(self.df_transformed)
         return self

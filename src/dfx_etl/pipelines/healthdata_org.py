@@ -55,7 +55,7 @@ class Transformer(BaseTransformer):
     A class for transforming raw data from the IHME.
     """
 
-    def __call__(self, df: pd.DataFrame, **kwargs):
+    def transform(self, df: pd.DataFrame, **kwargs):
         """
         Transform raw data from IHME.
 

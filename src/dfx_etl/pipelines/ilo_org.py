@@ -143,7 +143,7 @@ class Transformer(BaseTransformer):
     A class for transforming raw data from the ILOSTAT SDMX API.
     """
 
-    def __call__(self, df: pd.DataFrame, **kwargs):
+    def transform(self, df: pd.DataFrame, **kwargs):
         """
         Tranform function for raw ILO data.
 
