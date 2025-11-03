@@ -10,7 +10,7 @@ from pandera.typing.pandas import Series
 
 from .utils import _combine_disaggregations
 
-__all__ = ["count_duplicates", "check_duplicates", "MetadataSchema", "DataSchema"]
+__all__ = ["MetadataSchema", "DataSchema"]
 
 PREFIX_DISAGGREGATION = "disagr_"
 
@@ -28,46 +28,6 @@ class SexEnum(StrEnum):
     NOT_APPLICABLE = "Not applicable"
     UNKNOWN = "Unknown"
     NON_RESPONSE = "Non response"
-
-
-def count_duplicates(df: pd.DataFrame) -> int:
-    """
-    Count duplicates in a canonical data frame.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Canonical data frame.
-
-    Returns
-    -------
-    int
-        Count of duplicates in the data frame.
-    """
-    columns = ["indicator_name", "country_code", "year", "disaggregation"]
-    return df.reindex(columns=columns).duplicated().sum()
-
-
-def check_duplicates(df: pd.DataFrame) -> None:
-    """
-    Check if the canonical data frame contains any duplicates.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Canonical data frame.
-
-    Returns
-    -------
-    None
-        If the validation has passed.
-
-    Raises
-    ------
-    AssertionError
-        If any duplicates found.
-    """
-    assert (n := count_duplicates(df)) == 0, f"{n:,} duplicates found."
 
 
 class MetadataSchema(pa.DataFrameModel):
@@ -89,14 +49,11 @@ class MetadataSchema(pa.DataFrameModel):
         name = "IndicatorMetadataSchema"
         strict = "filter"
         add_missing_columns = True
+        unique = ["code", "name", "unit"]
 
     @pa.parser("code", "name", "unit")
     def strip(cls, series):
         return series.str.strip()
-
-    @pa.dataframe_check
-    def no_duplicates(cls, df: pd.DataFrame) -> bool:
-        return df.duplicated().sum() == 0
 
 
 class DataSchema(pa.DataFrameModel):
@@ -134,11 +91,8 @@ class DataSchema(pa.DataFrameModel):
         name = "IndicatorDataSchema"
         strict = "filter"
         add_missing_columns = True
+        unique = ["indicator_name", "country_code", "year", "disaggregation"]
 
     @pa.dataframe_parser
     def combine_disaggregations(cls, df: pd.DataFrame) -> pd.DataFrame:
         return _combine_disaggregations(df, PREFIX_DISAGGREGATION)
-
-    @pa.dataframe_check
-    def no_duplicates(cls, df: pd.DataFrame) -> bool:
-        return count_duplicates(df) == 0
