@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl, computed_field
 
 from ..storage import BaseStorage
 from ..utils import get_country_metadata
-from ..validation import schema
+from ..validation import DataSchema
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Pipeline"]
@@ -140,7 +140,7 @@ class Pipeline(Metadata):
         """
         if self.df_transformed is None:
             raise ValueError("No transformed data. Run the transformation first")
-        df = schema.validate(self.df_transformed)
+        df = DataSchema.validate(self.df_transformed)
         df.name = self.name
         self.df_validated = df
         return self

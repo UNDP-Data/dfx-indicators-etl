@@ -10,7 +10,7 @@ from pandera.typing.pandas import Series
 
 from .utils import _combine_disaggregations
 
-__all__ = ["count_duplicates", "check_duplicates", "MetadataSchema", "schema"]
+__all__ = ["count_duplicates", "check_duplicates", "MetadataSchema", "DataSchema"]
 
 PREFIX_DISAGGREGATION = "disagr_"
 
@@ -99,51 +99,46 @@ class MetadataSchema(pa.DataFrameModel):
         return df.duplicated().sum() == 0
 
 
-schema = pa.DataFrameSchema(
-    columns={
-        "source": pa.Column(
-            dtype=str,
-            checks=[pa.Check.str_length(min_value=2, max_value=1024)],
-            nullable=False,
-            description="Source of the data. Typically a URL",
-        ),
-        "indicator_name": pa.Column(
-            dtype=str,
-            checks=[pa.Check.str_length(min_value=2, max_value=512)],
-            nullable=False,
-        ),
-        "country_code": pa.Column(
-            dtype=str,
-            checks=[pa.Check.str_matches(r"^[A-Z]{3}$")],
-            nullable=False,
-        ),
-        "year": pa.Column(
-            dtype=int,
-            checks=[pa.Check.between(1900, 2100)],
-            nullable=False,
-            coerce=True,
-        ),
-        "value": pa.Column(
-            dtype=float,
-            nullable=False,
-            coerce=True,
-        ),
-        "disaggregation": pa.Column(
-            dtype=str,
-            nullable=False,
-            required=False,
-        ),
-    },
-    parsers=pa.Parser(lambda df: _combine_disaggregations(df, PREFIX_DISAGGREGATION)),
-    checks=[
-        pa.Check(
-            lambda df: count_duplicates(df) == 0,
-            error="Duplicate rows found.",
-            name="Check duplicates",
-        )
-    ],
-    strict="filter",
-    name="Standardised Data Frame",
-    add_missing_columns=True,
-    description="Standardised data frame to be returned by a transformer",
-)
+class DataSchema(pa.DataFrameModel):
+    """
+    Indicator data schema.
+    """
+
+    source: Series[str] = pa.Field(
+        str_length={"min_value": 2, "max_value": 1024},
+        nullable=False,
+        description="Source of the data. Typically a URL",
+    )
+    indicator_name: Series[str] = pa.Field(
+        str_length={"min_value": 2, "max_value": 512},
+        nullable=False,
+    )
+    country_code: Series[str] = pa.Field(
+        str_matches=r"^[A-Z]{3}$",
+        nullable=False,
+        description="ISO 3166-1 alpha-3 three-letter country code",
+    )
+    year: Series[int] = pa.Field(
+        ge=1900,
+        le=2100,
+        nullable=False,
+        coerce=True,
+    )
+    disaggregation: Series[str] = pa.Field(nullable=False)
+    value: Series[float] = pa.Field(
+        nullable=False,
+        coerce=True,
+    )
+
+    class Config:
+        name = "IndicatorDataSchema"
+        strict = "filter"
+        add_missing_columns = True
+
+    @pa.dataframe_parser
+    def combine_disaggregations(cls, df: pd.DataFrame) -> pd.DataFrame:
+        return _combine_disaggregations(df, PREFIX_DISAGGREGATION)
+
+    @pa.dataframe_check
+    def no_duplicates(cls, df: pd.DataFrame) -> bool:
+        return count_duplicates(df) == 0
