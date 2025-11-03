@@ -13,7 +13,6 @@ from .utils import _combine_disaggregations
 __all__ = ["count_duplicates", "check_duplicates", "MetadataSchema", "schema"]
 
 PREFIX_DISAGGREGATION = "disagr_"
-PREFIX_PROPERTY = "prop_"
 
 
 class SexEnum(StrEnum):
@@ -132,12 +131,6 @@ schema = pa.DataFrameSchema(
         "disaggregation": pa.Column(
             dtype=str,
             nullable=False,
-            required=False,
-        ),
-        rf"^{PREFIX_PROPERTY}*": pa.Column(
-            dtype=str,
-            nullable=True,
-            regex=True,
             required=False,
         ),
     },
