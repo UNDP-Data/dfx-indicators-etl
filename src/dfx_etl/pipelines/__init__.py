@@ -14,7 +14,6 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, computed_field
 
 from ..storage import BaseStorage
-from ..utils import get_country_metadata
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Pipeline"]
@@ -107,9 +106,6 @@ class Pipeline(Metadata):
         """
         Run the transformation step on the raw data.
 
-        This function also ensures that only the rows with an M49 ISO code
-        are kept.
-
         Parameters
         ----------
         **kwargs
@@ -118,9 +114,6 @@ class Pipeline(Metadata):
         if self.df_raw is None:
             raise ValueError("No raw data. Run the retrieval first")
         df = self.transformer(self.df_raw, **kwargs)
-        # ensure only areas from UN M49 are present
-        country_codes = get_country_metadata("iso-alpha-3")
-        df = df.loc[df["country_code"].isin(country_codes)].copy()
         # add source
         df["source"] = str(self.url)
         df.reset_index(drop=True, inplace=True)

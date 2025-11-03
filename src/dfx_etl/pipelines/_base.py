@@ -22,6 +22,7 @@ from pydantic import (
     ValidationError,
 )
 
+from ..utils import get_country_metadata
 from ..validation import DataSchema, MetadataSchema
 
 __all__ = ["BaseRetriever", "BaseTransformer"]
@@ -173,6 +174,9 @@ class BaseTransformer(BaseModel, ABC):
         """
         Transform and validate raw data.
 
+        This function also ensures that only the rows with an M49 ISO code
+        are kept.
+
         Parameters
         ----------
         df : pd.DataFrame
@@ -185,7 +189,11 @@ class BaseTransformer(BaseModel, ABC):
         pd.DataFrame
             Standardised data frame in line with `DataSchema`.
         """
-        return self.transform(df, **kwargs)
+        df = self.transform(df, **kwargs)
+        # ensure only areas from UN M49 are present
+        country_codes = get_country_metadata("iso-alpha-3")
+        df = df.loc[df["country_code"].isin(country_codes)].copy()
+        return df
 
     @abstractmethod
     def transform(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
