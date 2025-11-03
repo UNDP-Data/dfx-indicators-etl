@@ -97,7 +97,7 @@ class Transformer(BaseTransformer):
     A class for transforming raw data from the SIPRI Milex.
     """
 
-    def __call__(self, df: pd.DataFrame, **kwargs):
+    def transform(self, df: pd.DataFrame, **kwargs):
         """
         Tranform function for raw SIPRI data.
 

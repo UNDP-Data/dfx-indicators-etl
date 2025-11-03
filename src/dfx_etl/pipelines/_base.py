@@ -167,8 +167,27 @@ class BaseTransformer(BaseModel, ABC):
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
-    @abstractmethod
+    @final
     def __call__(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        """
+        Transform and validate raw data.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Raw data frame returned by a retriever.
+        **kwargs
+            Keyword arguments passed to `self.transform`.
+
+        Returns
+        -------
+        pd.DataFrame
+            Standardised data frame in line with `DataSchema`.
+        """
+        return self.transform(df, **kwargs)
+
+    @abstractmethod
+    def transform(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
         Transform raw data.
         """

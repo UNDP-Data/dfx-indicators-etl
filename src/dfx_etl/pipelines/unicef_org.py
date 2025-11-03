@@ -158,7 +158,7 @@ class Transformer(BaseTransformer):
     A class for transforming raw data from the UNICEF SDMX API.
     """
 
-    def __call__(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def transform(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
         Transform raw data from UNICEF SDMX API.
 

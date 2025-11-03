@@ -119,7 +119,7 @@ class Transformer(BaseTransformer):
     A class for transforming raw data from the World Bank Indicator API.
     """
 
-    def __call__(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def transform(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
         Transform data from the World Bank Indicator API.
 
