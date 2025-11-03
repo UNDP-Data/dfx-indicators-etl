@@ -192,4 +192,5 @@ class Transformer(BaseTransformer):
 
         # reindex and rename columns
         df = df.reindex(columns=columns).rename(columns=columns)
+        df.dropna(subset=["value"], inplace=True)
         return df
