@@ -19,6 +19,7 @@ __all__ = [
     "get_country_metadata",
     "replace_country_metadata",
     "to_snake_case",
+    "_combine_disaggregations",
 ]
 
 CountryField: TypeAlias = Literal["name", "m49", "iso-alpha-2", "iso-alpha-3"]
@@ -185,3 +186,59 @@ def to_snake_case(value: str, prefix: str = "", suffix: str = "") -> str:
     if suffix:
         value = f"{value}_{suffix}"
     return value
+
+
+def _resolve_disaggregations(series: pd.Series, prefix: str) -> str:
+    """
+    Combine disaggregations into a single value.
+
+    Parameters
+    ----------
+    series : pd.Series
+        Series with disaggregation values as values and fields as indexes.
+    prefix : str
+        Prefix used for disaggregation fields to be removed.
+
+    Returns
+    -------
+    str
+        A single disaggregation value.
+    """
+    series = series.dropna().rename(
+        lambda name: name.replace(prefix, "", 1).replace("_", " ")
+    )
+    values = [
+        value if value.lower() != "total" else f"All {name}"
+        for name, value in series.items()
+    ]
+    if not values:
+        return "Total"
+    return "; ".join(values)
+
+
+def _combine_disaggregations(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
+    """
+    Combine disaggregations columns into a single column.
+
+    This function is used as a parser during validation.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input data frame passed to the validation schema.
+    prefix : str
+        Prefix used to identify disaggregation columns.
+
+    Returns
+    -------
+    df : pd.DataFrame
+        The data frame with disaggregation columns combined into one.
+    """
+    columns = [column for column in df.columns if column.startswith(prefix)]
+    if not columns:
+        return df.assign(disaggregation="Total")
+    return df.assign(
+        disaggregation=df[columns].apply(
+            lambda row: _resolve_disaggregations(row, prefix), axis=1
+        )
+    )
