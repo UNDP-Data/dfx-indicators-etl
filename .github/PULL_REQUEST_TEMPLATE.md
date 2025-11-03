@@ -8,29 +8,41 @@ If this pull request addresses an issue, please link to it here. For example:
 - Related to #456
 -->
 
-This requests adds/enhances/fixes/refactors...
+This request adds/enhances/fixes/refactors...
 
 ## New Features
 
 <!-- 
 Describe new features added in this request if applicable. Use bullet points. For example:
-- Added support for s3 buckets
-- Implemented support for WHO GHO API
-If there are none, type "No new features".
+- Add support for s3 buckets
+- Implement support for WHO GHO API.
+If there are none, omit this section.
 -->
 
-- Added...
+- Add...
+
+## Changes
+
+<!-- 
+Describe non-feature changes introduced by the request if applicable. Use bullet points. For example:
+- Rename disaggregation categories.
+- Remove unused columns from the ILO pipeline.
+- Implement support for WHO GHO API.
+If there are none, omit this section.
+-->
+
+- Update...
 
 ## Bug Fixes
 
 <!-- 
 Describe bug fixes implemented in this request if applicable. Use bullet points. For example:
-- Fixed a bug with disaggregation in WHO GHO API
-- Resolved the issue with missing values in ILO pipeline
-If there are none, type "No bug fixes".
+- Fix a bug with disaggregation in WHO GHO API.
+- Resolve the issue with missing values in ILO pipeline.
+If there are none, omit this section.
 -->
 
-- Fixed...
+- Fix...
 
 ## Checklist
 
@@ -42,10 +54,9 @@ Ensure your pull request meets the following criteria:
 - [ ] My code follows the style guidelines of this project.
 - [ ] I have performed a self-review of my code.
 - [ ] I have commented my code, particularly in hard-to-understand areas.
-- [ ] I have added tests that prove my fix is effective or that my feature works.
+- [ ] I have added tests that prove my fix is effective or that my feature works (if applicable).
 - [ ] I have added required dependencies to `requirements.txt` or `requirements_dev.txt` (if applicable).
 - [ ] I have updated the documentation (if applicable).
-- [ ] I have included any necessary screenshots or examples of the new functionality.
 
 ## Additional Notes
 
