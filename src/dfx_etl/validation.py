@@ -8,6 +8,8 @@ import pandas as pd
 import pandera.pandas as pa
 from pandera.typing.pandas import Series
 
+from .utils import _combine_disaggregations
+
 __all__ = ["count_duplicates", "check_duplicates", "MetadataSchema", "schema"]
 
 PREFIX_DISAGGREGATION = "disagr_"
@@ -43,11 +45,7 @@ def count_duplicates(df: pd.DataFrame) -> int:
     int
         Count of duplicates in the data frame.
     """
-    panel_columns = ["indicator_name", "country_code", "year"]
-    disaggregation_columns = df.filter(
-        like=PREFIX_DISAGGREGATION, axis=1
-    ).columns.tolist()
-    columns = panel_columns + disaggregation_columns
+    columns = ["indicator_name", "country_code", "year", "disaggregation"]
     return df.reindex(columns=columns).duplicated().sum()
 
 
@@ -131,10 +129,9 @@ schema = pa.DataFrameSchema(
             nullable=False,
             coerce=True,
         ),
-        rf"^{PREFIX_DISAGGREGATION}*": pa.Column(
+        "disaggregation": pa.Column(
             dtype=str,
-            nullable=True,
-            regex=True,
+            nullable=False,
             required=False,
         ),
         rf"^{PREFIX_PROPERTY}*": pa.Column(
@@ -144,6 +141,7 @@ schema = pa.DataFrameSchema(
             required=False,
         ),
     },
+    parsers=pa.Parser(lambda df: _combine_disaggregations(df, PREFIX_DISAGGREGATION)),
     checks=[
         pa.Check(
             lambda df: count_duplicates(df) == 0,
