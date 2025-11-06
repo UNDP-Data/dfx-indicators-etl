@@ -170,7 +170,7 @@ class BaseTransformer(BaseModel, ABC):
 
     @final
     @pa.check_output(DataSchema)
-    def __call__(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def __call__(self, df: pd.DataFrame, source: str, **kwargs) -> pd.DataFrame:
         """
         Transform and validate raw data.
 
@@ -181,6 +181,9 @@ class BaseTransformer(BaseModel, ABC):
         ----------
         df : pd.DataFrame
             Raw data frame returned by a retriever.
+        source : str
+            Value to assign to `source` column. Ignored if the data frame
+            already contains the column.
         **kwargs
             Keyword arguments passed to `self.transform`.
 
@@ -190,6 +193,9 @@ class BaseTransformer(BaseModel, ABC):
             Standardised data frame in line with `DataSchema`.
         """
         df = self.transform(df, **kwargs)
+        # add source if not provided
+        if "source" not in df.columns:
+            df["source"] = source
         # ensure only areas from UN M49 are present
         country_codes = get_country_metadata("iso-alpha-3")
         df = df.loc[df["country_code"].isin(country_codes)].copy()

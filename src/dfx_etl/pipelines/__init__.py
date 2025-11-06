@@ -113,9 +113,7 @@ class Pipeline(Metadata):
         """
         if self.df_raw is None:
             raise ValueError("No raw data. Run the retrieval first")
-        df = self.transformer(self.df_raw, **kwargs)
-        # add source
-        df["source"] = str(self.url)
+        df = self.transformer(self.df_raw, source=str(self.url), **kwargs)
         df.reset_index(drop=True, inplace=True)
         df.name = self.name
         self._df_transformed = df
