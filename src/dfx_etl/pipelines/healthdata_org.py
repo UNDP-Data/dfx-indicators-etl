@@ -70,7 +70,6 @@ class Transformer(BaseTransformer):
             Standardised data frame.
         """
         cc = coco.CountryConverter()
-        df["source"] = BASE_URL
         df["country_code"] = cc.pandas_convert(df["location_name"], to="ISO3")
         # construct indicator names and derive indicator codes
         df["indicator_name"] = df.apply(
