@@ -1,5 +1,6 @@
 pandas[excel, fss, pyarrow] ~= 2.3.3
 adlfs ~= 2025.8.0
+sqlalchemy[postgresql-psycopg] ~= 2.0.44
 pydantic ~= 2.11.10
 pydantic-settings ~= 2.11.0
 pandera ~= 0.26.1
