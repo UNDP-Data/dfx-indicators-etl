@@ -4,8 +4,8 @@ Storage interfaces for I/O operations.
 
 import logging
 
-from pydantic import ValidationError
-
+from ..exceptions import StorageNotConfigured
+from ..settings import SETTINGS
 from ._base import BaseStorage
 from .azure import AzureStorage
 from .local import LocalStorage
@@ -31,9 +31,11 @@ def get_storage(**kwargs) -> BaseStorage:
     BaseStorage
         Storage class.
     """
-    try:
+    if SETTINGS.azure_storage is not None:
         storage = AzureStorage(**kwargs)
-    except ValidationError:
+    elif SETTINGS.local_storage is not None:
         storage = LocalStorage(**kwargs)
+    else:
+        raise StorageNotConfigured
     logger.info("Using %s storage", storage)
     return storage
