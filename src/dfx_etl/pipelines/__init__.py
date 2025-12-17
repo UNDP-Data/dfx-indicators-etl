@@ -25,7 +25,7 @@ class Pipeline(BaseModel):
     An ETL pipeline to process a single source.
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
     retriever: BaseRetriever
     transformer: BaseTransformer
