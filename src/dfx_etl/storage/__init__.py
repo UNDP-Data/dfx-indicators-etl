@@ -19,7 +19,7 @@ def get_storage(**kwargs) -> BaseStorage:
     """
     Utility function to get a relevant Storage class based on environment variables.
 
-    The function first attemts to use an AzureStorage before falling back to LocalStorage.
+    The function first attempts to use an AzureStorage before falling back to LocalStorage.
 
     Parameters
     ----------
