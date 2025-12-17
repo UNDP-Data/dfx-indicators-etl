@@ -12,7 +12,7 @@ from typing import Self, final
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
-from ..storage import BaseStorage
+from ..storage import BaseStorage, get_storage
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Pipeline"]
@@ -29,7 +29,7 @@ class Pipeline(BaseModel):
 
     retriever: BaseRetriever
     transformer: BaseTransformer
-    storage: BaseStorage = Field(repr=False)
+    storage: BaseStorage = Field(default_factory=get_storage)
     _df_raw: pd.DataFrame | None = PrivateAttr(default=None)
     _df_transformed: pd.DataFrame | None = PrivateAttr(default=None)
 
