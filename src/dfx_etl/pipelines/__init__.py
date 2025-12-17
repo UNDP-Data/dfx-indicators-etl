@@ -8,10 +8,9 @@ the correct implementation of `retriever` and `transformer` components.
 
 import logging
 from typing import Self, final
-from urllib.parse import urlparse
 
 import pandas as pd
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, PrivateAttr, computed_field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from ..storage import BaseStorage
 from ._base import BaseRetriever, BaseTransformer
@@ -21,29 +20,7 @@ __all__ = ["Pipeline"]
 logger = logging.getLogger(__name__)
 
 
-class Metadata(BaseModel):
-    """
-    Metadata properties of the pipeline.
-    """
-
-    url: HttpUrl = Field(
-        description="URL to the website used to overwrite `source` column in the output data",
-        examples=["https://ilostat.ilo.org", "https://sdmx.data.unicef.org"],
-    )
-
-    @computed_field
-    @property
-    def name(self) -> str:
-        """
-        A standardised name based on the source URL.
-
-        The name is used as file name when saving data.
-        """
-        netloc = urlparse(str(self.url)).netloc
-        return netloc.lower().replace(".", "-")
-
-
-class Pipeline(Metadata):
+class Pipeline(BaseModel):
     """
     An ETL pipeline to process a single source.
     """
@@ -113,9 +90,9 @@ class Pipeline(Metadata):
         """
         if self.df_raw is None:
             raise ValueError("No raw data. Run the retrieval first")
-        df = self.transformer(self.df_raw, source=str(self.url), **kwargs)
+        df = self.transformer(self.df_raw, source=self.retriever.source, **kwargs)
         df.reset_index(drop=True, inplace=True)
-        df.name = self.name
+        df.name = self.source
         self._df_transformed = df
         return self
 

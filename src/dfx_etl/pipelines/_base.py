@@ -7,7 +7,9 @@ classes by inheriting from the base classes defined below.
 
 from abc import ABC, abstractmethod
 from io import BytesIO
+from pathlib import Path
 from typing import final
+from urllib.parse import urlparse
 
 import httpx
 import pandas as pd
@@ -55,6 +57,23 @@ class BaseRetriever(BaseModel, ABC):
             }
         ],
     )
+
+    @property
+    def source(self) -> str:
+        """
+        A standardised source name based on the URI.
+
+        The source name is also used as a file name when saving data.
+        """
+        if isinstance(self.uri, AnyUrl):
+            netloc = urlparse(str(self.uri)).netloc
+            source = netloc.lower().replace(".", "-")
+        elif isinstance(self.uri, Path):
+            # strip the extension
+            source = self.uri.with_suffix("").name
+        else:
+            raise ValidationError("`uri` must be either a URL or file path.")
+        return source
 
     @property
     def client(self) -> httpx.Client:
@@ -193,7 +212,7 @@ class BaseTransformer(BaseModel, ABC):
             Standardised data frame in line with `DataSchema`.
         """
         df = self.transform(df, **kwargs)
-        # add source if not provided
+        # add source if it does not exist yet
         if "source" not in df.columns:
             df["source"] = source
         # ensure only areas from UN M49 are present
