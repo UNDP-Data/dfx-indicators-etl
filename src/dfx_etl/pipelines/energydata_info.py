@@ -19,6 +19,7 @@ class Retriever(BaseRetriever):
     """
 
     uri: HttpUrl = Field(
+        # pylint: disable=C0301
         default="https://energydata.info/dataset/b33e5af4-bd51-4ee0-a062-29438471db27/resource/6938ec3a-f7bb-4493-86ba-f28faa62f139/download/eleccap_20220404-201215.xlsx",
         frozen=True,
         validate_default=True,
