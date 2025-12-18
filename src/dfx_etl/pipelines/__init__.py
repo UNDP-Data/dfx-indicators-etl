@@ -101,10 +101,11 @@ class Pipeline(BaseModel):
         """
         Run the load step to push the transformed data to the storage.
 
-        The function writes one parquet file per indicator code, using the code
-        as a file name.
+        Returns
+        -------
+        str
+            Full path to the file in the storage.
         """
         if self.df_transformed is None:
             raise ValueError("No validated data. Run the validation first")
-        self.storage.publish_dataset(self.df_transformed)
-        return self
+        return self.storage.publish_dataset(self.df_transformed)
