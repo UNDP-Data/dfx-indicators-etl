@@ -99,7 +99,7 @@ class Pipeline(BaseModel):
     @final
     def load(self) -> Self:
         """
-        Run the load step to push the transformed data to the storage.
+        Run the load step to write the transformed data to the storage.
 
         Returns
         -------
@@ -108,4 +108,4 @@ class Pipeline(BaseModel):
         """
         if self.df_transformed is None:
             raise ValueError("No validated data. Run the validation first")
-        return self.storage.publish_dataset(self.df_transformed)
+        return self.storage.write_dataset(self.df_transformed)

@@ -44,14 +44,14 @@ class BaseStorage(ABC):
         """
 
     @final
-    def publish_dataset(self, df: pd.DataFrame, folder_path: str = "") -> str:
+    def write_dataset(self, df: pd.DataFrame, folder_path: str = "") -> str:
         """
-        Publish a dataset to the storage.
+        Write a dataset to the storage.
 
         Parameters
         ----------
         df : pd.DataFrame
-            Dataset to be published. The data frame must contain
+            Dataset to be written. The data frame must contain
             a `name` attribute.
         folder_path : str, optional
             Path within the container or bucket to write the file to.
