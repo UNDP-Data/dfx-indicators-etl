@@ -19,7 +19,7 @@ def get_storage(**kwargs) -> BaseStorage:
     """
     Utility function to get a relevant Storage class based on environment variables.
 
-    The function first attempts to use an AzureStorage before falling back to LocalStorage.
+    If configured, the local storage takes precedence over any remote storage.
 
     Parameters
     ----------
@@ -31,10 +31,10 @@ def get_storage(**kwargs) -> BaseStorage:
     BaseStorage
         Storage class.
     """
-    if SETTINGS.azure_storage is not None:
-        storage = AzureStorage(**kwargs)
-    elif SETTINGS.local_storage is not None:
+    if SETTINGS.local_storage is not None:
         storage = LocalStorage(**kwargs)
+    elif SETTINGS.azure_storage is not None:
+        storage = AzureStorage(**kwargs)
     else:
         raise StorageNotConfigured
     logger.info("Using %s storage", storage)
