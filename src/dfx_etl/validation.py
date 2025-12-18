@@ -52,6 +52,7 @@ class MetadataSchema(pa.DataFrameModel):
         unique = ["code", "name", "unit"]
 
     @pa.parser("code", "name", "unit")
+    @classmethod
     def strip(cls, series):
         return series.str.strip()
 
@@ -94,5 +95,6 @@ class DataSchema(pa.DataFrameModel):
         unique = ["indicator_name", "country_code", "year", "disaggregation"]
 
     @pa.dataframe_parser
+    @classmethod
     def combine_disaggregations(cls, df: pd.DataFrame) -> pd.DataFrame:
         return _combine_disaggregations(df, PREFIX_DISAGGREGATION)
