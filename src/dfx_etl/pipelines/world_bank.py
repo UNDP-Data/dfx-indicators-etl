@@ -4,6 +4,9 @@ by  the World Bank.
 See https://datahelpdesk.worldbank.org/knowledgebase/topics/125589-developer-information.
 """
 
+import logging
+import traceback
+
 import country_converter as coco
 import httpx
 import pandas as pd
@@ -13,6 +16,8 @@ from tqdm import tqdm
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Retriever", "Transformer"]
+
+logger = logging.getLogger(__name__)
 
 
 class Retriever(BaseRetriever):
@@ -44,17 +49,24 @@ class Retriever(BaseRetriever):
         data = []
         with self.client as client:
             for _, row in tqdm(df_metadata.iterrows(), total=len(df_metadata)):
-                page = 1
-                while True:
-                    metadata, records = self._get_data(row.code, page, client)
-                    if metadata is None:
-                        break
-                    if records is not None:
-                        data.extend(records)
-                    if metadata["page"] == metadata["pages"]:
-                        break
-                    page += 1
-
+                try:
+                    page = 1
+                    while True:
+                        metadata, records = self._get_data(row.code, page, client)
+                        if metadata is None:
+                            break
+                        if records is not None:
+                            data.extend(records)
+                        if metadata["page"] == metadata["pages"]:
+                            break
+                        page += 1
+                except Exception as error:
+                    logger.error(
+                        "Indicator %s failed with: %s\n%s",
+                        row.code,
+                        error,
+                        traceback.format_exc(),
+                    )
         return pd.DataFrame(data)
 
     def _get_metadata(self) -> pd.DataFrame:
@@ -115,7 +127,11 @@ class Retriever(BaseRetriever):
         if len(data := response.json()) == 1:
             metadata = data[0]
             if "message" in metadata:
-                print(metadata)
+                logging.warning(
+                    "No data for indicator %s with the message: %s",
+                    indicator_code,
+                    metadata["message"],
+                )
             return None, None
         return data
 
