@@ -44,14 +44,17 @@ class Retriever(BaseRetriever):
         data = []
         with self.client as client:
             for _, row in tqdm(df_metadata.iterrows(), total=len(df_metadata)):
-                metadata, records = self._get_data(row.code, 1, client)
-                if records is not None:
-                    data.extend(records)
-                if metadata is not None:
-                    for page in tqdm(range(2, metadata["pages"])):
-                        _, records = self._get_data(row.code, page, client)
-                        if records is not None:
-                            data.extend(records)
+                page = 1
+                while True:
+                    metadata, records = self._get_data(row.code, page, client)
+                    if metadata is None:
+                        break
+                    if records is not None:
+                        data.extend(records)
+                    if metadata["page"] == metadata["pages"]:
+                        break
+                    page += 1
+
         return pd.DataFrame(data)
 
     def _get_metadata(self) -> pd.DataFrame:
@@ -61,16 +64,19 @@ class Retriever(BaseRetriever):
         data = []
         params = {"format": "json", "per_page": 100, "page": 1}
         with self.client as client:
-            response = client.get("indicator", params=params)
-            response.raise_for_status()
-            metadata, indicators = response.json()
-            data.extend(indicators)
-            for page in tqdm(range(2, metadata["pages"])):
-                params["page"] = page
-                response = client.get("indicator", params=params)
-                response.raise_for_status()
-                metadata, indicators = response.json()
-                data.extend(indicators)
+            total = 100
+            with tqdm(total=total) as pbar:
+                while True:
+                    response = client.get("indicator", params=params)
+                    response.raise_for_status()
+                    metadata, indicators = response.json()
+                    data.extend(indicators)
+                    pbar.update(round(total / metadata["pages"], 1))
+                    if metadata["page"] == metadata["pages"]:
+                        # ensure the progress bar is complete
+                        pbar.update(total - pbar.n)
+                        break
+                    params["page"] += 1
         columns = {"id": "code", "name": "name"}
         df = pd.DataFrame(data)
         return df.reindex(columns=columns).rename(columns=columns).drop_duplicates()
