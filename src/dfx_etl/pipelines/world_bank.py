@@ -31,12 +31,17 @@ class Retriever(BaseRetriever):
         validate_default=True,
     )
 
-    def __call__(self, **kwargs) -> pd.DataFrame:
+    def __call__(
+        self, indicator_codes: list[str] | None = None, **kwargs
+    ) -> pd.DataFrame:
         """
         Retrieve data from the GHO OData API,
 
         Parameters
         ----------
+        indicator_codes : list[str] or None
+            Optional list of indicator codes to retrieve. If not provided,
+            all indicators are retrieved.
         **kwargs
             Extra arguments to pass to `_get_data`.
 
@@ -45,14 +50,18 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data from the API for the indicators with supported disaggregations.
         """
-        df_metadata = self._get_metadata()
+        if indicator_codes is None:
+            df_metadata = self._get_metadata()
+            indicator_codes = df_metadata["code"].tolist()
         data = []
         with self.client as client:
-            for _, row in tqdm(df_metadata.iterrows(), total=len(df_metadata)):
+            for indicator_code in tqdm(indicator_codes):
                 try:
                     page = 1
                     while True:
-                        metadata, records = self._get_data(row.code, page, client)
+                        metadata, records = self._get_data(
+                            indicator_code, page, client, **kwargs
+                        )
                         if metadata is None:
                             break
                         if records is not None:
@@ -63,7 +72,7 @@ class Retriever(BaseRetriever):
                 except Exception as error:
                     logger.error(
                         "Indicator %s failed with: %s\n%s",
-                        row.code,
+                        indicator_code,
                         error,
                         traceback.format_exc(),
                     )
