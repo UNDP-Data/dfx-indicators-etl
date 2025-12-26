@@ -24,6 +24,7 @@ from pydantic import (
     ValidationError,
 )
 
+from ..settings import SETTINGS
 from ..utils import get_country_metadata
 from ..validation import DataSchema, MetadataSchema
 
@@ -91,7 +92,9 @@ class BaseRetriever(BaseModel, ABC):
             raise TypeError(
                 "`client` is only applicable when `uri` is an HTTP location"
             )
-        return httpx.Client(base_url=str(uri), headers=self.headers, timeout=30)
+        return httpx.Client(
+            base_url=str(uri), headers=self.headers, timeout=SETTINGS.http_timeout
+        )
 
     @abstractmethod
     def __call__(self, **kwargs) -> pd.DataFrame:

@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     )
 
     db_conn: PostgresDsn = Field(alias="DB_CONNECTION", repr=False)
+    http_timeout: int = Field(
+        default=30, description="Default client timeout in seconds for HTTP requests."
+    )
     azure_storage: AzureStorage | None = Field(default=None)
     local_storage: DirectoryPath | None = Field(
         default=None, alias="LOCAL_STORAGE_PATH"
