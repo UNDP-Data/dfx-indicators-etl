@@ -91,7 +91,9 @@ class Pipeline(BaseModel):
         """
         if self.df_raw is None:
             raise ValueError("No raw data. Run the retrieval first")
-        df = self.transformer(self.df_raw, source=self.retriever.source, **kwargs)
+        df = self.transformer(
+            self.df_raw.copy(), source=self.retriever.source, **kwargs
+        )
         df.reset_index(drop=True, inplace=True)
         df.name = self.retriever.source
         self._df_transformed = df
