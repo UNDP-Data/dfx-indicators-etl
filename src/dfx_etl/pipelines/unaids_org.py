@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 from pydantic import Field
 
-from ..storage import BaseStorage
+from ..exceptions import StorageRequiredError
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Retriever", "Transformer"]
@@ -27,7 +27,6 @@ class Retriever(BaseRetriever):
         description="""Dataset file downloaded from the UNAIDS Key Population Atlas,
         e.g.,https://aidsinfo.unaids.org/public/documents/KPAtlasDB_2025_en.zip""",
     )
-    storage: BaseStorage
 
     def __call__(self, **kwargs) -> pd.DataFrame:
         """
@@ -43,8 +42,10 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data frame with data from the dashboard.
         """
-        file_path = self.storage.join_path(self.uri)
-        return self.storage.read_dataset(file_path, **kwargs)
+        if (storage := kwargs.pop("storage", None)) is None:
+            raise StorageRequiredError
+        file_path = storage.join_path(self.uri)
+        return storage.read_dataset(file_path, **kwargs)
 
 
 class Transformer(BaseTransformer):

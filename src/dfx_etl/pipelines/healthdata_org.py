@@ -9,7 +9,7 @@ import country_converter as coco
 import pandas as pd
 from pydantic import Field
 
-from ..storage import BaseStorage
+from ..exceptions import StorageRequiredError
 from ..validation import PREFIX_DISAGGREGATION, SexEnum
 from ._base import BaseRetriever, BaseTransformer
 
@@ -31,7 +31,6 @@ class Retriever(BaseRetriever):
         description="""Path to a file downloaded from IHME's website.
         See https://ghdx.healthdata.org/gbd-2021.""",
     )
-    storage: BaseStorage
 
     def __call__(self, **kwargs) -> pd.DataFrame:
         """
@@ -47,8 +46,10 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data from the API for the indicators with supported disaggregations.
         """
-        file_path = self.storage.join_path(self.uri)
-        return self.storage.read_dataset(file_path, **kwargs)
+        if (storage := kwargs.pop("storage", None)) is None:
+            raise StorageRequiredError
+        file_path = storage.join_path(self.uri)
+        return storage.read_dataset(file_path, **kwargs)
 
 
 class Transformer(BaseTransformer):

@@ -10,7 +10,7 @@ import logging
 from typing import Self, final
 
 import pandas as pd
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, PrivateAttr
 
 from ..storage import BaseStorage, get_storage
 from ._base import BaseRetriever, BaseTransformer
@@ -29,7 +29,7 @@ class Pipeline(BaseModel):
 
     retriever: BaseRetriever
     transformer: BaseTransformer
-    storage: BaseStorage = Field(default_factory=get_storage)
+    _storage: BaseStorage = PrivateAttr(default_factory=get_storage)
     _df_raw: pd.DataFrame | None = PrivateAttr(default=None)
     _df_transformed: pd.DataFrame | None = PrivateAttr(default=None)
 
@@ -75,7 +75,8 @@ class Pipeline(BaseModel):
         **kwargs
             Keyword arguments to be passed to the retriever call.
         """
-        self._df_raw = self.retriever(**kwargs)
+        # Pass the storage to retriever which may be used by "manual" sources
+        self._df_raw = self.retriever(storage=self._storage, **kwargs)
         return self
 
     @final
@@ -108,4 +109,4 @@ class Pipeline(BaseModel):
         """
         if self.df_transformed is None:
             raise ValueError("No validated data. Run the validation first")
-        return self.storage.write_dataset(self.df_transformed)
+        return self._storage.write_dataset(self.df_transformed)

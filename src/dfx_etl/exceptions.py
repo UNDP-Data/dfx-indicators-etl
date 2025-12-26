@@ -6,6 +6,7 @@ __all__ = [
     "StorageNotConfigured",
     "AzureStorageNotConfigured",
     "LocalStorageNotConfigured",
+    "StorageRequiredError",
 ]
 
 StorageNotConfigured = ValueError(
@@ -19,4 +20,8 @@ AzureStorageNotConfigured = ValueError(
 
 LocalStorageNotConfigured = ValueError(
     "Env variable for local storage is not set. You must provide `LOCAL_STORAGE_PATH`"
+)
+
+StorageRequiredError = ValueError(
+    "A storage interface must be provided to this retriever."
 )
