@@ -25,7 +25,7 @@ A Python package containing an ETL pipeline for processing indicator data used b
 
 The Data Futures Exchange (DFx) is an analytics platform designed to support data-driven decision-making at UNDP. This repository hosts a Python package developed to collect, process and consolidate indicator data from various sources for the use on the DFx. The project is structured as follows:
 
-```bash
+```
 .
 ├── .github/                  # GitHub templates and settings
 │   └── ...
@@ -62,16 +62,34 @@ The Data Futures Exchange (DFx) is an analytics platform designed to support dat
 
 
 ## Installation
+### ensure *git* is [installed](https://git-scm.com/install/) and [configured](https://github.com/git-guides/)
 
-Currently, the package is distributed via GitHub only. You can install it with `pip`:
+### using git
 
-```bash
+```shell
  pip install git+https://github.com/undp-data/dfx-etl-pipeline
 ```
 
 See [VCS Support](https://pip.pypa.io/en/stable/topics/vcs-support/#vcs-support) for more details.
 
-## Usage
+### using [uv](https://github.com/astral-sh/uv)
+
+1. ensure [uv](https://github.com/astral-sh/uv) is installed
+
+2. clone the repo
+```shell
+ git clone https://github.com/UNDP-Data/dfx-indicators-etl.git
+```
+3. setup
+
+
+```shell
+ uv venv #create a virtual env in local folder
+ uv pip install . # install the dependencies 
+ 
+```
+
+## Python API based usage
 
 The package provides ETL – or rather RTL – routines for a range of supported sources. Running a pipeline involves 3 steps:
 

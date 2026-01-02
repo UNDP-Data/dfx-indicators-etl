@@ -10,7 +10,7 @@ from ._base import BaseStorage
 from .azure import AzureStorage
 from .local import LocalStorage
 
-__all__ = ["AzureStorage", "LocalStorage", "get_storage"]
+__all__ = ["BaseStorage", "AzureStorage", "LocalStorage", "get_storage"]
 
 logger = logging.getLogger(__name__)
 
