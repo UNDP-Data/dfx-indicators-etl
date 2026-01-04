@@ -92,7 +92,7 @@ class DataSchema(pa.DataFrameModel):
         name = "IndicatorDataSchema"
         strict = "filter"
         add_missing_columns = True
-        unique = ["indicator_name", "country_code", "year", "disaggregation"]
+        unique = ["indicator_name", "country_code", "year", "disaggregation", "source"]
 
     @pa.dataframe_parser
     @classmethod
