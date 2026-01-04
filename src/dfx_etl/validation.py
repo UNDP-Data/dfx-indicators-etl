@@ -62,16 +62,16 @@ class DataSchema(pa.DataFrameModel):
     Indicator data schema.
     """
 
-    source: Series[str] = pa.Field(
+    source: Series[pd.StringDtype] = pa.Field(
         str_length={"min_value": 2, "max_value": 1024},
         nullable=False,
         description="Source of the data. Typically a URL",
     )
-    indicator_name: Series[str] = pa.Field(
+    indicator_name: Series[pd.StringDtype] = pa.Field(
         str_length={"min_value": 2, "max_value": 512},
         nullable=False,
     )
-    country_code: Series[str] = pa.Field(
+    country_code: Series[pd.StringDtype] = pa.Field(
         str_matches=r"^[A-Z]{3}$",
         nullable=False,
         description="ISO 3166-1 alpha-3 three-letter country code",
@@ -80,17 +80,16 @@ class DataSchema(pa.DataFrameModel):
         ge=1900,
         le=2100,
         nullable=False,
-        coerce=True,
     )
-    disaggregation: Series[str] = pa.Field(nullable=False)
+    disaggregation: Series[pd.StringDtype] = pa.Field(nullable=False)
     value: Series[float] = pa.Field(
         nullable=False,
-        coerce=True,
     )
 
     class Config:
         name = "IndicatorDataSchema"
         strict = "filter"
+        coerce = True
         add_missing_columns = True
         unique = ["indicator_name", "country_code", "year", "disaggregation", "source"]
 
