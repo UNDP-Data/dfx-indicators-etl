@@ -13,8 +13,6 @@ from ..exceptions import StorageRequiredError
 from ..validation import PREFIX_DISAGGREGATION, SexEnum
 from ._base import BaseRetriever, BaseTransformer
 
-BASE_URL = "https://www.healthdata.org/"
-
 
 __all__ = ["Retriever", "Transformer"]
 
