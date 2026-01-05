@@ -12,6 +12,7 @@ from pydantic import Field, HttpUrl
 from tqdm import tqdm
 
 from ..utils import to_snake_case
+from ..validation import PREFIX_DISAGGREGATION
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Retriever", "Transformer"]
@@ -156,7 +157,7 @@ class Transformer(BaseTransformer):
         for column in df.filter(regex=r"Dim\dType"):
             dimensions = sorted(df[column].dropna().unique())
             for dimension in dimensions:
-                column_dim = f"disagr_{dimension}"
+                column_dim = f"{PREFIX_DISAGGREGATION}{dimension}"
                 if column_dim not in df.columns:
                     df[column_dim] = None
                 mask = df[column].eq(dimension)
@@ -166,7 +167,11 @@ class Transformer(BaseTransformer):
         df = (
             df.reindex(columns=columns)
             .rename(columns=columns)
-            .join(df.filter(like="disagr_", axis=1).rename(to_snake_case, axis=1))
+            .join(
+                df.filter(like=PREFIX_DISAGGREGATION, axis=1).rename(
+                    to_snake_case, axis=1
+                )
+            )
         )
         df["source"] = df["source"].apply(lambda x: "https://who.int" + f" | {x}")
         return df.reset_index(drop=True)

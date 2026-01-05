@@ -62,6 +62,7 @@ class Retriever(BaseRetriever):
         dict[str, str]
             Mapping of sheet names to indicator names
         """
+        # pylint: disable=C0301
         return {
             "Current US$": "Military expenditure by country in $current US m., presented according to calendar year [SIPRI_MILEXT_CURRENT_USD]",
             "Share of GDP": "Military expenditure by country as a share of gross domestic product (GDP), presented according to calendar year [SIPRI_MILEXT_SHARE_OF_GDP]",

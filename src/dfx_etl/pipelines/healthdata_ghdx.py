@@ -9,11 +9,9 @@ import country_converter as coco
 import pandas as pd
 from pydantic import Field
 
-from ..storage import BaseStorage
+from ..exceptions import StorageRequiredError
 from ..validation import PREFIX_DISAGGREGATION, SexEnum
 from ._base import BaseRetriever, BaseTransformer
-
-BASE_URL = "https://www.healthdata.org/"
 
 
 __all__ = ["Retriever", "Transformer"]
@@ -28,9 +26,9 @@ class Retriever(BaseRetriever):
         default="inputs/IHME-GBD_2021_DATA-c13547d7-1.csv",
         frozen=True,
         validate_default=True,
-        description="Path to a file downloaded from IHME's website. See https://ghdx.healthdata.org/gbd-2021.",
+        description="""Path to a file downloaded from IHME's website.
+        See https://ghdx.healthdata.org/gbd-2021.""",
     )
-    storage: BaseStorage
 
     def __call__(self, **kwargs) -> pd.DataFrame:
         """
@@ -46,8 +44,9 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data from the API for the indicators with supported disaggregations.
         """
-        file_path = self.storage.join_path(self.uri)
-        return self.storage.read_dataset(file_path, **kwargs)
+        if (storage := kwargs.pop("storage", None)) is None:
+            raise StorageRequiredError
+        return storage.read_dataset(self.uri, **kwargs)
 
 
 class Transformer(BaseTransformer):
@@ -70,7 +69,6 @@ class Transformer(BaseTransformer):
             Standardised data frame.
         """
         cc = coco.CountryConverter()
-        df["source"] = BASE_URL
         df["country_code"] = cc.pandas_convert(df["location_name"], to="ISO3")
         # construct indicator names and derive indicator codes
         df["indicator_name"] = df.apply(

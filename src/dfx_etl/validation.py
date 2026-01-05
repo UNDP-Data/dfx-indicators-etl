@@ -47,7 +47,7 @@ class MetadataSchema(pa.DataFrameModel):
 
     class Config:
         """
-        Config internal class
+        Config for defining DataFrameSchema-wide options.
         """
 
         name = "IndicatorMetadataSchema"
@@ -56,6 +56,7 @@ class MetadataSchema(pa.DataFrameModel):
         unique = ["code", "name", "unit"]
 
     @pa.parser("code", "name", "unit")
+    @classmethod
     def strip(cls, series):
         return series.str.strip()
 
@@ -65,16 +66,16 @@ class DataSchema(pa.DataFrameModel):
     Indicator data schema.
     """
 
-    source: Series[str] = pa.Field(
+    provider: Series[pd.StringDtype] = pa.Field(
         str_length={"min_value": 2, "max_value": 1024},
         nullable=False,
-        description="Source of the data. Typically a URL",
+        description="Name of the data provider to identify the pipeline the data originates from.",
     )
-    indicator_name: Series[str] = pa.Field(
+    indicator_name: Series[pd.StringDtype] = pa.Field(
         str_length={"min_value": 2, "max_value": 512},
         nullable=False,
     )
-    country_code: Series[str] = pa.Field(
+    country_code: Series[pd.StringDtype] = pa.Field(
         str_matches=r"^[A-Z]{3}$",
         nullable=False,
         description="ISO 3166-1 alpha-3 three-letter country code",
@@ -83,20 +84,29 @@ class DataSchema(pa.DataFrameModel):
         ge=1900,
         le=2100,
         nullable=False,
-        coerce=True,
     )
-    disaggregation: Series[str] = pa.Field(nullable=False)
+    disaggregation: Series[pd.StringDtype] = pa.Field(nullable=False)
     value: Series[float] = pa.Field(
         nullable=False,
-        coerce=True,
+    )
+    source: Series[pd.StringDtype] = pa.Field(
+        str_length={"min_value": 2, "max_value": 2048},
+        nullable=True,
+        description="Source of the data if specified by the provider.",
     )
 
     class Config:
+        """
+        Config for defining DataFrameSchema-wide options.
+        """
+
         name = "IndicatorDataSchema"
         strict = "filter"
+        coerce = True
         add_missing_columns = True
-        unique = ["indicator_name", "country_code", "year", "disaggregation"]
+        unique = ["indicator_name", "country_code", "year", "disaggregation", "source"]
 
     @pa.dataframe_parser
+    @classmethod
     def combine_disaggregations(cls, df: pd.DataFrame) -> pd.DataFrame:
         return _combine_disaggregations(df, PREFIX_DISAGGREGATION)

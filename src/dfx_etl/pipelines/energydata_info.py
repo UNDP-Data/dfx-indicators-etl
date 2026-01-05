@@ -19,6 +19,7 @@ class Retriever(BaseRetriever):
     """
 
     uri: HttpUrl = Field(
+        # pylint: disable=C0301
         default="https://energydata.info/dataset/b33e5af4-bd51-4ee0-a062-29438471db27/resource/6938ec3a-f7bb-4493-86ba-f28faa62f139/download/eleccap_20220404-201215.xlsx",
         frozen=True,
         validate_default=True,
@@ -74,9 +75,9 @@ class Transformer(BaseTransformer):
         df["country_code"] = cc.pandas_convert(df["country"], to="ISO3")
         df.drop(columns=["country"], inplace=True)
         df = df[df["country_code"] != "not found"].reset_index(drop=True)
-        df["source"] = "https://energydata.info/"
         df["indicator_name"] = (
-            "Installed electricity capacity by country/area (MW) by Country/area, Technology, Grid connection and Year [ELECCAP]"
+            "Installed electricity capacity by country/area (MW) by Country/area, Technology, "
+            "Grid connection and Year [ELECCAP]"
         )
         # remove rows without values
         df.dropna(subset=["value"], inplace=True)
