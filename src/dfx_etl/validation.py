@@ -46,6 +46,10 @@ class MetadataSchema(pa.DataFrameModel):
     )
 
     class Config:
+        """
+        Config for defining DataFrameSchema-wide options.
+        """
+
         name = "IndicatorMetadataSchema"
         strict = "filter"
         add_missing_columns = True
@@ -92,6 +96,10 @@ class DataSchema(pa.DataFrameModel):
     )
 
     class Config:
+        """
+        Config for defining DataFrameSchema-wide options.
+        """
+
         name = "IndicatorDataSchema"
         strict = "filter"
         coerce = True
