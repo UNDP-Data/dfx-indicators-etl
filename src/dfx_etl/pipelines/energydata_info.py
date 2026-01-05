@@ -76,7 +76,8 @@ class Transformer(BaseTransformer):
         df.drop(columns=["country"], inplace=True)
         df = df[df["country_code"] != "not found"].reset_index(drop=True)
         df["indicator_name"] = (
-            "Installed electricity capacity by country/area (MW) by Country/area, Technology, Grid connection and Year [ELECCAP]"
+            "Installed electricity capacity by country/area (MW) by Country/area, Technology, "
+            "Grid connection and Year [ELECCAP]"
         )
         # remove rows without values
         df.dropna(subset=["value"], inplace=True)
