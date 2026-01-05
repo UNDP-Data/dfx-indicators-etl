@@ -59,22 +59,16 @@ class BaseRetriever(BaseModel, ABC):
         ],
     )
 
+    @final
     @property
     def provider(self) -> str:
         """
-        A standardised provider name based on the URI.
+        Get a tandardised provider name based on the pipeline module name.
 
         The provider name is also used as a file name when saving data.
         """
-        if isinstance(self.uri, AnyUrl):
-            netloc = urlparse(str(self.uri)).netloc
-            source = netloc.lower().replace(".", "-")
-        elif isinstance(self.uri, Path):
-            # strip the extension
-            source = self.uri.with_suffix("").name
-        else:
-            raise ValidationError("`uri` must be either a URL or file path.")
-        return source
+
+        return self.__module__.split(".")[-1]
 
     @property
     def client(self) -> httpx.Client:
