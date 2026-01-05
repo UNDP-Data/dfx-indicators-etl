@@ -14,9 +14,9 @@ from pydantic import Field
 from tqdm import tqdm
 
 from ..exceptions import StorageRequiredError
-from ._base import BaseRetriever, BaseTransformer
-from ..validation import PREFIX_DISAGGREGATION
 from ..utils import replace_country_metadata, to_snake_case
+from ..validation import PREFIX_DISAGGREGATION
+from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Retriever", "Transformer"]
 
