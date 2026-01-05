@@ -13,7 +13,7 @@ import pandas as pd
 from pydantic import Field
 from tqdm import tqdm
 
-from ..exceptions import StorageRequiredError
+from ..storage import BaseStorage
 from ..utils import replace_country_metadata, to_snake_case
 from ..validation import PREFIX_DISAGGREGATION
 from ._base import BaseRetriever, BaseTransformer
@@ -36,12 +36,14 @@ class Retriever(BaseRetriever):
         validate_default=True,
     )
 
-    def __call__(self, **kwargs) -> pd.DataFrame:
+    def __call__(self, storage: BaseStorage, **kwargs) -> pd.DataFrame:
         """
         Retrieve data from the WDI database files.
 
         Parameters
         ----------
+        storage : BaseStorage
+            Storage to retrieve the data file from.
         **kwargs
             Extra arguments to pass to `pd.read_*` function.
 
@@ -50,8 +52,6 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data frame with the data from the databae.
         """
-        if (storage := kwargs.pop("storage", None)) is None:
-            raise StorageRequiredError
         data = []
         # All 17 SDGs
         for goal in tqdm(range(1, 18)):

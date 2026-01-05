@@ -4,6 +4,7 @@ the correct implementation of `retriever` and `transformer` components.
 """
 
 import logging
+from inspect import signature
 from typing import Self, final
 
 import pandas as pd
@@ -72,8 +73,10 @@ class Pipeline(BaseModel):
         **kwargs
             Keyword arguments to be passed to the retriever call.
         """
-        # Pass the storage to retriever which may be used by "manual" sources
-        self._df_raw = self.retriever(storage=self._storage, **kwargs)
+        # Pass a storage to the retriever only if it is expected
+        if "storage" in signature(self.retriever).parameters:
+            kwargs |= {"storage": self._storage}
+        self._df_raw = self.retriever(**kwargs)
         return self
 
     @final

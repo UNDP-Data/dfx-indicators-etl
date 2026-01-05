@@ -2,7 +2,7 @@
 An ETL pipeline for managing indicator data for the Data Futures Exchange (DFx).
 """
 
-from . import exceptions, utils, validation
+from . import utils, validation
 from .database import *
 from .pipelines import *
 from .storage import *
