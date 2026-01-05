@@ -47,8 +47,7 @@ class Retriever(BaseRetriever):
         """
         if (storage := kwargs.pop("storage", None)) is None:
             raise StorageRequiredError
-        file_path = storage.join_path(self.uri)
-        return storage.read_dataset(file_path, **kwargs)
+        return storage.read_dataset(self.uri, **kwargs)
 
     def _get_metadata(self, storage: BaseStorage) -> pd.DataFrame:
         """

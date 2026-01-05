@@ -55,8 +55,7 @@ class Retriever(BaseRetriever):
         data = []
         # All 17 SDGs
         for goal in tqdm(range(1, 18)):
-            file_path = storage.join_path(self.uri.joinpath(f"Goal{goal}.xlsx"))
-            df = storage.read_dataset(file_path, **kwargs)
+            df = storage.read_dataset(self.uri.joinpath(f"Goal{goal}.xlsx"), **kwargs)
             data.append(df)
         return pd.concat(data, axis=0, ignore_index=True)
 
@@ -124,4 +123,6 @@ class Transformer(BaseTransformer):
             df["value"].astype(str).str.lstrip("<|>"), errors="coerce"
         )
         df.dropna(subset=["value"], ignore_index=True, inplace=True)
+        # Drop full duplicates since indicators may be repeated for several Goals
+        df.drop_duplicates(ignore_index=True, inplace=True)
         return df

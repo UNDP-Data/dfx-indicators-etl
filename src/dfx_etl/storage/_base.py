@@ -76,7 +76,8 @@ class BaseStorage(ABC):
         Parameters
         ----------
         file_path : str
-            Full path to the file on the remote storage.
+            Relative path to the file in the storage. It may also be a path to a folder containing
+            .parquet files to be read and concatenated.
         **kwargs
             Additional keyword arguments to pass to a reading
             function in `pandas`.
@@ -86,9 +87,10 @@ class BaseStorage(ABC):
         pd.DataFrame
             Dataset data as a data frame.
         """
+        file_path = self.join_path(file_path)
         _, extension = os.path.splitext(file_path)
         match extension:
-            case ".parquet":
+            case ".parquet" | "":
                 return pd.read_parquet(
                     file_path, storage_options=self.storage_options, **kwargs
                 )
