@@ -60,11 +60,11 @@ class BaseRetriever(BaseModel, ABC):
     )
 
     @property
-    def source(self) -> str:
+    def provider(self) -> str:
         """
-        A standardised source name based on the URI.
+        A standardised provider name based on the URI.
 
-        The source name is also used as a file name when saving data.
+        The provider name is also used as a file name when saving data.
         """
         if isinstance(self.uri, AnyUrl):
             netloc = urlparse(str(self.uri)).netloc
@@ -192,7 +192,7 @@ class BaseTransformer(BaseModel, ABC):
 
     @final
     @pa.check_output(DataSchema)
-    def __call__(self, df: pd.DataFrame, source: str, **kwargs) -> pd.DataFrame:
+    def __call__(self, df: pd.DataFrame, provider: str, **kwargs) -> pd.DataFrame:
         """
         Transform and validate raw data.
 
@@ -203,9 +203,8 @@ class BaseTransformer(BaseModel, ABC):
         ----------
         df : pd.DataFrame
             Raw data frame returned by a retriever.
-        source : str
-            Value to assign to `source` column. Ignored if the data frame
-            already contains the column.
+        provider : str
+            Value to assign to `provider` column.
         **kwargs
             Keyword arguments passed to `self.transform`.
 
@@ -215,10 +214,9 @@ class BaseTransformer(BaseModel, ABC):
             Standardised data frame in line with `DataSchema`.
         """
         df = self.transform(df, **kwargs)
-        # add source if it does not exist yet
-        if "source" not in df.columns:
-            df["source"] = source
-        # ensure only areas from UN M49 are present
+        # Add the data provider if it does not exist yet
+        df["provider"] = provider
+        # Ensure only areas from UN M49 are present
         country_codes = get_country_metadata("iso-alpha-3")
         df = df.loc[df["country_code"].isin(country_codes)].copy()
         return df

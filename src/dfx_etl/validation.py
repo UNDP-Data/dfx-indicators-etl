@@ -62,10 +62,10 @@ class DataSchema(pa.DataFrameModel):
     Indicator data schema.
     """
 
-    source: Series[pd.StringDtype] = pa.Field(
+    provider: Series[pd.StringDtype] = pa.Field(
         str_length={"min_value": 2, "max_value": 1024},
         nullable=False,
-        description="Source of the data. Typically a URL",
+        description="Name of the data provider to identify the pipeline the data originates from.",
     )
     indicator_name: Series[pd.StringDtype] = pa.Field(
         str_length={"min_value": 2, "max_value": 512},
@@ -84,6 +84,11 @@ class DataSchema(pa.DataFrameModel):
     disaggregation: Series[pd.StringDtype] = pa.Field(nullable=False)
     value: Series[float] = pa.Field(
         nullable=False,
+    )
+    source: Series[pd.StringDtype] = pa.Field(
+        str_length={"min_value": 2, "max_value": 2048},
+        nullable=True,
+        description="Source of the data if specified by the provider.",
     )
 
     class Config:
