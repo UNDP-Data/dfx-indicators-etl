@@ -4,7 +4,7 @@ Storage interface for I/O operations with Azure Storage.
 
 from typing import Any
 
-from ..exceptions import AzureStorageNotConfigured
+from ..exceptions import AzureStorageNotConfiguredError
 from ..settings import SETTINGS
 from ._base import BaseStorage
 
@@ -22,7 +22,7 @@ class AzureStorage(BaseStorage):
         Storage options to be passed to `to_parquet` in `pandas`.
         """
         if SETTINGS.azure_storage is None:
-            raise AzureStorageNotConfigured
+            raise AzureStorageNotConfiguredError
         return SETTINGS.azure_storage.storage_options
 
     def join_path(self, file_path: str) -> str:
@@ -40,5 +40,5 @@ class AzureStorage(BaseStorage):
             ffstec-compatible full path to the file in the storage container.
         """
         if SETTINGS.azure_storage is None:
-            raise AzureStorageNotConfigured
+            raise AzureStorageNotConfiguredError
         return f"az://{SETTINGS.azure_storage.container_name}/{file_path}"

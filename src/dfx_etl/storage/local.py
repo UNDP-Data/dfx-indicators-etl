@@ -4,7 +4,7 @@ Storage class for a local file system.
 
 from typing import Any
 
-from ..exceptions import LocalStorageNotConfigured
+from ..exceptions import LocalStorageNotConfiguredError
 from ..settings import SETTINGS
 from ._base import BaseStorage
 
@@ -41,7 +41,7 @@ class LocalStorage(BaseStorage):
             Full path to the blob file in the storage account.
         """
         if SETTINGS.local_storage is None:
-            raise LocalStorageNotConfigured
+            raise LocalStorageNotConfiguredError
         file_path = SETTINGS.local_storage.joinpath(file_path)
         if not file_path.parent.exists():
             file_path.parent.mkdir(parents=True, exist_ok=True)
