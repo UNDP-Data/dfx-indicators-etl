@@ -13,7 +13,6 @@ from ..exceptions import StorageRequiredError
 from ..validation import PREFIX_DISAGGREGATION, SexEnum
 from ._base import BaseRetriever, BaseTransformer
 
-
 __all__ = ["Retriever", "Transformer"]
 
 
