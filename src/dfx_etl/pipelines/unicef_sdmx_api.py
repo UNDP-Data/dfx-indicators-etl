@@ -180,13 +180,17 @@ class Transformer(BaseTransformer):
             "TIME_PERIOD": "year",
             "OBS_VALUE": "value",
         }
+        # subset yearly data
+        df = df.loc[
+            df["TIME_PERIOD"].astype(str).str.strip().str.match(r"^\d{4}$")
+        ].copy()
         # handle values like <1 or <100 or >95%
         # the values now represent and upper/lower bound respectively
-        df["OBS_VALUE"] = (
-            df["OBS_VALUE"]
-            .apply(lambda x: x.strip("<>") if isinstance(x, str) else x)
-            .astype(float)
+        df["OBS_VALUE"] = df["OBS_VALUE"].apply(
+            lambda x: x.strip("<>") if isinstance(x, str) else x
         )
+        df["OBS_VALUE"] = pd.to_numeric(df["OBS_VALUE"], errors="coerce")
+        df.dropna(subset=["OBS_VALUE"], inplace=True)
         df["indicator_name"] = df.apply(
             lambda row: f"{row['Indicator']}, {row['Unit of measure']} [{row['INDICATOR']}]",
             axis=1,

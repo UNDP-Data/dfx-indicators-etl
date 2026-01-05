@@ -4,29 +4,26 @@ Storage class for a local file system.
 
 from typing import Any
 
-from pydantic import DirectoryPath, Field
-from pydantic_settings import BaseSettings
-
+from ..settings import SETTINGS
 from ._base import BaseStorage
 
 __all__ = ["LocalStorage"]
 
 
-class Settings(BaseSettings):
-    """
-    Storage settings for local storage.
-    """
-
-    folder_path: DirectoryPath = Field(
-        validation_alias="LOCAL_DATA_PATH",
-        description="Directory path to be used for writing data",
-    )
-
-
-class LocalStorage(BaseStorage, Settings):
+class LocalStorage(BaseStorage):
     """
     Storage interface for a local file system.
     """
+
+    def __init__(self):
+        """
+        Perform validation during initialisation.
+        """
+        if SETTINGS.local_storage is None:
+            raise KeyError(
+                "Environment variable for local storage is not set. You must provide "
+                "`LOCAL_STORAGE_PATH`"
+            )
 
     @property
     def storage_options(self) -> dict[str, Any] | None:
@@ -52,7 +49,7 @@ class LocalStorage(BaseStorage, Settings):
         str
             Full path to the blob file in the storage account.
         """
-        file_path = self.folder_path.joinpath(file_path)
+        file_path = SETTINGS.local_storage.joinpath(file_path)
         if not file_path.parent.exists():
             file_path.parent.mkdir(parents=True, exist_ok=True)
         return str(file_path)

@@ -44,14 +44,14 @@ class BaseStorage(ABC):
         """
 
     @final
-    def publish_dataset(self, df: pd.DataFrame, folder_path: str = "") -> str:
+    def write_dataset(self, df: pd.DataFrame, folder_path: str = "") -> str:
         """
-        Publish a dataset to the storage.
+        Write a dataset to the storage.
 
         Parameters
         ----------
         df : pd.DataFrame
-            Dataset to be published. The data frame must contain
+            Dataset to be written. The data frame must contain
             a `name` attribute.
         folder_path : str, optional
             Path within the container or bucket to write the file to.
@@ -76,7 +76,8 @@ class BaseStorage(ABC):
         Parameters
         ----------
         file_path : str
-            Full path to the file on the remote storage.
+            Relative path to the file in the storage. It may also be a path to a folder containing
+            .parquet files to be read and concatenated.
         **kwargs
             Additional keyword arguments to pass to a reading
             function in `pandas`.
@@ -86,9 +87,10 @@ class BaseStorage(ABC):
         pd.DataFrame
             Dataset data as a data frame.
         """
+        file_path = self.join_path(file_path)
         _, extension = os.path.splitext(file_path)
         match extension:
-            case ".parquet":
+            case ".parquet" | "":
                 return pd.read_parquet(
                     file_path, storage_options=self.storage_options, **kwargs
                 )

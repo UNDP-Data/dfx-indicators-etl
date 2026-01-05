@@ -7,7 +7,9 @@ classes by inheriting from the base classes defined below.
 
 from abc import ABC, abstractmethod
 from io import BytesIO
+from pathlib import Path
 from typing import final
+from urllib.parse import urlparse
 
 import httpx
 import pandas as pd
@@ -22,6 +24,7 @@ from pydantic import (
     ValidationError,
 )
 
+from ..settings import SETTINGS
 from ..utils import get_country_metadata
 from ..validation import DataSchema, MetadataSchema
 
@@ -56,6 +59,17 @@ class BaseRetriever(BaseModel, ABC):
         ],
     )
 
+    @final
+    @property
+    def provider(self) -> str:
+        """
+        Get a tandardised provider name based on the pipeline module name.
+
+        The provider name is also used as a file name when saving data.
+        """
+
+        return self.__module__.split(".")[-1]
+
     @property
     def client(self) -> httpx.Client:
         """
@@ -72,7 +86,9 @@ class BaseRetriever(BaseModel, ABC):
             raise TypeError(
                 "`client` is only applicable when `uri` is an HTTP location"
             )
-        return httpx.Client(base_url=str(uri), headers=self.headers, timeout=30)
+        return httpx.Client(
+            base_url=str(uri), headers=self.headers, timeout=SETTINGS.http_timeout
+        )
 
     @abstractmethod
     def __call__(self, **kwargs) -> pd.DataFrame:
@@ -170,7 +186,7 @@ class BaseTransformer(BaseModel, ABC):
 
     @final
     @pa.check_output(DataSchema)
-    def __call__(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def __call__(self, df: pd.DataFrame, provider: str, **kwargs) -> pd.DataFrame:
         """
         Transform and validate raw data.
 
@@ -181,6 +197,8 @@ class BaseTransformer(BaseModel, ABC):
         ----------
         df : pd.DataFrame
             Raw data frame returned by a retriever.
+        provider : str
+            Value to assign to `provider` column.
         **kwargs
             Keyword arguments passed to `self.transform`.
 
@@ -190,7 +208,9 @@ class BaseTransformer(BaseModel, ABC):
             Standardised data frame in line with `DataSchema`.
         """
         df = self.transform(df, **kwargs)
-        # ensure only areas from UN M49 are present
+        # Add the data provider if it does not exist yet
+        df["provider"] = provider
+        # Ensure only areas from UN M49 are present
         country_codes = get_country_metadata("iso-alpha-3")
         df = df.loc[df["country_code"].isin(country_codes)].copy()
         return df
