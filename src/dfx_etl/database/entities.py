@@ -156,5 +156,5 @@ def insert_country_data(target, connection, **kwargs):
         df[column] = df[column].eq("x")
     df.sort_values("id", ignore_index=True, inplace=True)
     df.to_sql(
-        "country", con=connection, if_exists="replace", index=False, method="multi"
+        "country", con=connection, if_exists="append", index=False, method="multi"
     )
