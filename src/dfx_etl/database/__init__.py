@@ -5,12 +5,14 @@ not configured via a connection string in environment variables, an in-memory SQ
 
 import logging
 
-from sqlalchemy import Engine, create_engine, text
+from pandas.io.sql import SQLTable
+from sqlalchemy import Connection, Engine, create_engine, text
+from sqlalchemy.dialects.postgresql import insert
 
 from ..settings import SETTINGS
 from .entities import *  # Required to register tables
 
-__all__ = ["get_engine", "create_tables", "_drop_tables"]
+__all__ = ["get_engine", "create_tables", "_drop_tables", "update_on_conflict"]
 
 
 logger = logging.getLogger(__name__)
@@ -79,3 +81,23 @@ def _drop_tables(engine: Engine) -> None:
         connection.execute(text("DROP VIEW IF EXISTS observation;"))
     Base.metadata.drop_all(engine)
     logger.warning("Tables have been dropped.")
+
+
+def update_on_conflict(
+    table: SQLTable, conn: Connection, keys: list, data_iter: zip
+) -> int:
+    """
+    Upsert logic for `method` argument in `pandas.to_sql` when there is a primary key conflict.
+
+    The function is experimental and may not work as expected.
+
+    See https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.to_sql.html.
+    """
+    data = [dict(zip(keys, row)) for row in data_iter]
+    insert_statement = insert(table.table).values(data)
+    upsert_statement = insert_statement.on_conflict_do_update(
+        constraint=f"{table.table.name}_pkey",
+        set_={c.key: c for c in insert_statement.excluded},
+    )
+    result = conn.execute(upsert_statement)
+    return result.rowcount
