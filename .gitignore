@@ -156,3 +156,7 @@ cython_debug/
 
 # Data folder
 /data/
+
+# .lock files (uv, pipenv)
+*.lock
+

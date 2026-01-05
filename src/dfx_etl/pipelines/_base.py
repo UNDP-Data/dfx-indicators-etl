@@ -117,7 +117,7 @@ class BaseRetriever(BaseModel, ABC):
         url: str,
         params: dict | None = None,
         client: httpx.Client | None = None,
-        **kwargs
+        **kwargs,
     ) -> pd.DataFrame | None:
         """
         Read a CSV file from a remote location using an HTTP GET request.

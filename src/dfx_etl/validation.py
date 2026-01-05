@@ -46,6 +46,10 @@ class MetadataSchema(pa.DataFrameModel):
     )
 
     class Config:
+        """
+        Config internal class
+        """
+
         name = "IndicatorMetadataSchema"
         strict = "filter"
         add_missing_columns = True

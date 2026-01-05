@@ -6,3 +6,6 @@ lint:
 	pylint src
 test:
 	python -m pytest tests/
+.PHONY: clean
+clean:
+	rm -rf dist build src/*.egg-info

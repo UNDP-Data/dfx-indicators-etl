@@ -1,0 +1,21 @@
+.PHONY: install format lint test check clean
+
+install:
+	uv venv
+	uv sync --extra dev
+
+format:
+	uv run isort . --profile black --multi-line 3
+	uv run black .
+
+lint:
+	uv run pylint src
+
+check: format
+	@uv run pylint src || true
+
+test:
+	uv run python -m pytest tests/
+
+clean:
+	rm -rf dist build src/*.egg-info

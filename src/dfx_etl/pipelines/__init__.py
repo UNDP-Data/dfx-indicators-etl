@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, PrivateAttr, computed_field
 
-from ..storage import BaseStorage
+from ..storage._base import BaseStorage
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Pipeline"]
