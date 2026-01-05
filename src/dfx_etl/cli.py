@@ -1,8 +1,24 @@
 import argparse
 import logging
-from typing import List
-
+import os.path
+import sys
+import pkgutil
+import importlib
+from dfx_etl.pipelines import Pipeline
+from dfx_etl.storage import get_storage
 logger = logging.getLogger(__name__)
+
+
+STEPS = ["retrieve", "transform", "load"]
+DESTINATIONS = ['local', 'azure']
+
+
+
+class Formatter(
+    argparse.ArgumentDefaultsHelpFormatter,
+    argparse.RawDescriptionHelpFormatter,
+):
+    pass
 
 
 def configure_logging(level: str = "INFO") -> None:
@@ -13,60 +29,78 @@ def configure_logging(level: str = "INFO") -> None:
     )
 
 
-def get_available_pipelines() -> List[str]:
-    logger.info("HURI")
-    return list("ABC")
+def get_available_sources() -> dict[str:str]:
+    """
+    Fetches all public python modules located in "dfx_etl.pipelines" submodule, that is
+    they do not start or end with "_"
+    Returns, list of str representing pipelines FQDN
+    -------
 
+    """
+    pkg = importlib.import_module(f'{__package__}.pipelines')
+    modules = {}
+
+    for module_info in pkgutil.iter_modules(pkg.__path__):
+        if module_info.name.startswith('_') or module_info.name.endswith('_'):continue
+        modules[module_info.name] = f'{pkg.__name__}.{module_info.name}'
+    return modules
+
+EPILOG = f"""
+        Tips: 
+            omit --src to execute all pipelines: {', '.join(get_available_sources().keys())}
+            omit --step to execute all steps: {', '.join(STEPS)}
+        Usage:
+            one
+            two
+        """
 
 def build_parser() -> argparse.ArgumentParser:
+    """
+    Build an argparse parser suitable ot launch pipelines from command line
+    Returns
+    -------
+
+    """
     parser = argparse.ArgumentParser(
         prog="dfx-etl",
-        description="Run dfx_etl pipelines",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        epilog="Tip: omit -p/--pipeline to execute all pipelines.",
+        description="Run dfx_etl pipelines and store data  locally or on Azure ",
+        formatter_class=Formatter,
+        epilog=EPILOG
     )
 
     parser.add_argument(
-        "-p",
-        "--pipeline",
+        "--src",
         type=str,
-        required=True,
-        choices=sorted(get_available_pipelines()),
-        help="The name of the pipeline to be executed",
+        required=False,
+        nargs='+',
+        choices=get_available_sources().keys(),
+        metavar="SOURCE",
+        help="Execute DFx pipeline on one or multiple sources. (choices: %(choices)s)",
     )
 
     parser.add_argument(
-        "-s",
         "--step",
         type=str,
         required=False,
-        choices=["retrieve", "transform", "load", "all"],
-        default="all",
-        help="The step of the specified pipeline to be executed",
+        choices=STEPS,
+        metavar="STEP",
+        help="The step of the specified pipeline (choices: %(choices)s)",
     )
 
-    parser.add_argument(
-        "-b",
-        "--storage-backend",
-        choices=["local", "azure"],
+    dest = parser.add_mutually_exclusive_group(required=True)
+
+    dest.add_argument(
+        "--dst-folder",
         type=str,
-        default="local",
-        help="Storage backend where the parquet files will be stored",
+        metavar='PATH',
+        help="A path to a directory on the local disk. The storage where the intermediary parquet files will be stored. ",
     )
 
-    azure_storage = parser.add_argument_group("Azure Storage options")
-    azure_storage.add_argument(
-        "--container",
+    dest.add_argument(
+        "--azure-path",
         type=str,
-        help="The name of the Azure Container where parquet files will be uploaded",
-    )
-
-    local_storage = parser.add_argument_group("Local storage options")
-    local_storage.add_argument(
-        "--local-folder",
-        type=str,
-        default="./data",
-        help="Local output directory/folder where the parquet files will be stored",
+        metavar='CONTAINER[/PATH]',
+        help="A relative path to an directory in Azure. Needs to start with container name. ex: dfxdata/indicators, dfx/indicators/prod",
     )
 
     parser.add_argument(
@@ -76,19 +110,52 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv=None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
+
+    if argv is None:
+        argv = sys.argv[1:]
+
     if not argv:
         parser.print_help()
         return 1
+
     args = parser.parse_args(argv)
+    print(args)
 
     # validate
+
+    dst_folder = args.dst_folder
+
+    if dst_folder is not None:
+        if not os.path.isabs(dst_folder):
+            dst = os.path.abspath(dst_folder)
+        if not os.path.exists(dst_folder):
+            os.makedirs(dst_folder)
+
+    azure_path = None
+    if azure_path is not None:
+        if not '/' in azure_path:
+           parser.error(f'--azure-path={azure_path} is not a valid Azure path')
+
+
+
+    available_sources = get_available_sources()
+
+    pipelines = []
+    for src in args.src:
+        pipelines.append(available_sources[src])
+    storage=get_storage('local')
+
+    for pipeline_fqn in pipelines:
+
+        src_module = importlib.import_module(pipeline_fqn)
+
+        #pipeline = Pipeline(retriever=src_module.Retriever(), transformer=src_module.Transformer())
 
 
 
     # run
-
 
     return 0
 
@@ -96,4 +163,4 @@ def main(argv=None) -> int:
 if __name__ == "__main__":
 
     configure_logging("INFO")
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv))
