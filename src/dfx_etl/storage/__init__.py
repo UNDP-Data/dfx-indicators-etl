@@ -4,7 +4,6 @@ Storage interfaces for I/O operations.
 
 import logging
 
-from ..exceptions import StorageNotConfiguredError
 from ..settings import SETTINGS
 from ._base import BaseStorage
 from .azure import AzureStorage
@@ -36,6 +35,8 @@ def get_storage(**kwargs) -> BaseStorage:
     elif SETTINGS.azure_storage is not None:
         storage = AzureStorage(**kwargs)
     else:
-        raise StorageNotConfiguredError
+        raise KeyError(
+            "Environment variables for neither Azure Storage nor local storage are not set."
+        )
     logger.info("Using %s storage", storage)
     return storage
