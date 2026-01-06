@@ -45,7 +45,7 @@ class Settings(BaseSettings):
         env_nested_max_split=1,
     )
 
-    db_conn: PostgresDsn = Field(alias="DB_CONNECTION", repr=False)
+    db_conn: PostgresDsn | None = Field(alias="DB_CONNECTION", repr=False, default=None)
     http_timeout: int = Field(
         default=30, description="Default client timeout in seconds for HTTP requests."
     )

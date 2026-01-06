@@ -2,7 +2,7 @@
 ETL components to process data from the ILOSTAT SDMX API.
 See https://ilostat.ilo.org/resources/sdmx-tools/.
 """
-
+import logging
 import xml.etree.ElementTree as ET
 from io import StringIO
 from urllib.parse import urljoin
@@ -14,11 +14,13 @@ from tqdm import tqdm
 
 from ._base import BaseRetriever, BaseTransformer
 
+
+
 __all__ = ["Retriever", "Transformer"]
 
 BASE_URL = "https://sdmx.ilo.org/rest/"
 DISAGGREGATIONS = {"SEX", "AGE", "GEO", "EDU", "NOC"}
-
+logger = logging.getLogger(__name__)
 
 def _get_codelist_mapping(name: str) -> dict:
     """
@@ -70,6 +72,7 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data from the API for the indicators with supported disaggregations.
         """
+
         df_metadata = self.get_metadata()
         # indicator codes contain disaggregations, e.g., SDG_0852_SEX_AGE_RT
         # subset only some disaggregations and no classification (NOC)
@@ -80,6 +83,12 @@ class Retriever(BaseRetriever):
             .apply(lambda x: not set(x) - DISAGGREGATIONS)
         )
         df_metadata = df_metadata.loc[mask].reset_index(drop=True)
+        '''
+        I believe some sources might use the storage (manual ones) but ILO does NOT need it
+        
+        '''
+        storage = kwargs.pop('storage')
+
         data = []
         with self.client as client:
             for _, row in tqdm(df_metadata.iterrows(), total=len(df_metadata)):

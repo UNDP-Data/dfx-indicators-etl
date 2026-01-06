@@ -2,15 +2,13 @@ import argparse
 import logging
 import os.path
 import sys
-import pkgutil
-import importlib
-from dfx_etl.pipelines import Pipeline
-from dfx_etl.storage import get_storage
+from dfx_etl.settings import SETTINGS
+from dfx_etl.pipelines import Pipeline, get_pipeline, list_pipelines
 logger = logging.getLogger(__name__)
 
 
 STEPS = ["retrieve", "transform", "load"]
-DESTINATIONS = ['local', 'azure']
+
 
 
 
@@ -29,25 +27,10 @@ def configure_logging(level: str = "INFO") -> None:
     )
 
 
-def get_available_sources() -> dict[str:str]:
-    """
-    Fetches all public python modules located in "dfx_etl.pipelines" submodule, that is
-    they do not start or end with "_"
-    Returns, list of str representing pipelines FQDN
-    -------
-
-    """
-    pkg = importlib.import_module(f'{__package__}.pipelines')
-    modules = {}
-
-    for module_info in pkgutil.iter_modules(pkg.__path__):
-        if module_info.name.startswith('_') or module_info.name.endswith('_'):continue
-        modules[module_info.name] = f'{pkg.__name__}.{module_info.name}'
-    return modules
 
 EPILOG = f"""
         Tips: 
-            omit --src to execute all pipelines: {', '.join(get_available_sources().keys())}
+            omit --src to execute all pipelines: {', '.join(list_pipelines())}
             omit --step to execute all steps: {', '.join(STEPS)}
         Usage:
             one
@@ -73,7 +56,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         required=False,
         nargs='+',
-        choices=get_available_sources().keys(),
+        choices=list_pipelines(),
         metavar="SOURCE",
         help="Execute DFx pipeline on one or multiple sources. (choices: %(choices)s)",
     )
@@ -121,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     args = parser.parse_args(argv)
-    print(args)
+
 
     # validate
 
@@ -129,10 +112,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if dst_folder is not None:
         if not os.path.isabs(dst_folder):
-            dst = os.path.abspath(dst_folder)
+            dst_folder = os.path.abspath(dst_folder)
         if not os.path.exists(dst_folder):
             os.makedirs(dst_folder)
-
+        SETTINGS.local_storage = dst_folder
+    print(SETTINGS)
     azure_path = None
     if azure_path is not None:
         if not '/' in azure_path:
@@ -140,18 +124,23 @@ def main(argv: list[str] | None = None) -> int:
 
 
 
-    available_sources = get_available_sources()
 
-    pipelines = []
+
+
     for src in args.src:
-        pipelines.append(available_sources[src])
-    storage=get_storage('local')
+        pipeline = get_pipeline(src)
+        match args.step:
+            case 'retrieve':
+                return pipeline.retrieve()
+            case 'transform':
+                return pipeline.transform()
+            case 'load':
+                return pipeline.load()
+            case _:
+                return pipeline()
 
-    for pipeline_fqn in pipelines:
 
-        src_module = importlib.import_module(pipeline_fqn)
 
-        #pipeline = Pipeline(retriever=src_module.Retriever(), transformer=src_module.Transformer())
 
 
 
