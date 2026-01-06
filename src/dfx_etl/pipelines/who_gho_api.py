@@ -11,7 +11,7 @@ import pandas as pd
 from pydantic import Field, HttpUrl
 from tqdm import tqdm
 
-from ..utils import _resolve_disaggregations, to_snake_case
+from ..utils import _resolve_dimensions, to_snake_case
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Retriever", "Transformer"]
@@ -136,8 +136,8 @@ class Transformer(BaseTransformer):
 
         Note that the source data contains duplicates which are dropped. There are rows that
         do not differ in any column except for value and ID columns. 'DataSourceDim' column
-        is treated is a 'source' column and disaggregation too, because it is a disaggregation
-        dimension for this source too.
+        is treated is a 'source' column and dimension too, because it is used to uniqely identify
+        a row in this source too.
 
         Parameters
         ----------
@@ -153,15 +153,15 @@ class Transformer(BaseTransformer):
             "indicator_name": "indicator_name",
             "SpatialDim": "country_code",
             "TimeDim": "year",
-            "disaggregation": "disaggregation",
+            "dimension": "dimension",
             "DataSourceDim": "source",
             "NumericValue": "value",
         }
 
-        # Handle disaggregations stored in the long format but avoid adding new columns for each
+        # Handle dimensions stored in the long format but avoid adding new columns for each
         dims = df.filter(regex=r"^Dim\d$").columns
         df["DataSourceDim"] = df["DataSourceDim"].str.replace("DATASOURCE_", "")
-        df["disaggregation"] = (
+        df["dimension"] = (
             df.apply(
                 lambda row: (
                     {
@@ -175,7 +175,7 @@ class Transformer(BaseTransformer):
                 or None,
                 axis=1,
             )
-            .map(lambda x: _resolve_disaggregations(x, prefix=""), na_action="ignore")
+            .map(lambda x: _resolve_dimensions(x, prefix=""), na_action="ignore")
             .fillna("Total")
         )
         df = df.reindex(columns=columns).rename(columns=columns).reset_index(drop=True)

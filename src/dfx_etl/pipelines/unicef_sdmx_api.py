@@ -10,6 +10,7 @@ import pandas as pd
 from pydantic import Field, HttpUrl
 from tqdm import tqdm
 
+from ..validation import PREFIX_DIMENSION
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Retriever", "Transformer"]
@@ -175,8 +176,8 @@ class Transformer(BaseTransformer):
         columns = {
             "REF_AREA": "country_code",
             "indicator_name": "indicator_name",
-            "Sex": "disagr_sex",
-            "Current age": "disagr_age",
+            "Sex": f"{PREFIX_DIMENSION}sex",
+            "Current age": f"{PREFIX_DIMENSION}age",
             "TIME_PERIOD": "year",
             "OBS_VALUE": "value",
             "DATA_SOURCE": "source",

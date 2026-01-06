@@ -10,7 +10,7 @@ import pandas as pd
 from pydantic import Field
 
 from ..storage import BaseStorage
-from ..validation import PREFIX_DISAGGREGATION, SexEnum
+from ..validation import PREFIX_DIMENSION, SexEnum
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Retriever", "Transformer"]
@@ -85,9 +85,9 @@ class Transformer(BaseTransformer):
         # rename columns
         mapping = {
             "val": "value",
-            "sex_name": PREFIX_DISAGGREGATION + "sex",
-            "age_name": PREFIX_DISAGGREGATION + "age",
-            "cause_name": PREFIX_DISAGGREGATION + "cause",
+            "sex_name": PREFIX_DIMENSION + "sex",
+            "age_name": PREFIX_DIMENSION + "age",
+            "cause_name": PREFIX_DIMENSION + "cause",
         }
         df.rename(columns=mapping, inplace=True)
         return df

@@ -75,7 +75,7 @@ class Transformer(BaseTransformer):
         }
         # remove unspecified disaggregations
         df = df.loc[~df["Subgroup"].str.startswith("Category")].copy()
-        # only keep indicators with just one or 'Total' disaggregation
+        # only keep indicators with just one or 'Total' dimension
         df["n_subgroups"] = df.groupby("Indicator")["Subgroup"].transform("nunique")
         df = df.loc[df["n_subgroups"].eq(1) | df["Subgroup"].eq("Total")].copy()
         df["indicator_name"] = df.apply(

@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 from ..storage import BaseStorage
 from ..utils import replace_country_metadata, to_snake_case
-from ..validation import PREFIX_DISAGGREGATION
+from ..validation import PREFIX_DIMENSION
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Retriever", "Transformer"]
@@ -79,7 +79,7 @@ class Transformer(BaseTransformer):
         pd.DataFrame
             Transformed data frame in the canonical format.
         """
-        # Non-disaggregation columns
+        # Non-dimension columns
         columns = {
             "Goal": None,
             "Target": None,
@@ -103,12 +103,12 @@ class Transformer(BaseTransformer):
             "Units": None,
         }
         # Infer diaggregation columns which differ depending on the SDG
-        disaggregations = list(set(df.columns) - set(columns))
+        dimensions = list(set(df.columns) - set(columns))
         # Filter out the columns and create a mapping for renaming
         columns = {k: v for k, v in columns.items() if v is not None}
         columns |= {
-            column: to_snake_case(column, prefix=PREFIX_DISAGGREGATION)
-            for column in disaggregations
+            column: to_snake_case(column, prefix=PREFIX_DIMENSION)
+            for column in dimensions
         }
         df = df.reindex(columns=columns).rename(columns=columns)
         df["indicator_name"] = df.apply(

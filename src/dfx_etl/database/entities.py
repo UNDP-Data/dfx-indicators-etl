@@ -63,8 +63,8 @@ class Dimension(Base):
     """
     Disaggregation table.
 
-    For simplicity and consistency across sources, all disaggregations are stored as a single
-    unique `name` field.
+    For simplicity and consistency across sources, all dimensions are stored as a single unique
+    `name` field.
     """
 
     __tablename__ = "dimension"
@@ -77,7 +77,7 @@ class Series(Base):
     """
     Series table.
 
-    A series is defined as a time series for a single country, indicator and disaggregation.
+    A series is defined as a time series for a single country, indicator and dimension.
     """
 
     __tablename__ = "series"
