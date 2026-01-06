@@ -10,7 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 __all__ = ["SETTINGS"]
 
 
-class AzureStorage(BaseModel):
+class AzureStorageSettings(BaseModel):
     """
     Storage settings for Azure Storage.
     """
@@ -54,7 +54,7 @@ class Settings(BaseSettings):
         description="Minimum year value to be used as a cut-off point for the data. Observations "
         "older than this year will be removed",
     )
-    azure_storage: AzureStorage | None = Field(default=None)
+    azure_storage: AzureStorageSettings | None = Field(default=None)
     local_storage: DirectoryPath | None = Field(
         default=None, alias="LOCAL_STORAGE_PATH"
     )
