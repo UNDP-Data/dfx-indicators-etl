@@ -188,14 +188,14 @@ def to_snake_case(value: str, prefix: str = "", suffix: str = "") -> str:
     return value
 
 
-def _resolve_disaggregations(series: pd.Series, prefix: str) -> str:
+def _resolve_disaggregations(mapping: pd.Series | dict, prefix: str) -> str:
     """
     Combine disaggregations into a single value.
 
     Parameters
     ----------
-    series : pd.Series
-        Series with disaggregation values as values and fields as indexes.
+    mapping : pd.Series or dict
+        Series or dictionary with disaggregation values as values and fields as indexes or keys.
     prefix : str
         Prefix used for disaggregation fields to be removed.
 
@@ -204,12 +204,14 @@ def _resolve_disaggregations(series: pd.Series, prefix: str) -> str:
     str
         A single disaggregation value.
     """
-    series = series.dropna().rename(
-        lambda name: name.replace(prefix, "", 1).replace("_", " ")
-    )
+    mapping = {
+        name.replace(prefix, "", 1).replace("_", " "): value
+        for name, value in mapping.items()
+        if not pd.isna(value)
+    }
     values = [
         value if value.lower() != "total" else f"All {name}"
-        for name, value in series.items()
+        for name, value in mapping.items()
     ]
     if not values:
         return "Total"
