@@ -11,8 +11,7 @@ import pandas as pd
 from pydantic import Field, HttpUrl
 from tqdm import tqdm
 
-from ..utils import to_snake_case
-from ..validation import PREFIX_DISAGGREGATION
+from ..utils import _resolve_disaggregations, to_snake_case
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Retriever", "Transformer"]
@@ -135,6 +134,11 @@ class Transformer(BaseTransformer):
         """
         Transform raw data from GHO OData API.
 
+        Note that the source data contains duplicates which are dropped. There are rows that
+        do not differ in any column except for value and ID columns. 'DataSourceDim' column
+        is treated is a 'source' column and disaggregation too, because it is a disaggregation
+        dimension for this source too.
+
         Parameters
         ----------
         df : pd.DataFrame
@@ -149,29 +153,39 @@ class Transformer(BaseTransformer):
             "indicator_name": "indicator_name",
             "SpatialDim": "country_code",
             "TimeDim": "year",
+            "disaggregation": "disaggregation",
+            "DataSourceDim": "source",
             "NumericValue": "value",
-            "DataSourceDim": "source",  # keep the original source as to avoid duplicates
         }
 
-        # "unstack" dimensions from the long format for Dim1, Dim2 etc columns
-        for column in df.filter(regex=r"Dim\dType"):
-            dimensions = sorted(df[column].dropna().unique())
-            for dimension in dimensions:
-                column_dim = f"{PREFIX_DISAGGREGATION}{dimension}"
-                if column_dim not in df.columns:
-                    df[column_dim] = None
-                mask = df[column].eq(dimension)
-                df.loc[mask, column_dim] = df.loc[mask, column_dim].combine_first(
-                    df.loc[mask, column.replace("Type", "")]
+        # Handle disaggregations stored in the long format but avoid adding new columns for each
+        dims = df.filter(regex=r"^Dim\d$").columns
+        df["DataSourceDim"] = df["DataSourceDim"].str.replace("DATASOURCE_", "")
+        df["disaggregation"] = (
+            df.apply(
+                lambda row: (
+                    {
+                        to_snake_case(category): row[dim].replace(f"{category}_", "")
+                        for dim in dims
+                        if (category := row[f"{dim}Type"]) is not None
+                    }
+                    # Add source as a dimensions to avoid duplicates
+                    | {"source": row["DataSourceDim"]}
                 )
-        df = (
-            df.reindex(columns=columns)
-            .rename(columns=columns)
-            .join(
-                df.filter(like=PREFIX_DISAGGREGATION, axis=1).rename(
-                    to_snake_case, axis=1
-                )
+                or None,
+                axis=1,
             )
+            .map(lambda x: _resolve_disaggregations(x, prefix=""), na_action="ignore")
+            .fillna("Total")
         )
-        df["source"] = df["source"].apply(lambda x: "https://who.int" + f" | {x}")
-        return df.reset_index(drop=True)
+        df = df.reindex(columns=columns).rename(columns=columns).reset_index(drop=True)
+        # Drop duplicates deterministically
+        columns = set(df.columns) - {"value"}
+        df.sort_values(list(columns), ignore_index=True, inplace=True)
+        df.drop_duplicates(
+            subset=list(columns - {"source"}),
+            keep="first",
+            ignore_index=True,
+            inplace=True,
+        )
+        return df
