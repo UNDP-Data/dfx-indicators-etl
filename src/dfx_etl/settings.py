@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     http_timeout: int = Field(
         default=30, description="Default client timeout in seconds for HTTP requests."
     )
+    year_min: int = Field(
+        default=2005,
+        description="Minimum year value to be used as a cut-off point for the data. Observations "
+        "older than this year will be removed",
+    )
     azure_storage: AzureStorage | None = Field(default=None)
     local_storage: DirectoryPath | None = Field(
         default=None, alias="LOCAL_STORAGE_PATH"

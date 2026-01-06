@@ -10,6 +10,7 @@ from typing import Self, final
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, PrivateAttr
 
+from ..settings import SETTINGS
 from ..storage import BaseStorage, get_storage
 from ._base import BaseRetriever, BaseTransformer
 
@@ -94,7 +95,9 @@ class Pipeline(BaseModel):
         df = self.transformer(
             self.df_raw.copy(), provider=self.retriever.provider, **kwargs
         )
-        df.reset_index(drop=True, inplace=True)
+        df = df.query(
+            "year >= @year_min", local_dict={"year_min": SETTINGS.year_min}
+        ).reset_index(drop=True)
         df.name = self.retriever.provider
         self._df_transformed = df
         return self
