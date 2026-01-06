@@ -94,13 +94,18 @@ class Retriever(BaseRetriever):
         pd.DataFrame or None
             Data frame with raw data as returned by the API or None.
         """
+        storage = kwargs.pop('storage')
         params = {
             "periods": ",".join(map(str, range(start_period, end_period)))
         } | kwargs
         if client.base_url is None:
             raise ValueError("`client` must include a `base_url`.")
+
+
         response = client.get(indicator_code, params=params)
         response.raise_for_status()
+
+
         data = response.json()
         if (values := data.get("values")) is None:
             return None

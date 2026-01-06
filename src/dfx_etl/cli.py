@@ -124,10 +124,6 @@ def main(argv: list[str] | None = None) -> int:
            parser.error(f'--azure-path={azure_path} is not a valid Azure path')
 
 
-
-
-
-
     for src in args.src:
         pipeline = get_pipeline(src)
         match args.step:
