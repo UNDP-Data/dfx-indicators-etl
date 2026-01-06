@@ -4,11 +4,13 @@ the correct implementation of `retriever` and `transformer` components.
 """
 
 import logging
+from inspect import signature
 from typing import Self, final
 
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, PrivateAttr
 
+from ..settings import SETTINGS
 from ..storage import BaseStorage, get_storage
 from ._base import BaseRetriever, BaseTransformer
 
@@ -72,8 +74,10 @@ class Pipeline(BaseModel):
         **kwargs
             Keyword arguments to be passed to the retriever call.
         """
-        # Pass the storage to retriever which may be used by "manual" sources
-        self._df_raw = self.retriever(storage=self._storage, **kwargs)
+        # Pass a storage to the retriever only if it is expected
+        if "storage" in signature(self.retriever).parameters:
+            kwargs |= {"storage": self._storage}
+        self._df_raw = self.retriever(**kwargs)
         return self
 
     @final
@@ -91,7 +95,13 @@ class Pipeline(BaseModel):
         df = self.transformer(
             self.df_raw.copy(), provider=self.retriever.provider, **kwargs
         )
-        df.reset_index(drop=True, inplace=True)
+        df = df.query(
+            "year >= @year_min and year <= @year_max",
+            local_dict={
+                "year_min": SETTINGS.pipeline.year_min,
+                "year_max": SETTINGS.pipeline.year_max,
+            },
+        ).reset_index(drop=True)
         df.name = self.retriever.provider
         self._df_transformed = df
         return self

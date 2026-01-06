@@ -12,12 +12,13 @@ import pandas as pd
 from pydantic import Field, HttpUrl
 from tqdm import tqdm
 
+from ..validation import PREFIX_DIMENSION
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Retriever", "Transformer"]
 
 BASE_URL = "https://sdmx.ilo.org/rest/"
-DISAGGREGATIONS = {"SEX", "AGE", "GEO", "EDU", "NOC"}
+DIMENSIONS = {"SEX", "AGE", "GEO", "EDU", "NOC"}
 
 
 def _get_codelist_mapping(name: str) -> dict:
@@ -77,7 +78,7 @@ class Retriever(BaseRetriever):
             df_metadata["code"]
             .str.split("_")
             .str.slice(2, -1)
-            .apply(lambda x: not set(x) - DISAGGREGATIONS)
+            .apply(lambda x: not set(x) - DIMENSIONS)
         )
         df_metadata = df_metadata.loc[mask].reset_index(drop=True)
         data = []
@@ -161,14 +162,15 @@ class Transformer(BaseTransformer):
         columns = {
             "REF_AREA": "country_code",
             "indicator_name": "indicator_name",  # assigned by the retriever
-            "SEX": "disagr_sex",
-            "AGE": "disagr_age",
-            "GEO": "disagr_geo",
-            "EDU": "disagr_edu",
+            "SEX": f"{PREFIX_DIMENSION}sex",
+            "AGE": f"{PREFIX_DIMENSION}age",
+            "GEO": f"{PREFIX_DIMENSION}geo",
+            "EDU": f"{PREFIX_DIMENSION}edu",
             "TIME_PERIOD": "year",
             "OBS_VALUE": "value",
             "OBS_STATUS": "prop_observation_type",
             "UNIT_MEASURE_TYPE": "unit",
+            "SOURCE": "source",
         }
 
         # subset annual indicators
@@ -180,10 +182,9 @@ class Transformer(BaseTransformer):
             if column in df.columns:
                 df = df.loc[df[column].str.contains("AGGREGATE", na=True)].copy()
 
-        # replace disaggregation codes with labels
+        # replace dimension codes with labels
         mapping = {
-            disaggregation: _get_codelist_mapping(disaggregation)
-            for disaggregation in DISAGGREGATIONS
+            dimension: _get_codelist_mapping(dimension) for dimension in DIMENSIONS
         }
         df = df.replace(mapping).infer_objects(copy=False)
         # remap measure types

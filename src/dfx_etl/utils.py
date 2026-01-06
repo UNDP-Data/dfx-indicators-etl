@@ -19,7 +19,7 @@ __all__ = [
     "get_country_metadata",
     "replace_country_metadata",
     "to_snake_case",
-    "_combine_disaggregations",
+    "_combine_dimensions",
 ]
 
 CountryField: TypeAlias = Literal["name", "m49", "iso-alpha-2", "iso-alpha-3"]
@@ -188,37 +188,39 @@ def to_snake_case(value: str, prefix: str = "", suffix: str = "") -> str:
     return value
 
 
-def _resolve_disaggregations(series: pd.Series, prefix: str) -> str:
+def _resolve_dimensions(mapping: pd.Series | dict, prefix: str) -> str:
     """
-    Combine disaggregations into a single value.
+    Combine dimensions into a single value.
 
     Parameters
     ----------
-    series : pd.Series
-        Series with disaggregation values as values and fields as indexes.
+    mapping : pd.Series or dict
+        Series or dictionary with dimension values as values and fields as indexes or keys.
     prefix : str
-        Prefix used for disaggregation fields to be removed.
+        Prefix used for dimension fields to be removed.
 
     Returns
     -------
     str
-        A single disaggregation value.
+        A single dimension value.
     """
-    series = series.dropna().rename(
-        lambda name: name.replace(prefix, "", 1).replace("_", " ")
-    )
+    mapping = {
+        name.replace(prefix, "", 1).replace("_", " "): value
+        for name, value in mapping.items()
+        if not pd.isna(value)
+    }
     values = [
         value if value.lower() != "total" else f"All {name}"
-        for name, value in series.items()
+        for name, value in mapping.items()
     ]
     if not values:
         return "Total"
     return "; ".join(values)
 
 
-def _combine_disaggregations(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
+def _combine_dimensions(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
     """
-    Combine disaggregations columns into a single column.
+    Combine dimension columns into a single column.
 
     This function is used as a parser during validation.
 
@@ -227,18 +229,20 @@ def _combine_disaggregations(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
     df : pd.DataFrame
         Input data frame passed to the validation schema.
     prefix : str
-        Prefix used to identify disaggregation columns.
+        Prefix used to identify dimension columns.
 
     Returns
     -------
     df : pd.DataFrame
-        The data frame with disaggregation columns combined into one.
+        The data frame with dimension columns combined into one.
     """
+    if "dimension" in df.columns:
+        return df
     columns = [column for column in df.columns if column.startswith(prefix)]
     if not columns:
-        return df.assign(disaggregation="Total")
+        return df.assign(dimension="Total")
     return df.assign(
-        disaggregation=df[columns].apply(
-            lambda row: _resolve_disaggregations(row, prefix), axis=1
+        dimension=df[columns].apply(
+            lambda row: _resolve_dimensions(row, prefix), axis=1
         )
     )

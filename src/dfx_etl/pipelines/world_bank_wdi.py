@@ -9,7 +9,6 @@ from pathlib import Path
 import pandas as pd
 from pydantic import Field
 
-from ..exceptions import StorageRequiredError
 from ..storage import BaseStorage
 from ._base import BaseRetriever, BaseTransformer
 
@@ -31,12 +30,14 @@ class Retriever(BaseRetriever):
         validate_default=True,
     )
 
-    def __call__(self, **kwargs) -> pd.DataFrame:
+    def __call__(self, storage: BaseStorage, **kwargs) -> pd.DataFrame:
         """
         Retrieve data from the WDI database files.
 
         Parameters
         ----------
+        storage : BaseStorage
+            Storage to retrieve the data file from.
         **kwargs
             Extra arguments to pass to `pd.read_*` function.
 
@@ -45,8 +46,6 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data frame with the data from the databae.
         """
-        if (storage := kwargs.pop("storage", None)) is None:
-            raise StorageRequiredError
         return storage.read_dataset(self.uri, **kwargs)
 
     def _get_metadata(self, storage: BaseStorage) -> pd.DataFrame:
