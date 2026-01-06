@@ -94,7 +94,6 @@ class Retriever(BaseRetriever):
         pd.DataFrame or None
             Data frame with raw data as returned by the API or None.
         """
-        storage = kwargs.pop('storage')
         params = {
             "periods": ",".join(map(str, range(start_period, end_period)))
         } | kwargs
