@@ -32,6 +32,21 @@ class AzureStorageSettings(BaseModel):
         return {"account_name": self.account_name, "sas_token": self.sas_token}
 
 
+class PipelineSettings(BaseModel):
+    """
+    Runtime settings for the ETL pipelines.
+    """
+
+    http_timeout: int = Field(
+        default=30, description="Default client timeout in seconds for HTTP requests."
+    )
+    year_min: int = Field(
+        default=2005,
+        description="Minimum year value to be used as a cut-off point for the data. Observations "
+        "older than this year will be removed",
+    )
+
+
 class Settings(BaseSettings):
     """
     Package settings, including secrets.
@@ -46,14 +61,7 @@ class Settings(BaseSettings):
     )
 
     db_conn: PostgresDsn | None = Field(default=None, alias="DB_CONNECTION", repr=False)
-    http_timeout: int = Field(
-        default=30, description="Default client timeout in seconds for HTTP requests."
-    )
-    year_min: int = Field(
-        default=2005,
-        description="Minimum year value to be used as a cut-off point for the data. Observations "
-        "older than this year will be removed",
-    )
+    pipeline: PipelineSettings = Field(default_factory=PipelineSettings)
     azure_storage: AzureStorageSettings | None = Field(default=None)
     local_storage: DirectoryPath | None = Field(
         default=None, alias="LOCAL_STORAGE_PATH"

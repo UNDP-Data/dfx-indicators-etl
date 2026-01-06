@@ -87,7 +87,9 @@ class BaseRetriever(BaseModel, ABC):
                 "`client` is only applicable when `uri` is an HTTP location"
             )
         return httpx.Client(
-            base_url=str(uri), headers=self.headers, timeout=SETTINGS.http_timeout
+            base_url=str(uri),
+            headers=self.headers,
+            timeout=SETTINGS.pipeline.http_timeout,
         )
 
     @abstractmethod
