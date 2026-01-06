@@ -43,7 +43,12 @@ class PipelineSettings(BaseModel):
     year_min: int = Field(
         default=2005,
         description="Minimum year value to be used as a cut-off point for the data. Observations "
-        "older than this year will be removed",
+        "older than this year will be removed.",
+    )
+    year_max: int = Field(
+        default=2030,
+        description="Maximum year value to be used as a cut-off point for the data. Observations "
+        "newer than this year will be removed.",
     )
 
 

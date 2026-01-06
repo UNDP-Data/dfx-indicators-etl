@@ -96,7 +96,11 @@ class Pipeline(BaseModel):
             self.df_raw.copy(), provider=self.retriever.provider, **kwargs
         )
         df = df.query(
-            "year >= @year_min", local_dict={"year_min": SETTINGS.pipeline.year_min}
+            "year >= @year_min and year <= @year_max",
+            local_dict={
+                "year_min": SETTINGS.pipeline.year_min,
+                "year_max": SETTINGS.pipeline.year_max,
+            },
         ).reset_index(drop=True)
         df.name = self.retriever.provider
         self._df_transformed = df
