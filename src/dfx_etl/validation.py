@@ -104,7 +104,7 @@ class DataSchema(pa.DataFrameModel):
         strict = "filter"
         coerce = True
         add_missing_columns = True
-        unique = ["indicator_name", "country_code", "year", "disaggregation", "source"]
+        unique = ["indicator_name", "country_code", "year", "disaggregation"]
 
     @pa.dataframe_parser
     @classmethod
