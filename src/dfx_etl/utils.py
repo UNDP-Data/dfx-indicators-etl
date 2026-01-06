@@ -236,6 +236,8 @@ def _combine_disaggregations(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
     df : pd.DataFrame
         The data frame with disaggregation columns combined into one.
     """
+    if "disaggregation" in df.columns:
+        return df
     columns = [column for column in df.columns if column.startswith(prefix)]
     if not columns:
         return df.assign(disaggregation="Total")
