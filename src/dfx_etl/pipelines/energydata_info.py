@@ -7,7 +7,7 @@ import country_converter as coco
 import pandas as pd
 from pydantic import Field, HttpUrl
 
-from ..validation import PREFIX_DISAGGREGATION
+from ..validation import PREFIX_DIMENSION
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Retriever", "Transformer"]
@@ -66,8 +66,8 @@ class Transformer(BaseTransformer):
         df = df.copy()
         df.columns = [
             "country",
-            PREFIX_DISAGGREGATION + "energy_technology",
-            PREFIX_DISAGGREGATION + "grid_connection",
+            PREFIX_DIMENSION + "energy_technology",
+            PREFIX_DIMENSION + "grid_connection",
             "year",
             "value",
         ]

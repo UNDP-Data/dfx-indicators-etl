@@ -2,7 +2,7 @@
 ETL components to process data from the ILOSTAT SDMX API.
 See https://ilostat.ilo.org/resources/sdmx-tools/.
 """
-import logging
+
 import xml.etree.ElementTree as ET
 from io import StringIO
 from urllib.parse import urljoin
@@ -12,15 +12,14 @@ import pandas as pd
 from pydantic import Field, HttpUrl
 from tqdm import tqdm
 
+from ..validation import PREFIX_DIMENSION
 from ._base import BaseRetriever, BaseTransformer
-
-
 
 __all__ = ["Retriever", "Transformer"]
 
 BASE_URL = "https://sdmx.ilo.org/rest/"
-DISAGGREGATIONS = {"SEX", "AGE", "GEO", "EDU", "NOC"}
-logger = logging.getLogger(__name__)
+DIMENSIONS = {"SEX", "AGE", "GEO", "EDU", "NOC"}
+
 
 def _get_codelist_mapping(name: str) -> dict:
     """
@@ -72,7 +71,6 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data from the API for the indicators with supported disaggregations.
         """
-
         df_metadata = self.get_metadata()
         # indicator codes contain disaggregations, e.g., SDG_0852_SEX_AGE_RT
         # subset only some disaggregations and no classification (NOC)
@@ -80,15 +78,9 @@ class Retriever(BaseRetriever):
             df_metadata["code"]
             .str.split("_")
             .str.slice(2, -1)
-            .apply(lambda x: not set(x) - DISAGGREGATIONS)
+            .apply(lambda x: not set(x) - DIMENSIONS)
         )
         df_metadata = df_metadata.loc[mask].reset_index(drop=True)
-        '''
-        I believe some sources might use the storage (manual ones) but ILO does NOT need it
-        
-        '''
-        storage = kwargs.pop('storage')
-
         data = []
         with self.client as client:
             for _, row in tqdm(df_metadata.iterrows(), total=len(df_metadata)):
@@ -170,14 +162,15 @@ class Transformer(BaseTransformer):
         columns = {
             "REF_AREA": "country_code",
             "indicator_name": "indicator_name",  # assigned by the retriever
-            "SEX": "disagr_sex",
-            "AGE": "disagr_age",
-            "GEO": "disagr_geo",
-            "EDU": "disagr_edu",
+            "SEX": f"{PREFIX_DIMENSION}sex",
+            "AGE": f"{PREFIX_DIMENSION}age",
+            "GEO": f"{PREFIX_DIMENSION}geo",
+            "EDU": f"{PREFIX_DIMENSION}edu",
             "TIME_PERIOD": "year",
             "OBS_VALUE": "value",
             "OBS_STATUS": "prop_observation_type",
             "UNIT_MEASURE_TYPE": "unit",
+            "SOURCE": "source",
         }
 
         # subset annual indicators
@@ -189,10 +182,9 @@ class Transformer(BaseTransformer):
             if column in df.columns:
                 df = df.loc[df[column].str.contains("AGGREGATE", na=True)].copy()
 
-        # replace disaggregation codes with labels
+        # replace dimension codes with labels
         mapping = {
-            disaggregation: _get_codelist_mapping(disaggregation)
-            for disaggregation in DISAGGREGATIONS
+            dimension: _get_codelist_mapping(dimension) for dimension in DIMENSIONS
         }
         df = df.replace(mapping).infer_objects(copy=False)
         # remap measure types

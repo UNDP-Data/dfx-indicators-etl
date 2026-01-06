@@ -8,16 +8,16 @@ import pandas as pd
 import pandera.pandas as pa
 from pandera.typing.pandas import Series
 
-from .utils import _combine_disaggregations
+from .utils import _combine_dimensions
 
-__all__ = ["MetadataSchema", "DataSchema"]
+__all__ = ["MetadataSchema", "DataSchema", "PREFIX_DIMENSION"]
 
-PREFIX_DISAGGREGATION = "disagr_"
+PREFIX_DIMENSION = "dimension_"
 
 
 class SexEnum(StrEnum):
     """
-    Standardised names for sex disaggregation categories.
+    Standardised names for sex dimension categories.
     """
 
     MALE = "Male"
@@ -85,7 +85,7 @@ class DataSchema(pa.DataFrameModel):
         le=2100,
         nullable=False,
     )
-    disaggregation: Series[pd.StringDtype] = pa.Field(nullable=False)
+    dimension: Series[pd.StringDtype] = pa.Field(nullable=False)
     value: Series[float] = pa.Field(
         nullable=False,
     )
@@ -104,9 +104,9 @@ class DataSchema(pa.DataFrameModel):
         strict = "filter"
         coerce = True
         add_missing_columns = True
-        unique = ["indicator_name", "country_code", "year", "disaggregation", "source"]
+        unique = ["indicator_name", "country_code", "year", "dimension"]
 
     @pa.dataframe_parser
     @classmethod
-    def combine_disaggregations(cls, df: pd.DataFrame) -> pd.DataFrame:
-        return _combine_disaggregations(df, PREFIX_DISAGGREGATION)
+    def combine_dimensions(cls, df: pd.DataFrame) -> pd.DataFrame:
+        return _combine_dimensions(df, PREFIX_DIMENSION)

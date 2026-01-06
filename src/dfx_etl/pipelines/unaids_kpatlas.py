@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 from pydantic import Field
 
-from ..exceptions import StorageRequiredError
+from ..storage import BaseStorage
 from ._base import BaseRetriever, BaseTransformer
 
 __all__ = ["Retriever", "Transformer"]
@@ -28,12 +28,14 @@ class Retriever(BaseRetriever):
         e.g.,https://aidsinfo.unaids.org/public/documents/KPAtlasDB_2025_en.zip""",
     )
 
-    def __call__(self, **kwargs) -> pd.DataFrame:
+    def __call__(self, storage: BaseStorage, **kwargs) -> pd.DataFrame:
         """
         Retrieve data from the UNAIDS Key Population Atlas.
 
         Parameters
         ----------
+        storage : BaseStorage
+            Storage to retrieve the data file from.
         **kwargs
             Extra arguments to pass to `pd.read_csv`.
 
@@ -42,8 +44,6 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data frame with data from the dashboard.
         """
-        if (storage := kwargs.pop("storage", None)) is None:
-            raise StorageRequiredError
         return storage.read_dataset(self.uri, **kwargs)
 
 
@@ -75,7 +75,7 @@ class Transformer(BaseTransformer):
         }
         # remove unspecified disaggregations
         df = df.loc[~df["Subgroup"].str.startswith("Category")].copy()
-        # only keep indicators with just one or 'Total' disaggregation
+        # only keep indicators with just one or 'Total' dimension
         df["n_subgroups"] = df.groupby("Indicator")["Subgroup"].transform("nunique")
         df = df.loc[df["n_subgroups"].eq(1) | df["Subgroup"].eq("Total")].copy()
         df["indicator_name"] = df.apply(

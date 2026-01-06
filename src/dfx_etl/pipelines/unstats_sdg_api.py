@@ -162,7 +162,7 @@ class Transformer(BaseTransformer):
             df = df.join(
                 pd.DataFrame(df[column].tolist())
                 .rename(lambda name: to_snake_case(name, prefix=prefix), axis=1)
-                .fillna("Total")  # fill no disaggregation
+                .fillna("Total")  # Fill as 'Total' when no dimension exist
             )
         df["indicator_name"] = df.apply(
             lambda row: f"{row['seriesDescription']}, {row['prop_units']} [{row['series']}]",

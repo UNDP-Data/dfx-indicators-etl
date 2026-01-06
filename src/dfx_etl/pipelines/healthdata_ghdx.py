@@ -9,10 +9,9 @@ import country_converter as coco
 import pandas as pd
 from pydantic import Field
 
-from ..exceptions import StorageRequiredError
-from ..validation import PREFIX_DISAGGREGATION, SexEnum
+from ..storage import BaseStorage
+from ..validation import PREFIX_DIMENSION, SexEnum
 from ._base import BaseRetriever, BaseTransformer
-
 
 __all__ = ["Retriever", "Transformer"]
 
@@ -30,12 +29,14 @@ class Retriever(BaseRetriever):
         See https://ghdx.healthdata.org/gbd-2021.""",
     )
 
-    def __call__(self, **kwargs) -> pd.DataFrame:
+    def __call__(self, storage: BaseStorage, **kwargs) -> pd.DataFrame:
         """
         Retrieve data from the IHME.
 
         Parameters
         ----------
+        storage : BaseStorage
+            Storage to retrieve the data file from.
         **kwargs
             Extra arguments to pass to `storage.read_dataset`.
 
@@ -44,8 +45,6 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data from the API for the indicators with supported disaggregations.
         """
-        if (storage := kwargs.pop("storage", None)) is None:
-            raise StorageRequiredError
         return storage.read_dataset(self.uri, **kwargs)
 
 
@@ -86,9 +85,9 @@ class Transformer(BaseTransformer):
         # rename columns
         mapping = {
             "val": "value",
-            "sex_name": PREFIX_DISAGGREGATION + "sex",
-            "age_name": PREFIX_DISAGGREGATION + "age",
-            "cause_name": PREFIX_DISAGGREGATION + "cause",
+            "sex_name": PREFIX_DIMENSION + "sex",
+            "age_name": PREFIX_DIMENSION + "age",
+            "cause_name": PREFIX_DIMENSION + "cause",
         }
         df.rename(columns=mapping, inplace=True)
         return df
