@@ -7,4 +7,4 @@ from .database import *
 from .pipelines import *
 from .storage import *
 
-__version__ = "1.0.0b0"
+__version__ = "1.0.0"
