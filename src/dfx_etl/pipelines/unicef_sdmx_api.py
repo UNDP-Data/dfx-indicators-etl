@@ -179,6 +179,7 @@ class Transformer(BaseTransformer):
             "Current age": "disagr_age",
             "TIME_PERIOD": "year",
             "OBS_VALUE": "value",
+            "DATA_SOURCE": "source",
         }
         # subset yearly data
         df = df.loc[
@@ -195,4 +196,5 @@ class Transformer(BaseTransformer):
             lambda row: f"{row['Indicator']}, {row['Unit of measure']} [{row['INDICATOR']}]",
             axis=1,
         )
+        df["DATA_SOURCE"] = df["DATA_SOURCE"].combine_first(df["SOURCE_LINK"])
         return df.reindex(columns=columns).rename(columns=columns)

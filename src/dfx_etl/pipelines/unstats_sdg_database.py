@@ -95,7 +95,7 @@ class Transformer(BaseTransformer):
             "UpperBound": None,
             "LowerBound": None,
             "BasePeriod": None,
-            "Source": None,
+            "Source": "source",
             "GeoInfoUrl": None,
             "FootNote": None,
             "Nature": None,

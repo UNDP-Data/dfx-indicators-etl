@@ -169,6 +169,7 @@ class Transformer(BaseTransformer):
             "OBS_VALUE": "value",
             "OBS_STATUS": "prop_observation_type",
             "UNIT_MEASURE_TYPE": "unit",
+            "SOURCE": "source",
         }
 
         # subset annual indicators
