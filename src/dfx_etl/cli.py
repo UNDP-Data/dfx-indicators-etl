@@ -4,9 +4,9 @@ import os.path
 import sys
 from dfx_etl.settings import SETTINGS
 from dfx_etl.pipelines import Pipeline, get_pipeline, list_pipelines
+from pathlib import Path
+
 logger = logging.getLogger(__name__)
-
-
 STEPS = ["retrieve", "transform", "load"]
 
 
@@ -115,8 +115,9 @@ def main(argv: list[str] | None = None) -> int:
             dst_folder = os.path.abspath(dst_folder)
         if not os.path.exists(dst_folder):
             os.makedirs(dst_folder)
-        SETTINGS.local_storage = dst_folder
-    print(SETTINGS)
+        SETTINGS.local_storage = Path(dst_folder)
+
+
     azure_path = None
     if azure_path is not None:
         if not '/' in azure_path:
