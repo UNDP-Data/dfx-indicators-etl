@@ -12,7 +12,13 @@ from sqlalchemy.dialects.postgresql import insert
 from ..settings import SETTINGS
 from .entities import *  # Required to register tables
 
-__all__ = ["get_engine", "create_tables", "_drop_tables", "update_on_conflict"]
+__all__ = [
+    "get_engine",
+    "create_tables",
+    "_drop_tables",
+    "update_on_conflict",
+    "ignore_on_conflict",
+]
 
 
 logger = logging.getLogger(__name__)
@@ -100,4 +106,22 @@ def update_on_conflict(
         set_={c.key: c for c in insert_statement.excluded},
     )
     result = conn.execute(upsert_statement)
+    return result.rowcount
+
+
+def ignore_on_conflict(
+    table: SQLTable, conn: Connection, keys: list, data_iter: zip
+) -> int:
+    """
+    Resolution logic for `method` argument in `pandas.to_sql` when there is a conflict on "name".
+
+    The function is experimental and may not work as expected.
+
+    See https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.to_sql.html.
+    """
+    data = [dict(zip(keys, row)) for row in data_iter]
+    stmt = (
+        insert(table.table).values(data).on_conflict_do_nothing(index_elements=["name"])
+    )
+    result = conn.execute(stmt)
     return result.rowcount
