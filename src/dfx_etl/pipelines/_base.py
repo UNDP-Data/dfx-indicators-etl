@@ -7,10 +7,7 @@ classes by inheriting from the base classes defined below.
 
 from abc import ABC, abstractmethod
 from io import BytesIO
-from pathlib import Path
 from typing import final
-from urllib.parse import urlparse
-
 import httpx
 import pandas as pd
 import pandera as pa
@@ -222,3 +219,4 @@ class BaseTransformer(BaseModel, ABC):
         """
         Transform raw data.
         """
+

@@ -2,14 +2,12 @@
 The generic Pipeline class is generic to process any resource, given
 the correct implementation of `retriever` and `transformer` components.
 """
-
+import json
 import logging
 from inspect import signature
-from typing import Self, final
-
+from typing import Self, final, Literal, Any, Callable
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, PrivateAttr
-
 from ..settings import SETTINGS
 from ..storage import BaseStorage, get_storage
 from ._base import BaseRetriever, BaseTransformer
@@ -78,6 +76,7 @@ class Pipeline(BaseModel):
         if "storage" in signature(self.retriever).parameters:
             kwargs |= {"storage": self._storage}
         self._df_raw = self.retriever(**kwargs)
+        self._df_raw.name = f'{self.retriever.provider}_raw'
         return self
 
     @final
@@ -119,3 +118,11 @@ class Pipeline(BaseModel):
         if self.df_transformed is None:
             raise ValueError("No validated data. Run the validation first")
         return self._storage.write_dataset(self.df_transformed)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}: source->{self.transformer.__class__.__module__}; storage-> {self._storage}"
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+

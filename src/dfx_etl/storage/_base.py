@@ -107,3 +107,8 @@ class BaseStorage(ABC):
                 )
             case _:
                 raise ValueError(f"`{extension}` extension is not supported.")
+
+
+
+    def __str__(self):
+        return f'{self.__class__.__name__}'
