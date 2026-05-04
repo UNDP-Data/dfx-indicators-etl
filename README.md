@@ -139,9 +139,9 @@ Below is the list of sources currently supported by the package.
 | SIPRI            | [SIPRI Milex dataset](https://www.sipri.org/databases/milex)                                                     |
 | UNAIDS           | [UNAIDS Key Population Atlas](https://kpatlas.unaids.org)                                                        |
 | UNICEF           | [UNICEF SDMX API](https://sdmx.data.unicef.org/overview.html)                                                    |
-| UN Stats         | [UN Stats SDG API](https://unstats.un.org/sdgs/UNSDGAPIV5/swagger/index.html)                                    |
+| UN Stats         | [UN Stats Database Zip](https://unstats.un.org/sdgs/dataportal/database)                                    |
 | WHO              | [WHO GHO API](https://www.who.int/data/gho/info/gho-odata-api)                                                   |
-| World Bank       | [World Bank Indicator API](https://datahelpdesk.worldbank.org/knowledgebase/topics/125589-developer-information) |
+| World Bank       | [World Bank WDI CSV Datasheet](https://databank.worldbank.org/data/download/WDI_CSV.zip) |
 
 
 ## Contributing
