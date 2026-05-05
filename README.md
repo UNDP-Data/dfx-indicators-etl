@@ -135,7 +135,7 @@ Below is the list of sources currently supported by the package.
 | IHME             | [GBD 2021 dataset](https://ghdx.healthdata.org/gbd-2021)                                                         |IHME_GBD*             |
 | ILO              | [ILOSTAT SDMX API](https://ilostat.ilo.org/resources/sdmx-tools/)                                                |                      |
 | IMF              | [IMF DataMapper API](https://www.imf.org/external/datamapper/api/help)                                           |                      |
-| SIPRI            | [SIPRI Milex dataset](https://www.sipri.org/databases/milex)                                                     |SIPRI-Milex-data*                      |
+| SIPRI            | [SIPRI Milex dataset](https://www.sipri.org/databases/milex)                                                     |SIPRI-Milex-data*  |
 | UNAIDS           | [UNAIDS Key Population Atlas](https://kpatlas.unaids.org)                                                        |KPAtlasDB*            |
 | UNICEF           | [UNICEF SDMX API](https://sdmx.data.unicef.org/overview.html)                                                    |                     |
 | UN Stats         | [UN Stats Database Zip](https://unstats.un.org/sdgs/dataportal/database)                                         |UNSTATS_ZIP*          |
