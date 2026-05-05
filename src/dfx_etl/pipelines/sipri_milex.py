@@ -20,7 +20,7 @@ class Retriever(BaseRetriever):
     """
 
     uri: HttpUrl = Field(
-        default="https://www.sipri.org/sites/default/files/SIPRI-Milex-data-1949-2024_2.xlsx",
+        default="https://dfxa.blob.core.windows.net/manual/SIPRI*.xlsx",
         frozen=True,
         validate_default=True,
         description="See https://www.sipri.org/databases/milex.",

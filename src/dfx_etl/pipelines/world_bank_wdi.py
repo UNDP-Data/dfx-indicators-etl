@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-from pydantic import Field
+from pydantic import Field, HttpUrl
 
 from ..storage import BaseStorage
 from ._base import BaseRetriever, BaseTransformer
@@ -24,8 +24,8 @@ class Retriever(BaseRetriever):
     Use bulk download to manually obtain the data first.
     """
 
-    uri: Path = Field(
-        default="inputs/WDI_CSV/WDICSV.csv",
+    uri: HttpUrl = Field(
+        default="https://databank.worldbank.org/data/download/WDI_CSV.zip",
         frozen=True,
         validate_default=True,
     )

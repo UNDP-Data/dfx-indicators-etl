@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-from pydantic import Field
+from pydantic import Field, HttpUrl
 from tqdm import tqdm
 
 from ..storage import BaseStorage
@@ -30,8 +30,8 @@ class Retriever(BaseRetriever):
     Use bulk download to manually obtain the data first.
     """
 
-    uri: Path = Field(
-        default="inputs/SDG Database",
+    uri: HttpUrl = Field(
+        default="https://dfxa.blob.core.windows.net/manual/UNSTATS*.zip",
         frozen=True,
         validate_default=True,
     )
