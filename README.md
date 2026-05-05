@@ -132,16 +132,15 @@ Below is the list of sources currently supported by the package.
 
 | **Name**         | **URL**                                                                                                          | **Manual filename**  | 
 |------------------|------------------------------------------------------------------------------------------------------------------|----------------------|
-| Energydata.info  | [ELECCAP dataset](https://energydata.info/dataset/installed-electricity-capacity-by-country-area-mw-by-country)  |                      |
 | IHME             | [GBD 2021 dataset](https://ghdx.healthdata.org/gbd-2021)                                                         |IHME_GBD*             |
 | ILO              | [ILOSTAT SDMX API](https://ilostat.ilo.org/resources/sdmx-tools/)                                                |                      |
 | IMF              | [IMF DataMapper API](https://www.imf.org/external/datamapper/api/help)                                           |                      |
 | SIPRI            | [SIPRI Milex dataset](https://www.sipri.org/databases/milex)                                                     |                      |
 | UNAIDS           | [UNAIDS Key Population Atlas](https://kpatlas.unaids.org)                                                        |KPAtlasDB*            |
-| UNICEF           | [UNICEF SDMX API](https://sdmx.data.unicef.org/overview.html)                                                    |                      |
+| UNICEF           | [UNICEF SDMX API](https://sdmx.data.unicef.org/overview.html)                                                    |SIPRI*                      |
 | UN Stats         | [UN Stats Database Zip](https://unstats.un.org/sdgs/dataportal/database)                                         |UNSTATS_ZIP*          |
 | WHO              | [WHO GHO API](https://www.who.int/data/gho/info/gho-odata-api)                                                   |                      |
-| World Bank       | [World Bank WDI CSV Datasheet](https://databank.worldbank.org/data/download/WDI_CSV.zip)                         |WDI_CSV*              |
+| World Bank       | [World Bank WDI CSV Datasheet](https://databank.worldbank.org/data/download/WDI_CSV.zip)                         |WDICSV*              |
 
 
 ## Contributing
