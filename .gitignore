@@ -156,3 +156,4 @@ cython_debug/
 
 # Data folder
 /data/
+src/run.py

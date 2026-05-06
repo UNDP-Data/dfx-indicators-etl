@@ -7,7 +7,7 @@ from pathlib import Path
 
 import country_converter as coco
 import pandas as pd
-from pydantic import Field
+from pydantic import Field, HttpUrl
 
 from ..storage import BaseStorage
 from ..validation import PREFIX_DIMENSION, SexEnum
@@ -21,11 +21,11 @@ class Retriever(BaseRetriever):
     A class for retrieving data from the IHME.
     """
 
-    uri: Path = Field(
-        default="inputs/IHME-GBD_2021_DATA-c13547d7-1.csv",
+    uri: HttpUrl = Field(
+        default="https://dfxa.blob.core.windows.net/manual/IHME_GBD*.csv",
         frozen=True,
         validate_default=True,
-        description="""Path to a file downloaded from IHME's website.
+        description="""URL to the source file downloaded from IHME's website and stored within UNDP azure.
         See https://ghdx.healthdata.org/gbd-2021.""",
     )
 
@@ -45,7 +45,10 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data from the API for the indicators with supported disaggregations.
         """
-        return storage.read_dataset(self.uri, **kwargs)
+        resolved_uri = self.resolved_uri
+        url = str(resolved_uri)
+        return self.read_csv(url, **kwargs)
+
 
 
 class Transformer(BaseTransformer):

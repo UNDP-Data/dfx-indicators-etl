@@ -7,7 +7,7 @@ See https://kpatlas.unaids.org.
 from pathlib import Path
 
 import pandas as pd
-from pydantic import Field
+from pydantic import Field, HttpUrl
 
 from ..storage import BaseStorage
 from ._base import BaseRetriever, BaseTransformer
@@ -20,8 +20,8 @@ class Retriever(BaseRetriever):
     A class for retrieving data from the UNAIDS Key Population Atlas.
     """
 
-    uri: Path = Field(
-        default="inputs/KPAtlasDB_2025_en.csv",
+    uri: HttpUrl = Field(
+        default="https://dfxa.blob.core.windows.net/manual/KPAtlasDB*.csv",
         frozen=True,
         validate_default=True,
         description="""Dataset file downloaded from the UNAIDS Key Population Atlas,
@@ -44,7 +44,9 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data frame with data from the dashboard.
         """
-        return storage.read_dataset(self.uri, **kwargs)
+        resolved_uri = self.resolved_uri
+        url = str(resolved_uri)
+        return self.read_csv(url, **kwargs)
 
 
 class Transformer(BaseTransformer):

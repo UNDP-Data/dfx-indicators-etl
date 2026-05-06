@@ -20,7 +20,7 @@ class Retriever(BaseRetriever):
     """
 
     uri: HttpUrl = Field(
-        default="https://www.sipri.org/sites/default/files/SIPRI-Milex-data-1949-2024_2.xlsx",
+        default="https://dfxa.blob.core.windows.net/manual/SIPRI*.xlsx",
         frozen=True,
         validate_default=True,
         description="See https://www.sipri.org/databases/milex.",
@@ -85,7 +85,7 @@ class Retriever(BaseRetriever):
             Data frame with country data in the wide format.
         """
         # infer the header row
-        xlsx = pd.ExcelFile(str(self.uri))
+        xlsx = pd.ExcelFile(str(self.resolved_uri))
         df = xlsx.parse(sheet_name=sheet_name)
         header = df.iloc[:, 0].eq("Country").idxmax() + 1
         return xlsx.parse(
