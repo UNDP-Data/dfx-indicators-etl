@@ -4,7 +4,7 @@ Base classes for building ETL pipelines.
 Each new pipeline must implement a source-specific retriever and transformer
 classes by inheriting from the base classes defined below.
 """
-
+import os.path
 from abc import ABC, abstractmethod
 from io import BytesIO
 from pathlib import Path
@@ -58,6 +58,30 @@ class BaseRetriever(BaseModel, ABC):
             }
         ],
     )
+    http_pattern_char :str = Field(
+        default='*',
+        description='A character to be used for manual sources located in public UNDP azure containers'
+    )
+    @final
+    @property
+    def resolved_uri(self) -> str:
+        import xml.etree.ElementTree as ET
+        if not self.http_pattern_char in self.uri.path:return self.uri
+        container, *parts = self.uri.path.strip('/').split('/')
+
+        expression = parts[-1]
+        prefix, *rest = expression.split(self.http_pattern_char)
+
+        url = f'{self.uri.scheme}://{self.uri.host}/{container}?restype=container&comp=list&prefix={prefix}'
+        response = self.client.get(url=url)
+        response.raise_for_status()
+        root = ET.fromstring(response.text)
+        correct_url = root.find(".//{*}Url")
+        if correct_url is None:
+            raise Exception(f'Could not retrieve the correct url for {self.uri} from {url}')
+        blob_url = correct_url.text
+        return HttpUrl(url=blob_url)
+
 
     @final
     @property
@@ -90,6 +114,7 @@ class BaseRetriever(BaseModel, ABC):
             base_url=str(uri),
             headers=self.headers,
             timeout=SETTINGS.pipeline.http_timeout,
+            follow_redirects=True
         )
 
     @abstractmethod

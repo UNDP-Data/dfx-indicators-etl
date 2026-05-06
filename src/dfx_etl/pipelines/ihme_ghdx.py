@@ -45,7 +45,10 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data from the API for the indicators with supported disaggregations.
         """
-        return storage.read_dataset(self.uri, **kwargs)
+        resolved_uri = self.resolved_uri
+        url = str(resolved_uri)
+        return self.read_csv(url, **kwargs)
+
 
 
 class Transformer(BaseTransformer):

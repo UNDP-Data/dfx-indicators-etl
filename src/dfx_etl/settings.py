@@ -38,7 +38,7 @@ class PipelineSettings(BaseModel):
     """
 
     http_timeout: int = Field(
-        default=30, description="Default client timeout in seconds for HTTP requests."
+        default=30*5, description="Default client timeout in seconds for HTTP requests."
     )
     year_min: int = Field(
         default=2005,

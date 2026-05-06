@@ -7,12 +7,16 @@ See https://unstats.un.org/sdgs/dataportal/database.
 """
 
 import logging
+import time
+import timeit
 from pathlib import Path
 
 import pandas as pd
 from pydantic import Field, HttpUrl
 from tqdm import tqdm
-
+from zipfile import ZipFile
+import os
+import tempfile
 from ..storage import BaseStorage
 from ..utils import replace_country_metadata, to_snake_case
 from ..validation import PREFIX_DIMENSION
@@ -52,12 +56,30 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data frame with the data from the databae.
         """
-        data = []
-        # All 17 SDGs
-        for goal in tqdm(range(1, 18)):
-            df = storage.read_dataset(self.uri.joinpath(f"Goal{goal}.xlsx"), **kwargs)
-            data.append(df)
-        return pd.concat(data, axis=0, ignore_index=True)
+        resolved_uri = self.resolved_uri
+        url = str(resolved_uri)
+        _, arch_name = os.path.split(str(url))
+        with tempfile.TemporaryDirectory() as tdir:
+            with self.client.stream('GET', str(url)) as r:
+                total = int(r.headers.get("Content-Length", 0))
+                path = Path(tdir) / arch_name
+                with open(path, "wb") as f, tqdm(desc=f"Downloading {str(url)}", total=total,
+                                                 unit="B", unit_scale=True, leave=False, unit_divisor=1024) as pbar:
+                    for chunk in r.iter_bytes():
+                        if chunk:
+                            f.write(chunk)
+                            pbar.update(len(chunk))
+            data = []
+            with ZipFile(path) as zf:
+                members = [m for m in zf.namelist() if m.endswith(".xlsx")]
+                for name in (pbar:= tqdm( sorted(members), desc=f'Processing {self.provider}')):
+                    extracted_path = zf.extract(name, path=tdir)
+                    df = pd.read_excel(extracted_path, engine='calamine', **kwargs)
+                    data.append(df)
+                    pbar.set_description(f'Processing {name}')
+            return pd.concat(data, axis=0, ignore_index=True)
+
+
 
 
 class Transformer(BaseTransformer):

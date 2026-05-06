@@ -7,8 +7,9 @@ import logging
 from pathlib import Path
 
 import pandas as pd
+import tqdm
 from pydantic import Field, HttpUrl
-
+import fsspec
 from ..storage import BaseStorage
 from ._base import BaseRetriever, BaseTransformer
 
@@ -46,14 +47,23 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data frame with the data from the databae.
         """
-        return storage.read_dataset(self.uri, **kwargs)
+
+        uri = f"zip://WDICSV.csv::{self.uri}"
+        with fsspec.open(uri, mode='rb' ) as remote_f:
+            with tqdm.tqdm.wrapattr(remote_f,'read', desc=f'Downloading {uri}') as fobj:
+                return pd.read_csv(fobj,low_memory=False, **kwargs)
+
 
     def _get_metadata(self, storage: BaseStorage) -> pd.DataFrame:
         """
         Get the metadata file.
         """
-        file_path = storage.join_path(self.uri.with_name("WDISeries.csv"))
-        return storage.read_dataset(file_path)
+        # file_path = storage.join_path(self.uri.with_name("WDISeries.csv"))
+        # return storage.read_dataset(file_path)
+        uri = f"zip://WDISeries.csv::{self.uri}"
+        with fsspec.open(uri, mode='rb') as remote_f:
+            with tqdm.tqdm.wrapattr(remote_f, 'read', desc=f'Downloading {uri}') as fobj:
+                return pd.read_csv(fobj, low_memory=False)
 
 
 class Transformer(BaseTransformer):

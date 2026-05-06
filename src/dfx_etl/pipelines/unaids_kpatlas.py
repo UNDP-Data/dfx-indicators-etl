@@ -44,7 +44,9 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data frame with data from the dashboard.
         """
-        return storage.read_dataset(self.uri, **kwargs)
+        resolved_uri = self.resolved_uri
+        url = str(resolved_uri)
+        return self.read_csv(url, **kwargs)
 
 
 class Transformer(BaseTransformer):

@@ -85,7 +85,7 @@ class Retriever(BaseRetriever):
             Data frame with country data in the wide format.
         """
         # infer the header row
-        xlsx = pd.ExcelFile(str(self.uri))
+        xlsx = pd.ExcelFile(str(self.resolved_uri))
         df = xlsx.parse(sheet_name=sheet_name)
         header = df.iloc[:, 0].eq("Country").idxmax() + 1
         return xlsx.parse(
