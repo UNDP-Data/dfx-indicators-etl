@@ -10,7 +10,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import final
 from urllib.parse import urlparse
-
+import tempfile
 import httpx
 import pandas as pd
 import pandera as pa
@@ -27,6 +27,8 @@ from pydantic import (
 from ..settings import SETTINGS
 from ..utils import get_country_metadata
 from ..validation import DataSchema, MetadataSchema
+import logging
+logger = logging.getLogger(__name__)
 
 __all__ = ["BaseRetriever", "BaseTransformer"]
 
@@ -110,11 +112,20 @@ class BaseRetriever(BaseModel, ABC):
             raise TypeError(
                 "`client` is only applicable when `uri` is an HTTP location"
             )
+        # Build a proper Timeout object
+        timeout_config = httpx.Timeout(
+            connect=SETTINGS.pipeline.http_timeout_connect,
+            read=SETTINGS.pipeline.http_timeout_read,
+            pool=SETTINGS.pipeline.http_timeout_pool,
+            write=10.0  # Standard write timeout
+        )
         return httpx.Client(
             base_url=str(uri),
             headers=self.headers,
-            timeout=SETTINGS.pipeline.http_timeout,
-            follow_redirects=True
+            timeout=timeout_config,  # Use the object here
+            follow_redirects=True,
+            # Performance tip: Increase limits for your 1,167 requests
+            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5)
         )
 
     @abstractmethod
@@ -160,6 +171,7 @@ class BaseRetriever(BaseModel, ABC):
         url: str,
         params: dict | None = None,
         client: httpx.Client | None = None,
+        use_cache = True,
         **kwargs
     ) -> pd.DataFrame | None:
         """
@@ -170,13 +182,15 @@ class BaseRetriever(BaseModel, ABC):
 
         Parameters
         ----------
+
         url : str
             URL to read a CSV from. This may be a relative URL if a client with
             `base_url` is provided.
         params : dict, optional
-            Parameters to include an the GET request.
+            Parameters to include the GET request.
         client: httpx.Client, optional
             Client to use to make a request.
+        use_cache: bool, if True stram the bytes into a temporary file, otherwise keep the bytes in RAM
         **kwargs
             Extra arguments to be passed to `pd.read_csv`.
 
@@ -185,19 +199,64 @@ class BaseRetriever(BaseModel, ABC):
         pd.DataFrame or None
             Pandas data frame if the request has succeeded or None if it has raised an error.
         """
+
+
+        # 1. Initialize at the top to prevent UnboundLocalError in 'finally'
+        should_close = False
+        client_to_use = client
+
+        if client_to_use is None:
+            client_to_use = self.client
+            should_close = True
+
         try:
-            if client is None:
-                response = httpx.get(url, params=params)
+
+            if not use_cache:
+                with client.stream("GET", url, params=params) as response:
+                    response.raise_for_status()
+
+                    # 2. Collect chunks into a memory buffer
+                    buffer = BytesIO()
+                    for chunk in response.iter_bytes(chunk_size=8192):
+                        if chunk:
+                            buffer.write(chunk)
+
+                    # 3. Reset buffer position for Pandas
+                    buffer.seek(0)
+
+                    # 4. Load into DataFrame
+                    if buffer.getbuffer().nbytes == 0:
+                        raise pd.errors.EmptyDataError()
+                    return pd.read_csv(buffer, low_memory=False)
+
             else:
-                response = client.get(url, params=params)
-            response.raise_for_status()
-        except httpx.ReadTimeout as error:
-            print(error)
-            return None
-        except httpx.HTTPStatusError as error:
-            print(error)
-            return None
-        return pd.read_csv(BytesIO(response.content), low_memory=False, **kwargs)
+                with tempfile.NamedTemporaryFile(dir='/tmp', suffix=".csv") as tmp:
+                    try:
+                        with client_to_use.stream("GET", url, params=params) as response:
+                            response.raise_for_status()
+                            for chunk in response.iter_bytes(chunk_size=1024 * 64):
+                                if chunk:
+                                    tmp.write(chunk)
+
+                        tmp.flush()
+
+                        # 3. Check if we actually got data before giving it to PyArrow
+                        if Path(tmp.name).stat().st_size == 0:
+                            raise pd.errors.EmptyDataError()
+
+                        return pd.read_csv(
+                            tmp.name,
+                            engine="pyarrow",
+                            dtype_backend="pyarrow"
+                        )
+
+                    except Exception as e:
+                        logger.error(f"ETL Stream Error: {e}")
+                        raise e
+        finally:
+            # 4. Safely close only if we are the ones who opened it
+            if should_close and client_to_use:
+                client_to_use.close()
 
 
 class BaseTransformer(BaseModel, ABC):

@@ -3,6 +3,7 @@ ETL components to process data from the ILOSTAT SDMX API.
 See https://ilostat.ilo.org/resources/sdmx-tools/.
 """
 import logging
+import os
 import xml.etree.ElementTree as ET
 from functools import lru_cache
 from io import StringIO
@@ -13,8 +14,12 @@ import pandas as pd
 from pydantic import Field, HttpUrl
 from tqdm import tqdm
 import random
+import time
 from ..validation import PREFIX_DIMENSION
 from ._base import BaseRetriever, BaseTransformer
+from pathlib import Path
+from datetime import datetime
+from io import BytesIO
 logger = logging.getLogger(__name__)
 __all__ = ["Retriever", "Transformer"]
 
@@ -22,26 +27,6 @@ __all__ = ["Retriever", "Transformer"]
 BASE_URL = "https://sdmx.ilo.org/rest/"
 DIMENSIONS = {"SEX", "AGE", "GEO", "EDU", "NOC"}
 
-
-# 🛠️ FIX 4: Added lru_cache.
-# This prevents identical HTTP requests for codelists during the Transform loop!
-@lru_cache(maxsize=32)
-def _get_codelist_mapping_original(name: str) -> dict:
-    """
-    Get codelist mapping from IDs to names from the ILO SDMX API codelist endpoint.
-    """
-    response = httpx.get(urljoin(BASE_URL, f"codelist/ILO/CL_{name}"), timeout=15)
-    response.raise_for_status()
-
-    xml = StringIO(response.text)
-    namespaces = dict([node for _, node in ET.iterparse(xml, events=["start-ns"])])
-    namespaces["xml"] = "http://www.w3.org/XML/1998/namespace"
-
-    root = ET.fromstring(response.text)
-    return {
-        element.get("id"): element.find("common:Name[@xml:lang='en']", namespaces).text
-        for element in root.findall(".//structure:Code", namespaces)
-    }
 
 
 @lru_cache(maxsize=32)
@@ -84,17 +69,9 @@ class Retriever(BaseRetriever):
     uri: HttpUrl = Field(default=BASE_URL, frozen=True, validate_default=True)
 
     def __call__(self, **kwargs) -> pd.DataFrame:
-        # mapping= _get_codelist_mapping_original("INDICATOR")
-        #
-        # logger.info(f'Original codelist func: {len(mapping)} indicators')
-        # mapping, deleted  = _get_codelist_mapping("INDICATOR")
-        #
-        # logger.info(f'New codelist func: {len(mapping)} indicators')
         df_metadata = self.get_metadata()
 
-
-        # 🛠️ FIX 2: Strip 'DF_' prefix before applying the strict slice(2, -1) logic.
-        # This ensures the dimension matching works whether ILO returns DF_ or not.
+        # Filter metadata (Keep your existing logic)
         mask = (
             df_metadata["code"]
             .str.replace("^DF_", "", regex=True)
@@ -103,51 +80,61 @@ class Retriever(BaseRetriever):
             .apply(lambda x: not set(x) - DIMENSIONS)
         )
         df_metadata = df_metadata.loc[mask].reset_index(drop=True)
+        logger.info(f'Going to download {len(df_metadata)} ILO indicators')
         data = []
-        next_rotation = random.randint(5, 15)  # Start with a random window between 5 and 15
-        requests_since_rotation = 0
-        with self.client as client:
+        session_reset_threshold = 150  # 3. Session Reset Strategy
+        requests_since_reset = 0
 
-            # 🛠️ FIX 3: Inject the official SDMX-CSV Accept header
-            client.headers.update({"Accept": "application/vnd.sdmx.data+csv;version=1.0.0"})
+        # We manage the client lifecycle manually to allow resets
+        client = self.client
+        client.headers.update({"Accept": "application/vnd.sdmx.data+csv;version=1.0.0"})
+        not_collected = []
+        try:
+            next_rotation = random.randint(5, 15)
+            requests_since_rotation = 0
+            for i, (_, row) in enumerate(pbar := tqdm(df_metadata.iterrows(), total=len(df_metadata), ncols=150)):
 
-            for i, (_, row) in enumerate(pbar:=tqdm(df_metadata.iterrows(), total=len(df_metadata), ncols=150)):
-                # Check if we've hit our current random threshold
+                # --- SESSION RESET STRATEGY ---
+                if requests_since_reset >= session_reset_threshold:
+                    client.close()
+                    client = self.client  # Re-instantiate
+                    client.headers.update({"Accept": "application/vnd.sdmx.data+csv;version=1.0.0"})
+                    requests_since_reset = 0
+                    logger.info("Connection pool reset to avoid fingerprinting.")
+
+                # --- UA ROTATION (Existing) ---
                 if requests_since_rotation >= next_rotation:
                     ua = generate_user_agent(os='linux', device_type='desktop')
                     client.headers.update({"User-Agent": ua})
-
-                    # Reset the counter and pick a NEW random window for the next batch
                     requests_since_rotation = 0
-                    next_rotation = random.randint(8, 20)  # Pick a new random gap
-
+                    next_rotation = random.randint(8, 20)
                     pbar.set_description(f"UA Rotated! Next in {next_rotation}")
 
+                # --- REQUEST WITH BACKOFF & JITTER ---
+                # 4. Mandatory Jittered delay between successful calls
+                time.sleep(random.uniform(1.0, 2.5))
 
-                df = self._get_data(row.code, client=client, **kwargs)
+                df = self._get_data_with_retry(row.code, client=client, **kwargs)
+
                 if df is None or df.empty:
-                    pbar.set_description(f'{row["code"]} returned no data ')
-                    requests_since_rotation+=1
-                    continue
-                df["indicator_name"] = f"{row['name']} [{row['code']}]"
-                data.append(df)
-                pbar.set_description(f'{row["code"]} returned {len(df)} rows')
-                requests_since_rotation+=1
+                    pbar.set_description(f'{row["code"]} will be skipped! ')
+                    not_collected.append(f'{row["code"]}')
+                else:
+                    df["indicator_name"] = f"{row['name']} [{row['code']}]"
+                    data.append(df)
+                    pbar.set_description(f'Downloaded ILO indicator {row["code"]} containing {len(df)} rows')
+
+                requests_since_rotation += 1
+                requests_since_reset += 1
+
+        finally:
+            client.close()
+            if not_collected:
+                logger.info(f'Not collected indicators: {",".join(not_collected)}')
 
         return pd.concat(data, axis=0, ignore_index=True) if data else pd.DataFrame()
 
-    def _get_metadata_original(self) -> pd.DataFrame:
-        """
-        Get indicator metadata from the ILO SDMX API codelist endpoint.
 
-        Returns
-        -------
-        pd.DataFrame
-            Data frame with two columns `code` and `name`.
-        """
-        mapping = _get_codelist_mapping("INDICATOR")
-        df = pd.DataFrame(mapping.items(), columns=["code", "name"])
-        return df
 
     def _get_metadata(self) -> pd.DataFrame:
         """
@@ -181,6 +168,81 @@ class Retriever(BaseRetriever):
         df = pd.DataFrame(mapping.items(), columns=["code", "name"])
         return df
 
+    def _get_data_with_retry(self, code, client, start_period: str = "2015-01-01",
+                             end_period: str = "2025-12-31", **kwargs):
+
+        df_code = code if code.startswith("DF_") else f"DF_{code}"
+        cache_dir = Path(f"/tmp/dfxetl/{self.provider}")
+        cache_dir.mkdir(exist_ok=True, parents=True)
+        cached_file = cache_dir / f"{df_code}.parquet"
+
+        start_year = datetime.strptime(start_period, '%Y-%m-%d').year
+        end_year = datetime.strptime(end_period, '%Y-%m-%d').year
+        max_retries = 5
+        base_delay = 5
+        try:
+            # 1. Cache check (as before)
+            if cached_file.exists() and cached_file.stat().st_size > 0:
+                logger.debug(f'Using cached data for {df_code}')
+                return pd.read_parquet(cached_file)
+
+            data_frames = []
+            year_range = range(start_year, end_year + 1)
+
+            # 2. Iterate through years
+            for year in (pbar := tqdm(year_range, unit="year", leave=False)):
+                pbar.set_description(f"Downloading year {year} for indicator {df_code}")
+
+                for attempt in range(max_retries):
+                    try:
+                        df = self._get_data(
+                            code,
+                            client=client,
+                            startPeriod=f'{year}-01-01',
+                            endPeriod=f'{year}-12-31',
+                            **kwargs
+                        )
+
+                        if df is not None and not df.empty:
+                            data_frames.append(df)
+
+                        # Success: Exit the retry loop and move to the NEXT year
+                        break
+
+                    except pd.errors.EmptyDataError:
+                        logger.warning(f"Year {year} for {code} is empty. Skipping.")
+                        # Also a "success" in terms of flow: Move to the NEXT year
+                        break
+
+                    except httpx.HTTPStatusError as e:
+                        if e.response.status_code == 503:
+                            retry_after = e.response.headers.get("Retry-After")
+                            wait_time = int(retry_after) if retry_after and retry_after.isdigit() else (base_delay * (
+                                        2 ** attempt)) + random.uniform(1, 3)
+                            logger.warning(f"503 for {code} ({year}). Attempt {attempt + 1}. Waiting {wait_time:.1f}s")
+                            time.sleep(wait_time)
+                        else:
+                            raise e  # Fatal error (404, 401, etc.) immediately triggers the outer 'except'
+
+                else:
+                    # The 'else' belongs to the 'for attempt' loop.
+                    # It ONLY triggers if the loop finished all retries without hitting a 'break'.
+                    raise Exception(f"Failed to fetch year {year} after {max_retries} attempts.")
+
+            # 3. Merge and Cache
+            if data_frames:
+                merged_df = pd.concat(data_frames, ignore_index=True)
+                merged_df.to_parquet(cached_file)
+                return merged_df
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Error processing {df_code}: {e}")
+            if cached_file.exists():
+                os.remove(cached_file)
+            raise e
+
     def _get_data(
             self,
             indicator_code: str,
@@ -197,11 +259,13 @@ class Retriever(BaseRetriever):
                      "endPeriod": end_period,
                  } | kwargs
 
-        # 🛠️ FIX 2 (cont): Ensure the Dataflow ID explicitly has the DF_ prefix
-        df_code = indicator_code if indicator_code.startswith("DF_") else f"DF_{indicator_code}"
 
-        # Using the standard SDMX data endpoint structure
-        return self.read_csv(f"data/ILO,{df_code}/", params, client)
+        return self.read_csv(f"data/ILO,{indicator_code}/", params, client, use_cache=False)
+
+
+
+
+
 
 
 class Transformer(BaseTransformer):

@@ -37,9 +37,14 @@ class PipelineSettings(BaseModel):
     Runtime settings for the ETL pipelines.
     """
 
-    http_timeout: int = Field(
-        default=30*5, description="Default client timeout in seconds for HTTP requests."
-    )
+    # http_timeout: int = Field(
+    #     default=30*5, description="Default client timeout in seconds for HTTP requests."
+    # )
+
+    http_timeout_connect: int = 10  # Fast fail if the server is down
+    http_timeout_read: int = 300  # Be patient (5 mins) for large data generation
+    http_timeout_pool: int = 10  # How long to wait for a free connection in the pool
+
     year_min: int = Field(
         default=2005,
         description="Minimum year value to be used as a cut-off point for the data. Observations "

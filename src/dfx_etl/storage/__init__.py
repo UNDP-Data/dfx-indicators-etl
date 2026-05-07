@@ -38,5 +38,5 @@ def get_storage(**kwargs) -> BaseStorage:
         raise KeyError(
             "Environment variables for neither Azure Storage nor local storage are not set."
         )
-    logger.info("Using %s storage", storage)
+    logger.debug("Using %s storage", storage)
     return storage
