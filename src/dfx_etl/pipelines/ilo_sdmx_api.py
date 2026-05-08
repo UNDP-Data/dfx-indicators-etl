@@ -93,39 +93,45 @@ class Retriever(BaseRetriever):
             next_rotation = random.randint(5, 15)
             requests_since_rotation = 0
             for i, (_, row) in enumerate(pbar := tqdm(df_metadata.iterrows(), total=len(df_metadata), ncols=150)):
+                try:
+                    # --- SESSION RESET STRATEGY ---
+                    if requests_since_reset >= session_reset_threshold:
+                        client.close()
+                        client = self.client  # Re-instantiate
+                        client.headers.update({"Accept": "application/vnd.sdmx.data+csv;version=1.0.0"})
+                        requests_since_reset = 0
+                        logger.info("Connection pool reset to avoid fingerprinting.")
 
-                # --- SESSION RESET STRATEGY ---
-                if requests_since_reset >= session_reset_threshold:
-                    client.close()
-                    client = self.client  # Re-instantiate
-                    client.headers.update({"Accept": "application/vnd.sdmx.data+csv;version=1.0.0"})
-                    requests_since_reset = 0
-                    logger.info("Connection pool reset to avoid fingerprinting.")
+                    # --- UA ROTATION (Existing) ---
+                    if requests_since_rotation >= next_rotation:
+                        ua = generate_user_agent(os='linux', device_type='desktop')
+                        client.headers.update({"User-Agent": ua})
+                        requests_since_rotation = 0
+                        next_rotation = random.randint(8, 20)
+                        pbar.set_description(f"UA Rotated! Next in {next_rotation}")
 
-                # --- UA ROTATION (Existing) ---
-                if requests_since_rotation >= next_rotation:
-                    ua = generate_user_agent(os='linux', device_type='desktop')
-                    client.headers.update({"User-Agent": ua})
-                    requests_since_rotation = 0
-                    next_rotation = random.randint(8, 20)
-                    pbar.set_description(f"UA Rotated! Next in {next_rotation}")
+                    # --- REQUEST WITH BACKOFF & JITTER ---
+                    # 4. Mandatory Jittered delay between successful calls
+                    time.sleep(random.uniform(1.0, 2.5))
 
-                # --- REQUEST WITH BACKOFF & JITTER ---
-                # 4. Mandatory Jittered delay between successful calls
-                time.sleep(random.uniform(1.0, 2.5))
 
-                df = self._get_data_with_retry(row.code, client=client, **kwargs)
+                    df = self._get_data_with_retry(row.code, client=client, **kwargs)
+                    if df is None or df.empty:
+                        pbar.set_description(f'{row["code"]} will be skipped! ')
+                        not_collected.append(f'{row["code"]}')
+                    else:
+                        df["indicator_name"] = f"{row['name']} [{row['code']}]"
+                        data.append(df)
+                        pbar.set_description(f'Downloaded ILO indicator {row["code"]} containing {len(df)} rows')
 
-                if df is None or df.empty:
-                    pbar.set_description(f'{row["code"]} will be skipped! ')
-                    not_collected.append(f'{row["code"]}')
-                else:
-                    df["indicator_name"] = f"{row['name']} [{row['code']}]"
-                    data.append(df)
-                    pbar.set_description(f'Downloaded ILO indicator {row["code"]} containing {len(df)} rows')
+                    requests_since_rotation += 1
+                    requests_since_reset += 1
 
-                requests_since_rotation += 1
-                requests_since_reset += 1
+                except Exception as e:
+                    logger.error(f'Failed to download {row.code} - {e}. Moving on to the next  indicator')
+                    continue
+
+
 
         finally:
             client.close()
@@ -211,8 +217,8 @@ class Retriever(BaseRetriever):
 
                     except pd.errors.EmptyDataError:
                         logger.warning(f"Year {year} for {code} is empty. Skipping.")
-                        # Also a "success" in terms of flow: Move to the NEXT year
-                        break
+                        # mark as incomplete the whole year
+                        raise
 
                     except httpx.HTTPStatusError as e:
                         if e.response.status_code == 503:
@@ -238,7 +244,6 @@ class Retriever(BaseRetriever):
             return None
 
         except Exception as e:
-            logger.error(f"Error processing {df_code}: {e}")
             if cached_file.exists():
                 os.remove(cached_file)
             raise e
@@ -259,8 +264,8 @@ class Retriever(BaseRetriever):
                      "endPeriod": end_period,
                  } | kwargs
 
-
-        return self.read_csv(f"data/ILO,{indicator_code}/", params, client, use_cache=False)
+        # chunk size
+        return self.read_csv(f"data/ILO,{indicator_code}/", params, client, chunk_size=1024*60)
 
 
 

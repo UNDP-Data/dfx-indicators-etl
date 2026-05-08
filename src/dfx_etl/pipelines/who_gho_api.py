@@ -3,17 +3,19 @@ ETL components to process data from the WHO GHO API
 by the World Health Organisation (WHO)
 See https://www.who.int/data/gho/info/gho-odata-api.
 """
-
+import asyncio
 import warnings
-
+from io import BytesIO
 import httpx
 import pandas as pd
 from pydantic import Field, HttpUrl
 from tqdm import tqdm
-
+from tqdm.asyncio import tqdm as atqdm
+import json
 from ..utils import _resolve_dimensions, to_snake_case
 from ._base import BaseRetriever, BaseTransformer
-
+import logging
+logger = logging.getLogger(__name__)
 __all__ = ["Retriever", "Transformer"]
 
 
@@ -51,14 +53,23 @@ class Retriever(BaseRetriever):
             Raw data from the API for the indicators with supported disaggregations.
         """
         df_metadata = self.get_metadata()
+        logger.info(f'Going to download {len(df_metadata)} WHO GHO indicators')
         data = []
+        skipped= []
         with self.client as client:
-            for _, row in tqdm(df_metadata.iterrows(), total=len(df_metadata)):
-                df = self._get_data(row.code, client=client, **kwargs)
-                if df is None:
-                    continue
-                df["indicator_name"] = f"{row['name']} [{row['code']}]"
-                data.append(df)
+            for _, row in (pbar:= tqdm(df_metadata.iterrows(), total=len(df_metadata))):
+                try:
+                    pbar.set_description(f'Downloading {row.code} indicator')
+                    df = self._get_data(row.code, client=client, **kwargs)
+                    df["indicator_name"] = f"{row['name']} [{row['code']}]"
+                    data.append(df)
+                    pbar.set_description(f'Downloaded {row.code} indicator')
+                except Exception as e:
+                    logger.debug(f'{row.code} failed with error: {e}')
+                    pbar.set_description(f'{row.code} indicator will be skipped')
+                    skipped.append(row.code)
+        if skipped:
+            logger.info(f'Not collected: {len(skipped)} indicators: {",".join(skipped)}')
         return pd.concat(data, axis=0, ignore_index=True)
 
     def _get_dimensions(self) -> dict:
@@ -74,6 +85,53 @@ class Retriever(BaseRetriever):
         response.raise_for_status()
         return response.json()["value"]
 
+    async def _check_indicator_(self, client, code):
+        url = f"{code}?$top=1"
+        try:
+            # httpx is strict about timeouts, setting a 10s timeout is a good safety net
+            response = await client.get(url, timeout=10.0)
+
+            if response.status_code == 200:
+                data = response.json()
+                # If the value array has items, data exists
+                if data.get('value'):
+                    return code
+        except Exception as e:
+            # Silently pass timeouts or connection drops
+            pass
+        return None
+
+    async def _filter_valid_(self):
+
+        async with httpx.AsyncClient(base_url=str(self.uri)) as client:
+            # 1. Fetch the full list of indicators first
+            indicators_url = f"{str(self.uri)}Indicator"
+            response = await client.get(indicators_url)
+            ind_data = response.json()
+
+            indicator_codes = {ind['IndicatorCode']:ind['IndicatorName']  for ind in ind_data.get('value', [])}
+
+
+            # 2. Use a semaphore to limit simultaneous task execution
+            sem = asyncio.Semaphore(50)
+
+            async def bound_check(code):
+                async with sem:
+                    return await self._check_indicator_(client=client, code=code)
+            # 3. Create tasks for all indicators and run them concurrently
+            tasks = [bound_check(code) for code in indicator_codes]
+            results = await atqdm.gather(*tasks, desc="Filtering indicators")
+
+            # Filter out the Nones (empty indicators or failed requests)
+            valid_indicators = [res for res in results if res is not None]
+            # 5. Construct the Pandas DataFrame with the specific columns you need
+            valid_data = [{"code": code, "name": indicator_codes[code]} for code in valid_indicators]
+
+            # Ensure we return an empty DataFrame with the correct structure if everything fails
+            if not valid_data:
+                return pd.DataFrame(columns=["code", "name"])
+
+            return pd.DataFrame(valid_data)
     def _get_metadata(self) -> pd.DataFrame:
         """
         Get series metadata from the GHO OData API.
@@ -83,11 +141,8 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Data with series metadata.
         """
-        response = self.client.get("Indicator")
-        response.raise_for_status()
-        df = pd.DataFrame(response.json()["value"])
-        columns = {"IndicatorCode": "code", "IndicatorName": "name"}
-        return df.reindex(columns=columns).rename(columns=columns)
+
+        return asyncio.run(self._filter_valid_())
 
     def _get_data(
         self,
@@ -120,9 +175,31 @@ class Retriever(BaseRetriever):
                     f"{k} must be one of (str, int, list). Found {type(v)}"
                 )
         filters = f"?$filter={' and '.join(filters)}" if filters else ""
-        response = client.get(f"{indicator_code}{filters}")
-        response.raise_for_status()
-        return pd.DataFrame(response.json()["value"])
+        url = f"{indicator_code}{filters}"
+        with client.stream("GET", url) as response:
+            response.raise_for_status()
+            # 2. Collect chunks into a memory buffer
+            with BytesIO() as buffer:
+                for chunk in response.iter_bytes():
+                    if chunk:
+                        buffer.write(chunk)
+
+                # 3. Reset buffer position for Pandas
+                buffer.seek(0)
+
+                # 4. Load into DataFrame
+                if buffer.getbuffer().nbytes == 0:
+                    raise pd.errors.NoBufferPresent(f'No buffer')
+                data = json.load(buffer)
+
+                df = pd.DataFrame(data.get("value", []))
+                if df.empty:
+                    raise pd.errors.EmptyDataError('Empty data frame')
+
+                return df.dropna(how='all')
+        # response = client.get(url=url)
+        # response.raise_for_status()
+        # return pd.DataFrame(response.json()["value"])
 
 
 class Transformer(BaseTransformer):

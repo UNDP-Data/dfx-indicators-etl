@@ -125,7 +125,7 @@ class BaseRetriever(BaseModel, ABC):
             timeout=timeout_config,  # Use the object here
             follow_redirects=True,
             # Performance tip: Increase limits for your 1,167 requests
-            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5)
+            #limits=httpx.Limits(max_connections=100, max_keepalive_connections=50)
         )
 
     @abstractmethod
@@ -171,7 +171,8 @@ class BaseRetriever(BaseModel, ABC):
         url: str,
         params: dict | None = None,
         client: httpx.Client | None = None,
-        use_cache = True,
+        chunk_size:int|None = None,
+        use_cache = False,
         **kwargs
     ) -> pd.DataFrame | None:
         """
@@ -190,6 +191,7 @@ class BaseRetriever(BaseModel, ABC):
             Parameters to include the GET request.
         client: httpx.Client, optional
             Client to use to make a request.
+        chunk_size: int, the numbert opf bytes to request
         use_cache: bool, if True stram the bytes into a temporary file, otherwise keep the bytes in RAM
         **kwargs
             Extra arguments to be passed to `pd.read_csv`.
@@ -212,29 +214,29 @@ class BaseRetriever(BaseModel, ABC):
         try:
 
             if not use_cache:
-                with client.stream("GET", url, params=params) as response:
+                with client_to_use.stream("GET", url, params=params) as response:
                     response.raise_for_status()
 
                     # 2. Collect chunks into a memory buffer
-                    buffer = BytesIO()
-                    for chunk in response.iter_bytes(chunk_size=8192):
-                        if chunk:
-                            buffer.write(chunk)
+                    with BytesIO() as buffer:
+                        for chunk in response.iter_bytes(chunk_size=chunk_size) :
+                            if chunk:
+                                buffer.write(chunk)
 
-                    # 3. Reset buffer position for Pandas
-                    buffer.seek(0)
+                        # 3. Reset buffer position for Pandas
+                        buffer.seek(0)
 
-                    # 4. Load into DataFrame
-                    if buffer.getbuffer().nbytes == 0:
-                        raise pd.errors.EmptyDataError()
-                    return pd.read_csv(buffer, low_memory=False)
+                        # 4. Load into DataFrame
+                        if buffer.getbuffer().nbytes == 0:
+                            raise pd.errors.EmptyDataError()
+                        return pd.read_csv(buffer, low_memory=False)
 
             else:
                 with tempfile.NamedTemporaryFile(dir='/tmp', suffix=".csv") as tmp:
                     try:
                         with client_to_use.stream("GET", url, params=params) as response:
                             response.raise_for_status()
-                            for chunk in response.iter_bytes(chunk_size=1024 * 64):
+                            for chunk in response.iter_bytes(chunk_size=chunk_size):
                                 if chunk:
                                     tmp.write(chunk)
 
