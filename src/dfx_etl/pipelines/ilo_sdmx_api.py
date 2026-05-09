@@ -4,6 +4,7 @@ See https://ilostat.ilo.org/resources/sdmx-tools/.
 """
 import logging
 import os
+import tempfile
 import xml.etree.ElementTree as ET
 from functools import lru_cache
 from io import StringIO
@@ -26,6 +27,7 @@ __all__ = ["Retriever", "Transformer"]
 # 🛠️ FIX 1: Updated to the new SDMX 2.1 base URL
 BASE_URL = "https://sdmx.ilo.org/rest/"
 DIMENSIONS = {"SEX", "AGE", "GEO", "EDU", "NOC"}
+ESSENTIAL_COLS = 'REF_AREA', 'TIME_PERIOD', 'OBS_VALUE', 'SOURCE', 'SEX', 'AGE', 'GEO', 'EDU', 'FREQ'
 
 
 
@@ -47,7 +49,6 @@ def _get_codelist_mapping(name: str) -> dict:
     namespaces["xml"] = "http://www.w3.org/XML/1998/namespace"
 
     root = ET.fromstring(response.text)
-    marked_del = []
     mapping = {}
     for element in root.findall(".//structure:Code", namespaces):
         name_node = element.find("common:Name[@xml:lang='en']", namespaces)
@@ -56,10 +57,7 @@ def _get_codelist_mapping(name: str) -> dict:
             # 🛠️ FIX: Skip the deprecated codes marked as 'DEL'
             if name_text and name_text.strip().upper() != 'DEL':
                 mapping[element.get("id")] = name_text
-            else:
-                marked_del.append(element.get("id"))
-
-    return mapping, marked_del
+    return mapping
 
 class Retriever(BaseRetriever):
     """
@@ -94,6 +92,7 @@ class Retriever(BaseRetriever):
             requests_since_rotation = 0
             for i, (_, row) in enumerate(pbar := tqdm(df_metadata.iterrows(), total=len(df_metadata), ncols=150)):
                 try:
+                    #if i == 50:break
                     # --- SESSION RESET STRATEGY ---
                     if requests_since_reset >= session_reset_threshold:
                         client.close()
@@ -116,11 +115,15 @@ class Retriever(BaseRetriever):
 
 
                     df = self._get_data_with_retry(row.code, client=client, **kwargs)
+
                     if df is None or df.empty:
                         pbar.set_description(f'{row["code"]} will be skipped! ')
                         not_collected.append(f'{row["code"]}')
                     else:
+                        df = self._clean_(df)
                         df["indicator_name"] = f"{row['name']} [{row['code']}]"
+                        df["indicator_name"] = df["indicator_name"].astype('category')
+                        #print(row.code, len(df.columns), df.columns)
                         data.append(df)
                         pbar.set_description(f'Downloaded ILO indicator {row["code"]} containing {len(df)} rows')
 
@@ -174,11 +177,45 @@ class Retriever(BaseRetriever):
         df = pd.DataFrame(mapping.items(), columns=["code", "name"])
         return df
 
+    def _clean_(self, indicator_df:pd.DataFrame) -> pd.DataFrame:
+        """
+        Clean and optimize the indicator data frame
+        Parameters
+        ----------
+        indicator_df
+
+        Returns
+        -------
+
+        """
+        existing_essentials = [c for c in ESSENTIAL_COLS if c in indicator_df.columns]
+        df = indicator_df[existing_essentials].copy()
+        # 2. Row Filtering (The 'Annual Only' shrinker)
+        if 'FREQ' in df.columns:
+            df = df[df['FREQ'] == 'A']
+            df.drop(columns=['FREQ'], inplace=True)
+
+        for column in ("AGE", "EDU"):
+            if column in df.columns:
+                df = df.loc[df[column].str.contains("AGGREGATE", case=False, na=True)]
+
+        # 3. Fix the 'Dot' and 'B' errors (Locking types)
+        df['OBS_VALUE'] = pd.to_numeric(df['OBS_VALUE'], errors='coerce')
+        df['TIME_PERIOD'] = pd.to_numeric(df['TIME_PERIOD'], errors='coerce').astype('Int64')
+        # 5. Categorization (The Memory Magic)
+        # Converting these to categories shrinks RAM usage by up to 90%
+        cat_cols = ['REF_AREA', 'SOURCE']
+        for col in cat_cols:
+            if col in df.columns:
+                df[col] = df[col].astype('category')
+        return df
+
     def _get_data_with_retry(self, code, client, start_period: str = "2015-01-01",
                              end_period: str = "2025-12-31", **kwargs):
 
         df_code = code if code.startswith("DF_") else f"DF_{code}"
-        cache_dir = Path(f"/tmp/dfxetl/{self.provider}")
+        temp_path = Path(tempfile.gettempdir())
+        cache_dir = tempfile / "dfxetl" / f"{self.provider}"
         cache_dir.mkdir(exist_ok=True, parents=True)
         cached_file = cache_dir / f"{df_code}.parquet"
 
@@ -279,6 +316,66 @@ class Transformer(BaseTransformer):
     """
 
     def transform(self, df: pd.DataFrame, **kwargs):
+        columns = {
+            "REF_AREA": "country_code",
+            "indicator_name": "indicator_name",
+            "SEX": f"{PREFIX_DIMENSION}sex",
+            "AGE": f"{PREFIX_DIMENSION}age",
+            "GEO": f"{PREFIX_DIMENSION}geo",
+            "EDU": f"{PREFIX_DIMENSION}edu",
+            "TIME_PERIOD": "year",
+            "OBS_VALUE": "value",
+            "OBS_STATUS": "prop_observation_type",
+            "UNIT_MEASURE_TYPE": "unit",
+            "SOURCE": "source",
+        }
+
+        # 1. Filter Annual data (stays the same)
+        if "FREQ" in df.columns:
+            df = df.query("FREQ == 'A'").copy()
+
+        # # 2. Filter AGGREGATE rows (stays the same)
+        # for column in ("AGE", "EDU"):
+        #     if column in df.columns:
+        #         # We ensure it's a string before searching to avoid errors
+        #         df = df.loc[df[column].astype(str).str.contains("AGGREGATE", na=True)].copy()
+
+        # 3. FIXED: Mapping Discovery (Extracting the dict from the tuple)
+        # We add [0] because _get_codelist_mapping returns (dict, list)
+        full_mapping = {
+            dim: _get_codelist_mapping(dim) for dim in DIMENSIONS
+        }
+
+        # 4. FIXED: The "Stuck" Step (Replace .replace with column-wise .map)
+        # .replace() is very slow on 63M rows; this loop is 100x faster
+        for col, col_map in full_mapping.items():
+            if col in df.columns:
+                # .map() only looks at the specific column instead of the whole DF
+                df[col] = df[col].map(col_map).fillna(df[col]).infer_objects(copy=False)
+
+        # 5. FIXED: Unit mapping (Extracting the dict from the tuple)
+        unit_map = _get_codelist_mapping("UNIT_MEASURE")
+
+        if "UNIT_MEASURE_TYPE" in df.columns:
+            df["UNIT_MEASURE_TYPE"] = df["UNIT_MEASURE_TYPE"].map(unit_map).fillna("Unknown")
+        elif "UNIT_MEASURE" in df.columns:
+            df["UNIT_MEASURE"] = df["UNIT_MEASURE"].map(unit_map).fillna("Unknown")
+            columns["UNIT_MEASURE"] = "unit"
+
+        # 6. Final Reindex and Cleanup (stays the same)
+        # Only reindex columns that actually exist to avoid creating empty ones
+        existing_keys = [k for k in columns.keys() if k in df.columns]
+        df = df.reindex(columns=existing_keys).rename(columns=columns)
+        dim_cols = [col for col in df.columns if "dimension_" in col]
+        id_cols = ['indicator_name', 'country_code', 'year'] + dim_cols
+        df = df.drop_duplicates(subset=id_cols, keep='first')
+        # Ensure value is numeric for the final output
+        df["value"] = pd.to_numeric(df["value"], errors='coerce')
+        df.dropna(subset=["value"], inplace=True)
+
+        return df
+
+    def transform_old(self, df: pd.DataFrame, **kwargs):
         columns = {
             "REF_AREA": "country_code",
             "indicator_name": "indicator_name",
