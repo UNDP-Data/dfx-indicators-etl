@@ -6,6 +6,7 @@ classes by inheriting from the base classes defined below.
 """
 import os.path
 from abc import ABC, abstractmethod
+from asyncio import timeout
 from io import BytesIO
 from pathlib import Path
 from typing import final
@@ -214,7 +215,7 @@ class BaseRetriever(BaseModel, ABC):
         try:
 
             if not use_cache:
-                with client_to_use.stream("GET", url, params=params) as response:
+                with client_to_use.stream("GET", url, params=params, **kwargs) as response:
                     response.raise_for_status()
 
                     # 2. Collect chunks into a memory buffer
@@ -232,7 +233,7 @@ class BaseRetriever(BaseModel, ABC):
                         return pd.read_csv(buffer, low_memory=False)
 
             else:
-                with tempfile.NamedTemporaryFile(dir='/tmp', suffix=".csv") as tmp:
+                with tempfile.NamedTemporaryFile(dir='/tmp', suffix=".csv", *kwargs) as tmp:
                     try:
                         with client_to_use.stream("GET", url, params=params) as response:
                             response.raise_for_status()

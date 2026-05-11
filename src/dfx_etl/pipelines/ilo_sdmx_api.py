@@ -215,7 +215,7 @@ class Retriever(BaseRetriever):
 
         df_code = code if code.startswith("DF_") else f"DF_{code}"
         temp_path = Path(tempfile.gettempdir())
-        cache_dir = tempfile / "dfxetl" / f"{self.provider}"
+        cache_dir = temp_path / "dfxetl" / f"{self.provider}"
         cache_dir.mkdir(exist_ok=True, parents=True)
         cached_file = cache_dir / f"{df_code}.parquet"
 
@@ -253,16 +253,20 @@ class Retriever(BaseRetriever):
                         break
 
                     except pd.errors.EmptyDataError:
-                        logger.warning(f"Year {year} for {code} is empty. Skipping.")
-                        # mark as incomplete the whole year
+                        logger.info(f"Year {year} for {code} is empty.")
+                        if abs(year == int(end_year)) <= 3:
+                            break  # 2024 missing is not such an big issue
+                        # mark as incomplete the whole
                         raise
 
                     except httpx.HTTPStatusError as e:
+                        if abs(year == int(end_year)) <= 3:
+                            break  # 2024 missing is not such an big issue
                         if e.response.status_code == 503:
                             retry_after = e.response.headers.get("Retry-After")
                             wait_time = int(retry_after) if retry_after and retry_after.isdigit() else (base_delay * (
                                         2 ** attempt)) + random.uniform(1, 3)
-                            logger.warning(f"503 for {code} ({year}). Attempt {attempt + 1}. Waiting {wait_time:.1f}s")
+                            logger.info(f"503 for {code} ({year}). Attempt {attempt + 1}. Waiting {wait_time:.1f}s")
                             time.sleep(wait_time)
                         else:
                             raise e  # Fatal error (404, 401, etc.) immediately triggers the outer 'except'
@@ -302,7 +306,7 @@ class Retriever(BaseRetriever):
                  } | kwargs
 
         # chunk size
-        return self.read_csv(f"data/ILO,{indicator_code}/", params, client, chunk_size=1024*60)
+        return self.read_csv(f"data/ILO,{indicator_code}/", params, client, chunk_size=1024*60, timeout=5*60)
 
 
 
