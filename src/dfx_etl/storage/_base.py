@@ -6,9 +6,9 @@ import os
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from typing import Any, final
-
+import logging
 import pandas as pd
-
+logger = logging.getLogger(__name__)
 __all__ = ["BaseStorage"]
 
 
@@ -63,9 +63,11 @@ class BaseStorage(ABC):
         """
         if getattr(df, "name") is None:
             raise AttributeError("Data frame name must be provided.")
-        file_path = os.path.join(self.version, folder_path, f"{df.name}.parquet")
+        file_name = f"{df.name}.parquet"
+        file_path = os.path.join(self.version, folder_path or '', file_name)
         file_path = self.join_path(file_path)
         df.to_parquet(file_path, storage_options=self.storage_options, index=False)
+        logger.info(f'{file_name} was saved to {file_path} ')
         return str(file_path)
 
     @final

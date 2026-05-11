@@ -53,3 +53,6 @@ class LocalStorage(BaseStorage):
         if not file_path.parent.exists():
             file_path.parent.mkdir(parents=True, exist_ok=True)
         return str(file_path)
+
+    def __str__(self):
+        return f'{self.__class__.__name__}<{SETTINGS.local_storage}>'

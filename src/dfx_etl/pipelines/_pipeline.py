@@ -77,7 +77,9 @@ class Pipeline(BaseModel):
         # Pass a storage to the retriever only if it is expected
         if "storage" in signature(self.retriever).parameters:
             kwargs |= {"storage": self._storage}
+
         self._df_raw = self.retriever(**kwargs)
+        self.df_raw.name = f'{self.retriever.provider}_raw'
         return self
 
     @final
@@ -102,7 +104,7 @@ class Pipeline(BaseModel):
                 "year_max": SETTINGS.pipeline.year_max,
             },
         ).reset_index(drop=True)
-        df.name = self.retriever.provider
+        df.name = self.df_raw.name = f'{self.retriever.provider}_transformed'
         self._df_transformed = df
         return self
 
@@ -119,3 +121,15 @@ class Pipeline(BaseModel):
         if self.df_transformed is None:
             raise ValueError("No validated data. Run the validation first")
         return self._storage.write_dataset(self.df_transformed)
+
+
+    @property
+    def name(self):
+
+        try:
+            return self.retriever.provider.split('_')[0].upper()
+        except Exception:
+            return self.retriever.provider.upper()
+    def __str__(self):
+
+        return f'Pipeline: {self.name}::{self.retriever.uri}->{self._storage}'

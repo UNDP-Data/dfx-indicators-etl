@@ -48,3 +48,6 @@ class AzureStorage(BaseStorage):
             ffstec-compatible full path to the file in the storage container.
         """
         return f"az://{SETTINGS.azure_storage.container_name}/{file_path}"
+
+    def __str__(self):
+        return f'{self.__class__.__name__} <{SETTINGS.azure_storage.account_name}/{SETTINGS.azure_storage.container_name}/>'
