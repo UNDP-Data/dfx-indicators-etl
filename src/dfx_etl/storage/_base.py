@@ -8,9 +8,10 @@ from datetime import UTC, datetime
 from typing import Any, final
 import logging
 import pandas as pd
+
 logger = logging.getLogger(__name__)
 __all__ = ["BaseStorage"]
-
+FORMATS = 'csv', 'parquet'
 
 class BaseStorage(ABC):
     """
@@ -44,7 +45,7 @@ class BaseStorage(ABC):
         """
 
     @final
-    def write_dataset(self, df: pd.DataFrame, folder_path: str = "") -> str:
+    def write_dataset(self, df: pd.DataFrame, folder_path: str = "", format='parquet') -> str:
         """
         Write a dataset to the storage.
 
@@ -55,6 +56,8 @@ class BaseStorage(ABC):
             a `name` attribute.
         folder_path : str, optional
             Path within the container or bucket to write the file to.
+        format: str, optional
+            The serialization format
 
         Returns
         -------
@@ -63,10 +66,12 @@ class BaseStorage(ABC):
         """
         if getattr(df, "name") is None:
             raise AttributeError("Data frame name must be provided.")
-        file_name = f"{df.name}.parquet"
-        file_path = os.path.join(self.version, folder_path or '', file_name)
+        file_name = f"{df.name}.{format}"
+        file_path = os.path.join(self.version, folder_path, file_name)
         file_path = self.join_path(file_path)
-        df.to_parquet(file_path, storage_options=self.storage_options, index=False)
+        method_name = f'to_{format}'
+        serialization_method = getattr(df, method_name)
+        serialization_method(file_path, storage_options=self.storage_options, index=False)
         logger.info(f'{file_name} was saved to {file_path} ')
         return str(file_path)
 

@@ -11,7 +11,7 @@ import io
 from dfx_etl.settings import SETTINGS
 from dfx_etl.storage import  get_storage
 from pathlib import Path
-
+from dfx_etl.storage._base import FORMATS
 logger = logging.getLogger(__name__)
 STEPS = ["retrieve", "transform", "load"]
 PIPELINES = list_pipelines()
@@ -192,7 +192,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "-persist", help="Push to database", action="store_true"
+        "-f", "--format",
+        type=str,
+        choices=FORMATS,
+        default="parquet",  # Setting a default is usually best practice
+        metavar="FMT",  # Keeps the help menu clean (prevents listing choices in the usage line)
+        help="The serialization format for the output files. Parquet is recommended for performance. "
+             "(choices: %(choices)s)",
     )
     parser.add_argument(
         "-d", "--debug", help="Enable debug logging", action="store_true"
@@ -232,6 +238,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.debug:
         logger.setLevel(logging.DEBUG)
 
+    format = args.format
+
     for src in args.src:
         pipeline = get_pipeline(src)
 
@@ -244,7 +252,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.step in ['load', None]:
             df = pipeline()
 
-        pipeline._storage.write_dataset(df, folder_path=dst_folder)
+        pipeline._storage.write_dataset(df, folder_path=dst_folder, format=format)
         # num_rows, num_cols = df.shape
         # logger.info(f'{num_rows} rows and {num_cols} columns worth of data was written to {df.name}.parquet')
         #
