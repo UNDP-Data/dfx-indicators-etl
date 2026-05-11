@@ -7,9 +7,9 @@ import httpx
 import pandas as pd
 from pydantic import Field, HttpUrl
 from tqdm import tqdm
-
+import logging
 from ._base import BaseRetriever, BaseTransformer
-
+logger = logging.getLogger(__name__)
 __all__ = ["Retriever", "Transformer"]
 
 
@@ -42,11 +42,16 @@ class Retriever(BaseRetriever):
         data = []
         with self.client as client:
             for _, row in tqdm(df_metadata.iterrows(), total=len(df_metadata)):
-                df = self._get_data(row.code, client=client, **kwargs)
-                if df is None:
+                try:
+                    df = self._get_data(row.code, client=client, **kwargs)
+                    if df is None:
+                        continue
+                    df["indicator_name"] = f"{row['name']}, {row['unit']} [{row['code']}]"
+                    data.append(df)
+                except (httpx.HTTPStatusError, Exception) as e:
+                    logger.error(f'Failed to download data for {row.code} indicator in {self.provider} pipeline')
                     continue
-                df["indicator_name"] = f"{row['name']}, {row['unit']} [{row['code']}]"
-                data.append(df)
+
         return pd.concat(data, axis=0, ignore_index=True)
 
     def _get_metadata(self) -> pd.DataFrame:
@@ -74,7 +79,7 @@ class Retriever(BaseRetriever):
         self,
         indicator_code: str,
         client: httpx.Client,
-        start_period: int = 1950,
+        start_period: int = 1990,
         end_period: int = 2050,
         **kwargs,
     ) -> pd.DataFrame | None:
@@ -94,12 +99,11 @@ class Retriever(BaseRetriever):
         pd.DataFrame or None
             Data frame with raw data as returned by the API or None.
         """
-        params = {
-            "periods": ",".join(map(str, range(start_period, end_period)))
-        } | kwargs
+
         if client.base_url is None:
             raise ValueError("`client` must include a `base_url`.")
-        response = client.get(indicator_code, params=params)
+
+        response = client.get(indicator_code, params=kwargs)
         response.raise_for_status()
         data = response.json()
         if (values := data.get("values")) is None:
@@ -107,8 +111,10 @@ class Retriever(BaseRetriever):
         dfs = []
         for country_code, records in values[indicator_code].items():
             df = pd.DataFrame(records.items(), columns=["year", "value"])
-            df["country_code"] = country_code
-            dfs.append(df)
+            df = df[df["year"].isin(map(str, range(start_period, end_period)))].copy()
+            if not df.empty:
+                df["country_code"] = country_code
+                dfs.append(df)
         return pd.concat(dfs, axis=0, ignore_index=True)
 
 
