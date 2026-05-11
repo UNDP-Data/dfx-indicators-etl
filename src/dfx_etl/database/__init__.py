@@ -4,7 +4,7 @@ not configured via a connection string in environment variables, an in-memory SQ
 """
 
 import logging
-
+from functools import lru_cache
 from pandas.io.sql import SQLTable
 from sqlalchemy import Connection, Engine, create_engine, text, inspect
 from sqlalchemy.dialects.postgresql import insert
@@ -23,7 +23,7 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-
+@lru_cache(maxsize=1)
 def get_engine() -> Engine:
     """
     Get a database engine.
