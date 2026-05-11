@@ -6,9 +6,9 @@ not configured via a connection string in environment variables, an in-memory SQ
 import logging
 
 from pandas.io.sql import SQLTable
-from sqlalchemy import Connection, Engine, create_engine, text
+from sqlalchemy import Connection, Engine, create_engine, text, inspect
 from sqlalchemy.dialects.postgresql import insert
-
+from sqlalchemy.engine import make_url
 from ..settings import SETTINGS
 from .entities import *  # Required to register tables
 
@@ -41,7 +41,26 @@ def get_engine() -> Engine:
         )
         engine = create_engine("sqlite:///:memory:")
     else:
+        # 1. Parse the intended schema name from the connection string
+        url = make_url(str(SETTINGS.db_conn))
+        opts = url.query.get('options', '')
+        intended_schema = None
+        if 'search_path=' in opts:
+            # Extracts 'dfx' from '-csearch_path=dfx'
+            intended_schema = opts.split('search_path=')[1].split(',')[0].strip()
         engine = create_engine(str(SETTINGS.db_conn))
+
+        if intended_schema:
+            inspector = inspect(engine)
+            existing_schemas = inspector.get_schema_names()
+
+            if intended_schema not in existing_schemas:
+                with engine.begin() as conn:
+                    conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {intended_schema}"))
+                    logger.info(f"Schema '{intended_schema}' created in {url.host}/{url.database}.")
+            # 3. Patch the metadata so SQLAlchemy knows where to build tables
+            Base.metadata.schema = intended_schema
+
     return engine
 
 

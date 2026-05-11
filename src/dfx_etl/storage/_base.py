@@ -45,7 +45,7 @@ class BaseStorage(ABC):
         """
 
     @final
-    def write_dataset(self, df: pd.DataFrame, folder_path: str = "", format='parquet') -> str:
+    def write_dataset(self, df: pd.DataFrame, folder_path: str = "", frmt='parquet') -> str:
         """
         Write a dataset to the storage.
 
@@ -56,7 +56,7 @@ class BaseStorage(ABC):
             a `name` attribute.
         folder_path : str, optional
             Path within the container or bucket to write the file to.
-        format: str, optional
+        frmt: str, optional
             The serialization format
 
         Returns
@@ -66,10 +66,11 @@ class BaseStorage(ABC):
         """
         if getattr(df, "name") is None:
             raise AttributeError("Data frame name must be provided.")
-        file_name = f"{df.name}.{format}"
+
+        file_name = f"{df.name}.{frmt}"
         file_path = os.path.join(self.version, folder_path, file_name)
         file_path = self.join_path(file_path)
-        method_name = f'to_{format}'
+        method_name = f'to_{frmt}'
         serialization_method = getattr(df, method_name)
         serialization_method(file_path, storage_options=self.storage_options, index=False)
         logger.debug(f'{file_name} was saved to {file_path} ')

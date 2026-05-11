@@ -2,7 +2,7 @@ import argparse
 import logging
 import os.path
 import sys
-from dfx_etl.database import get_engine, create_tables
+from dfx_etl.database import get_engine, create_tables, _drop_tables
 from dfx_etl.pipelines import get_pipeline, list_pipelines
 from sqlalchemy import inspect
 import psycopg
@@ -12,6 +12,8 @@ from dfx_etl.settings import SETTINGS
 from dfx_etl.storage import  get_storage
 from pathlib import Path
 from dfx_etl.storage._base import FORMATS
+
+
 logger = logging.getLogger(__name__)
 STEPS = ["retrieve", "transform", "load"]
 PIPELINES = list_pipelines()
@@ -141,68 +143,80 @@ def configure_logging() -> logging.Logger:
 
 EPILOG = f"""
         Tips: 
-            omit -src to execute all pipelines: {', '.join(PIPELINES)}
-            omit -step to execute all steps: {', '.join(STEPS)}
+            omit --src to execute all pipelines: {', '.join(PIPELINES)}
+            omit --step to execute all steps: {', '.join(STEPS)}
         Usage:
-            dfx-etl -src imf_datamapper_api -dst /data/tmp/dfxp -step retrieve
-            uv run dfx-etl -src imf_datamapper_api -dst /data/tmp/dfxp -step retrieve
+            # one time init
+            dfx-etl init --force
+            dfx-etl run --src imf_datamapper_api --dst /data/tmp/dfxp --step retrieve
+            uv run dfx-etl run --src imf_datamapper_api --dst /data/tmp/dfxp --step retrieve
 
         """
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """
-    Build an argparse parser suitable ot launch pipelines from command line
-    Returns
-    -------
-
-    """
     parser = argparse.ArgumentParser(
         prog="dfx-etl",
-        description="Run dfx_etl pipelines and store data  locally or on Azure ",
+        description="DFx ETL: Infrastructure setup and high-speed data ingestion.",
         formatter_class=Formatter,
         epilog=EPILOG
     )
 
-    parser.add_argument(
-        "-src",
+    # Global Arguments (Apply to all subcommands)
+    parser.add_argument("-d", "--debug", help="Enable debug logging", action="store_true")
+
+    subparsers = parser.add_subparsers(dest="command", required=True, help="Sub-command to execute")
+
+    # --- SUBCOMMAND: init ---
+    init_parser = subparsers.add_parser(
+        "init",
+        help="Initialize the database schema, views, and M49 country data."
+    )
+    init_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force re-initialization (Warning: This may drop existing tables!)"
+    )
+
+    # --- SUBCOMMAND: run ---
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Execute ETL pipelines for specific sources."
+    )
+
+    run_parser.add_argument(
+        "--src",
         type=str,
-        required=False,
         nargs='+',
         choices=PIPELINES,
         metavar="SOURCE",
-        help="Execute DFx pipeline on one or multiple sources. (choices: %(choices)s)",
+        help="One or more sources to process (choices: %(choices)s)",
     )
 
-    parser.add_argument(
-        "-step",
+    run_parser.add_argument(
+        "--step",
         type=str,
-        required=False,
         choices=STEPS,
         metavar="STEP",
-        help="The step of the specified pipeline (choices: %(choices)s)",
+        help="Execute only a specific pipeline step (choices: %(choices)s)",
     )
 
-    parser.add_argument(
-        "-dst",
-        type=Path,
-        required=False,
+    run_parser.add_argument(
+        "--dst",
+        type=Path,  # Using the Path helper we discussed earlier
         metavar='PATH',
-        help="A path to a directory on the local disk. The storage where the intermediary parquet files will be stored. ",
+        help="Local directory for intermediate storage. Overrides Azure.",
     )
 
-    parser.add_argument(
-        "-f", "--format",
+    run_parser.add_argument(
+        "--format",
         type=str,
         choices=FORMATS,
-        default="parquet",  # Setting a default is usually best practice
-        metavar="FMT",  # Keeps the help menu clean (prevents listing choices in the usage line)
-        help="The serialization format for the output files. Parquet is recommended for performance. "
-             "(choices: %(choices)s)",
+        default="parquet",
+        metavar="FMT",
+        help="Serialization format for intermediate files (choices: %(choices)s)",
     )
-    parser.add_argument(
-        "-d", "--debug", help="Enable debug logging", action="store_true"
-    )
+
 
     return parser
 
@@ -221,53 +235,79 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
     logger = configure_logging()
-    # validate
-    dst_folder = args.dst
-    if dst_folder is not None:
-        if not os.path.isabs(dst_folder):
-            dst_folder = os.path.abspath(dst_folder)
-        if not os.path.exists(dst_folder):
-            os.makedirs(dst_folder)
-        SETTINGS.local_storage = dst_folder
-
-    _storage = get_storage()
-    logger.info(f'Using {_storage} to save data')
-
-
-
     if args.debug:
         logger.setLevel(logging.DEBUG)
 
-    format = args.format
+    if args.command == 'run':
 
-    for src in args.src:
-        pipeline = get_pipeline(src)
+        dst_folder = args.dst
+        if dst_folder is not None:
+            if not os.path.isabs(dst_folder):
+                dst_folder = os.path.abspath(dst_folder)
+            if not os.path.exists(dst_folder):
+                os.makedirs(dst_folder)
+            SETTINGS.local_storage = dst_folder
+
+
+        _storage = get_storage()
+        logger.info(f'Using {_storage} to persist data')
 
 
 
-        if args.step == 'retrieve':
-            df = pipeline.retrieve().df_raw
-        if args.step == 'transform':
-            df = pipeline.retrieve().transform().df_transformed
-        if args.step in ['load', None]:
-            df = pipeline()
 
-        pipeline._storage.write_dataset(df, folder_path=dst_folder, format=format)
-        num_rows, num_cols = df.shape
-        logger.info(f'{num_rows} rows and {num_cols} columns worth of data was written to {df.name}.parquet')
-        #
-        # # TODO push to db
-        # if args.step in ('transform', 'load', None):
-        #     engine = get_engine()
-        #     tables = inspect(engine).get_table_names()
-        #     if not tables:
-        #         tn = create_tables(engine=engine)
-        #         assert len(tn) == 4, f'Failed to create the tables in DB'
-        #
-        #     if args.persist:
-        #         logger.info(f"Processing database push for source: {src}")
-        #         ingest_source(df, engine, src_name=src)
-        #         logger.info(f"Source {src} is now synchronized in dfx schema.")
+
+        frmt = args.format
+
+        for src in args.src:
+            pipeline = get_pipeline(src)
+
+
+            if args.step == 'retrieve':
+                pipeline.retrieve()
+            if args.step == 'transform':
+                pipeline.retrieve().transform()
+            if args.step in ['load', None]:
+                pipeline()
+
+
+            persisted_file = pipeline.persist(step=args.step, folder_path=dst_folder, frmt=frmt)
+            logger.info(f'Step {args.step} for {pipeline.name} pipeline was persisted to {persisted_file}')
+            #
+            # # TODO push to db
+            # if args.step in ('transform', 'load', None):
+            #     engine = get_engine()
+            #     tables = inspect(engine).get_table_names()
+            #     if not tables:
+            #         tn = create_tables(engine=engine)
+            #         assert len(tn) == 4, f'Failed to create the tables in DB'
+            #
+            #     if args.persist:
+            #         logger.info(f"Processing database push for source: {src}")
+            #         ingest_source(df, engine, src_name=src)
+            #         logger.info(f"Source {src} is now synchronized in dfx schema.")
+    if args.command == 'init':
+        engine = get_engine()
+
+        if args.force:
+            logger.warning("Force flag detected. Dropping all existing tables...")
+            confirm = input("Are you absolutely sure you want to proceed? [y/N]: ").strip().lower()
+            if confirm not in ('y', 'yes'):
+                logger.info("Initialization aborted. No data was harmed.")
+                return 0  # Exit gracefully
+            _drop_tables(engine=engine)
+            logger.info("Database cleared successfully.")
+
+        tables = inspect(engine).get_table_names()
+
+        if not tables:
+            logger.info("Tables not found. Initializing schema and metadata...")
+            tn = create_tables(engine=engine)
+            # Use >= 4 just in case you add utility tables later
+            assert len(tn) >= 4, f'Failed to create the tables in DB. Found: {tn}'
+            logger.info(f"Database initialized. Created: {', '.join(tn)}")
+        else:
+            logger.info(f"Database already contains {len(tables)} necessary tables. No action taken.")
+
 
     return 0
 

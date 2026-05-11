@@ -4,6 +4,7 @@ the correct implementation of `retriever` and `transformer` components.
 """
 
 import logging
+import os.path
 from inspect import signature
 from typing import Self, final
 
@@ -79,7 +80,7 @@ class Pipeline(BaseModel):
             kwargs |= {"storage": self._storage}
 
         self._df_raw = self.retriever(**kwargs)
-        self.df_raw.name = f'{self.retriever.provider}_raw'
+        self._df_raw.name = f'{self.retriever.provider}_raw'
         return self
 
     @final
@@ -104,9 +105,28 @@ class Pipeline(BaseModel):
                 "year_max": SETTINGS.pipeline.year_max,
             },
         ).reset_index(drop=True)
-        df.name = self.df_raw.name = f'{self.retriever.provider}_transformed'
+        df.name = f'{self.retriever.provider}_transformed'
         self._df_transformed = df
         return self
+
+    @final
+    def persist(self, step:str=None, folder_path: str=None, frmt:str='parquet')->str:
+        """
+        Serializes the pipeline steps to the  selected storage and format
+        Returns
+        -------
+
+        """
+        if step and step != 'load':
+            folder_path = folder_path or ''
+            if step == 'retrieve':step = 'raw'
+            if step == 'transform':step = 'transformed'
+            folder_path = os.path.join(folder_path, step)
+            df_name = f'df_{step}'
+            df = getattr(self, df_name)
+            return self._storage.write_dataset(df, folder_path=folder_path, frmt=frmt)
+
+
 
     @final
     def load(self) -> Self:
