@@ -72,7 +72,7 @@ class BaseStorage(ABC):
         method_name = f'to_{format}'
         serialization_method = getattr(df, method_name)
         serialization_method(file_path, storage_options=self.storage_options, index=False)
-        logger.info(f'{file_name} was saved to {file_path} ')
+        logger.debug(f'{file_name} was saved to {file_path} ')
         return str(file_path)
 
     @final

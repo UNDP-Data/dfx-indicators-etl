@@ -99,7 +99,7 @@ class Retriever(BaseRetriever):
                         client = self.client  # Re-instantiate
                         client.headers.update({"Accept": "application/vnd.sdmx.data+csv;version=1.0.0"})
                         requests_since_reset = 0
-                        logger.info("Connection pool reset to avoid fingerprinting.")
+                        logger.debug("Connection pool reset to avoid fingerprinting.")
 
                     # --- UA ROTATION (Existing) ---
                     if requests_since_rotation >= next_rotation:

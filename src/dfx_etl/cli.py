@@ -253,8 +253,8 @@ def main(argv: list[str] | None = None) -> int:
             df = pipeline()
 
         pipeline._storage.write_dataset(df, folder_path=dst_folder, format=format)
-        # num_rows, num_cols = df.shape
-        # logger.info(f'{num_rows} rows and {num_cols} columns worth of data was written to {df.name}.parquet')
+        num_rows, num_cols = df.shape
+        logger.info(f'{num_rows} rows and {num_cols} columns worth of data was written to {df.name}.parquet')
         #
         # # TODO push to db
         # if args.step in ('transform', 'load', None):
