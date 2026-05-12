@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     local_storage: Path | None = Field(
         default=None, alias="LOCAL_STORAGE_PATH"
     )
+    file_format:str = Field(default='parquet')
 
 
 SETTINGS = Settings()

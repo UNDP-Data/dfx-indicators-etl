@@ -91,6 +91,7 @@ class Pipeline(BaseModel):
 
         self._df_raw = self.retriever(**kwargs)
         self._df_raw.name = f'{self.retriever.provider}_raw'
+        self._serialize(step='retrieve')
         return self
 
     @final
@@ -117,6 +118,7 @@ class Pipeline(BaseModel):
         ).reset_index(drop=True)
         df.name = f'{self.retriever.provider}_transformed'
         self._df_transformed = df
+        self._serialize(step='transform')
         return self
 
     @final
@@ -130,7 +132,31 @@ class Pipeline(BaseModel):
         # Now that Stage 1 ensured all IDs exist, we stream the 11M rows.
         self._stream_series_data()
         self._df_loaded.name = f'{self.retriever.provider}_loaded'
+        self._serialize(step='load')
         return self
+
+    def _serialize(self, step:str=None):
+        logger.debug(f'Serializing {step} for {self.name}')
+        step2df = {
+            'retrieve': 'raw',
+            'transform': 'transformed',
+            'load': 'loaded'  # Mimic the DB table name
+        }
+        step2folder = {
+            'retrieve': 'raw',
+            'transform': 'transformed',
+            'load': 'loaded'  # Mimic the DB table name
+        }
+        # Identify which dataframe to grab
+        attr_name = f'df_{step2df[step]}'
+        df = getattr(self, attr_name)
+        folder_path = step2folder[step]
+        if df is None:
+            logger.info(f"No data available to persist in {self.name} for step: {step}")
+            return
+
+        serialized_file = self._storage.write_dataset(df, folder_path)
+        logger.info(f'Serialized step {step} for {self.name} to {serialized_file}')
 
     @final
     def persist(self, step: str = None, folder_path: str = None, frmt: str = 'parquet') -> str:
@@ -274,7 +300,7 @@ class Pipeline(BaseModel):
                     DO UPDATE SET value = EXCLUDED.value;
                 """)
 
-                logger.info(f"Ingestion Complete: {len(df_clean)} rows pushed ({len(df_clean) / initial_count:.1%})")
+                logger.info(f"Ingestion Complete: {len(df_clean)} rows pushed ({len(df_clean) / initial_count:.1%}) to {self._engine.url.host}")
 
             raw_conn.commit()
         finally:

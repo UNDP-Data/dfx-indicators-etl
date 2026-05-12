@@ -18,6 +18,9 @@ __all__ = [
     "_drop_tables",
     "update_on_conflict",
     "ignore_on_conflict",
+    "get_schema",
+    "drop_schema",
+    "create_schema"
 ]
 
 

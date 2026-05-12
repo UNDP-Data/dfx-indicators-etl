@@ -9,14 +9,19 @@ from typing import Any, final
 import logging
 import pandas as pd
 
+
 logger = logging.getLogger(__name__)
 __all__ = ["BaseStorage"]
-FORMATS = 'csv', 'parquet'
+
 
 class BaseStorage(ABC):
     """
     Abstract class to build storage interfaces.
     """
+
+    def __init__(self,  file_format:str):
+
+        self.file_format = file_format
 
     @property
     @abstractmethod
@@ -45,7 +50,8 @@ class BaseStorage(ABC):
         """
 
     @final
-    def write_dataset(self, df: pd.DataFrame, folder_path: str = "", frmt='parquet') -> str:
+
+    def write_dataset(self, df: pd.DataFrame, folder_path:str) -> str:
         """
         Write a dataset to the storage.
 
@@ -67,11 +73,13 @@ class BaseStorage(ABC):
         if getattr(df, "name") is None:
             raise AttributeError("Data frame name must be provided.")
 
-        file_name = f"{df.name}.{frmt}"
+        file_name = f"{df.name}.{self.file_format}"
+
         file_path = os.path.join(self.version, folder_path, file_name)
         file_path = self.join_path(file_path)
-        method_name = f'to_{frmt}'
+        method_name = f'to_{self.file_format}'
         serialization_method = getattr(df, method_name)
+
         serialization_method(file_path, storage_options=self.storage_options, index=False)
         logger.debug(f'{file_name} was saved to {file_path} ')
         return str(file_path)

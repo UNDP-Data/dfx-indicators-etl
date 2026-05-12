@@ -15,7 +15,7 @@ class AzureStorage(BaseStorage):
     Storage interface for Azure Blob Storage.
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         """
         Perform validation during initialisation.
         """
@@ -25,6 +25,7 @@ class AzureStorage(BaseStorage):
                 "`AZURE_STORAGE_ACCOUNT_NAME`, `AZURE_STORAGE_CONTAINER_NAME` and "
                 "`AZURE_STORAGE_SAS_TOKEN`."
             )
+        super().__init__(file_format=SETTINGS.file_format)
 
     @property
     def storage_options(self) -> dict[str, Any] | None:
@@ -50,4 +51,4 @@ class AzureStorage(BaseStorage):
         return f"az://{SETTINGS.azure_storage.container_name}/{file_path}"
 
     def __str__(self):
-        return f'{self.__class__.__name__} <{SETTINGS.azure_storage.account_name}/{SETTINGS.azure_storage.container_name}/>'
+        return f'{self.__class__.__name__} <{SETTINGS.azure_storage.account_name}/{SETTINGS.azure_storage.container_name}/> <.{SETTINGS.file_format}>'

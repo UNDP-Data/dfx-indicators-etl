@@ -123,7 +123,6 @@ class Retriever(BaseRetriever):
                         df = self._clean_(df)
                         df["indicator_name"] = f"{row['name']} [{row['code']}]"
                         df["indicator_name"] = df["indicator_name"].astype('category')
-                        #print(row.code, len(df.columns), df.columns)
                         data.append(df)
                         pbar.set_description(f'Downloaded ILO indicator {row["code"]} containing {len(df)} rows')
 

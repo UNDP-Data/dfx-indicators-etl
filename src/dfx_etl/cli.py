@@ -3,19 +3,20 @@ import logging
 import os.path
 import sys
 from dfx_etl.database import get_engine, create_tables, get_schema, create_schema, drop_schema
-from dfx_etl.pipelines import get_pipeline, list_pipelines
+from dfx_etl.pipelines import get_pipeline, list_pipelines, STEPS
 from sqlalchemy import inspect
 import psycopg
 import pandas as pd
 import io
 from dfx_etl.settings import SETTINGS
 from dfx_etl.storage import  get_storage
+from dfx_etl.storage.file_frmt import FileFormat
 from pathlib import Path
-from dfx_etl.storage._base import FORMATS
+
 
 
 logger = logging.getLogger(__name__)
-STEPS = ["retrieve", "transform", "load"]
+
 PIPELINES = list_pipelines()
 
 
@@ -211,8 +212,8 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument(
         "--format",
         type=str,
-        choices=FORMATS,
-        default="parquet",
+        choices=list(FileFormat),
+        default=FileFormat.PARQUET,
         metavar="FMT",
         help="Serialization format for intermediate files (choices: %(choices)s)",
     )
@@ -248,38 +249,24 @@ def main(argv: list[str] | None = None) -> int:
                 os.makedirs(dst_folder)
             SETTINGS.local_storage = dst_folder
 
+        SETTINGS.file_format = args.format
 
         _storage = get_storage()
-        logger.info(f'Using {_storage} to persist data')
-        frmt = args.format
+        logger.debug(f'Using {_storage} to persist data')
 
+        step = args.step or 'load'
         for src in args.src:
             pipeline = get_pipeline(src)
-
-
-            if args.step == 'retrieve':
+            if step == 'retrieve':
                 pipeline.retrieve()
-            if args.step == 'transform':
+            if step == 'transform':
                 pipeline.retrieve().transform()
-            if args.step in ['load', None]:
+            if step == 'load':
                 pipeline()
 
+            #persisted_file = pipeline.persist(step=args.step, folder_path=dst_folder, frmt=frmt)
+            #logger.info(f'Step {args.step} for {pipeline.name} pipeline was persisted to {persisted_file}')
 
-            persisted_file = pipeline.persist(step=args.step, folder_path=dst_folder, frmt=frmt)
-            logger.info(f'Step {args.step} for {pipeline.name} pipeline was persisted to {persisted_file}')
-            #
-            # # TODO push to db
-            # if args.step in ('transform', 'load', None):
-            #     engine = get_engine()
-            #     tables = inspect(engine).get_table_names()
-            #     if not tables:
-            #         tn = create_tables(engine=engine)
-            #         assert len(tn) == 4, f'Failed to create the tables in DB'
-            #
-            #     if args.persist:
-            #         logger.info(f"Processing database push for source: {src}")
-            #         ingest_source(df, engine, src_name=src)
-            #         logger.info(f"Source {src} is now synchronized in dfx schema.")
     if args.command == 'init':
         engine = get_engine()
 
