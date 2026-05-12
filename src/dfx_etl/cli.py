@@ -2,7 +2,7 @@ import argparse
 import logging
 import os.path
 import sys
-from dfx_etl.database import get_engine, create_tables, _drop_tables
+from dfx_etl.database import get_engine, create_tables, get_schema, create_schema, drop_schema
 from dfx_etl.pipelines import get_pipeline, list_pipelines
 from sqlalchemy import inspect
 import psycopg
@@ -175,7 +175,7 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument(
         "--force",
         action="store_true",
-        help="Force re-initialization (Warning: This may drop existing tables!)"
+        help="Force re-initialization (Warning: This may drop existing schema including tables!)"
     )
 
     # --- SUBCOMMAND: run ---
@@ -251,11 +251,6 @@ def main(argv: list[str] | None = None) -> int:
 
         _storage = get_storage()
         logger.info(f'Using {_storage} to persist data')
-
-
-
-
-
         frmt = args.format
 
         for src in args.src:
@@ -289,12 +284,16 @@ def main(argv: list[str] | None = None) -> int:
         engine = get_engine()
 
         if args.force:
-            logger.warning("Force flag detected. Dropping all existing tables...")
+            schema = get_schema()
+            logger.info(f'Current DB connection: {engine.url.render_as_string()}')
+            logger.warning(f"Force flag detected. Dropping all existing tables including schema {schema}")
             confirm = input("Are you absolutely sure you want to proceed? [y/N]: ").strip().lower()
             if confirm not in ('y', 'yes'):
                 logger.info("Initialization aborted. No data was harmed.")
                 return 0  # Exit gracefully
-            _drop_tables(engine=engine)
+
+            drop_schema(engine=engine,schema=schema)
+            create_schema(engine=engine,schema=schema)
             logger.info("Database cleared successfully.")
 
         tables = inspect(engine).get_table_names()

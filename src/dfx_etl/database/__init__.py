@@ -23,6 +23,42 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
+
+def get_schema()-> str:
+    """
+    Extract  schema from connection string
+    Returns
+    -------
+
+    """
+    # 1. Parse the intended schema name from the connection string
+    url = make_url(str(SETTINGS.db_conn))
+    opts = url.query.get('options', '')
+    intended_schema = None
+    if 'search_path=' in opts:
+        # Extracts 'dfx' from '-csearch_path=dfx'
+        intended_schema = opts.split('search_path=')[1].split(',')[0].strip()
+    return intended_schema
+
+def drop_schema(engine:Engine, schema:str):
+
+    if schema.lower() == 'public':
+        raise ValueError("Safety check: Cannot drop the 'public' schema via this utility.")
+    with engine.begin() as conn:
+        # CASCADE is the key—it drops the colleague's view automatically
+        conn.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
+        logger.info(f"Schema '{schema}' was deleted from {engine.url.host}/{engine.url.database}.")
+
+def create_schema(engine:Engine, schema:str):
+
+    if schema.lower() == 'public':
+        raise ValueError("Safety check: Cannot create the 'public' schema via this utility.")
+    with engine.begin() as conn:
+        # CASCADE is the key—it drops the colleague's view automatically
+        conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema} "))
+        logger.info(f"Schema '{schema}' was created in {engine.url.host}/{engine.url.database}.")
+
+
 @lru_cache(maxsize=1)
 def get_engine() -> Engine:
     """
@@ -41,23 +77,13 @@ def get_engine() -> Engine:
         )
         engine = create_engine("sqlite:///:memory:")
     else:
-        # 1. Parse the intended schema name from the connection string
-        url = make_url(str(SETTINGS.db_conn))
-        opts = url.query.get('options', '')
-        intended_schema = None
-        if 'search_path=' in opts:
-            # Extracts 'dfx' from '-csearch_path=dfx'
-            intended_schema = opts.split('search_path=')[1].split(',')[0].strip()
         engine = create_engine(str(SETTINGS.db_conn))
-
+        intended_schema = get_schema()
         if intended_schema:
             inspector = inspect(engine)
             existing_schemas = inspector.get_schema_names()
-
             if intended_schema not in existing_schemas:
-                with engine.begin() as conn:
-                    conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {intended_schema}"))
-                    logger.info(f"Schema '{intended_schema}' created in {url.host}/{url.database}.")
+                create_schema(engine=engine, schema=intended_schema)
             # 3. Patch the metadata so SQLAlchemy knows where to build tables
             Base.metadata.schema = intended_schema
 
