@@ -8,8 +8,9 @@ import pkgutil
 
 from ._pipeline import Pipeline
 
-__all__ = ["Pipeline", "list_pipelines", "get_pipeline"]
+__all__ = ["Pipeline", "list_pipelines", "get_pipeline", "STEPS"]
 
+STEPS = ["retrieve", "transform", "load"]
 
 def list_pipelines() -> list[str]:
     """

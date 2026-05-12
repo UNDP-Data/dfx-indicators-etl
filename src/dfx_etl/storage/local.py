@@ -15,7 +15,7 @@ class LocalStorage(BaseStorage):
     Storage interface for a local file system.
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         """
         Perform validation during initialisation.
         """
@@ -24,6 +24,7 @@ class LocalStorage(BaseStorage):
                 "Environment variable for local storage is not set. You must provide "
                 "`LOCAL_STORAGE_PATH`"
             )
+        super().__init__(file_format=SETTINGS.file_format)
 
     @property
     def storage_options(self) -> dict[str, Any] | None:
@@ -53,3 +54,6 @@ class LocalStorage(BaseStorage):
         if not file_path.parent.exists():
             file_path.parent.mkdir(parents=True, exist_ok=True)
         return str(file_path)
+
+    def __str__(self):
+        return f'{self.__class__.__name__}: <{SETTINGS.local_storage}> <.{SETTINGS.file_format}>'

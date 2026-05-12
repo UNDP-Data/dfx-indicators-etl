@@ -9,6 +9,8 @@ from ._base import BaseStorage
 from .azure import AzureStorage
 from .local import LocalStorage
 
+
+
 __all__ = ["BaseStorage", "AzureStorage", "LocalStorage", "get_storage"]
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,7 @@ def get_storage(**kwargs) -> BaseStorage:
     BaseStorage
         Storage class.
     """
+    kwargs.update({'file_format':str(SETTINGS.file_format)})
     if SETTINGS.local_storage is not None:
         storage = LocalStorage(**kwargs)
     elif SETTINGS.azure_storage is not None:

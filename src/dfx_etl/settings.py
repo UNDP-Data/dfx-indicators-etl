@@ -3,7 +3,7 @@ Package settings based on environment variables.
 """
 
 from typing import Any
-
+from pathlib import Path
 from pydantic import BaseModel, DirectoryPath, Field, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -73,9 +73,10 @@ class Settings(BaseSettings):
     db_conn: PostgresDsn | None = Field(default=None, alias="DB_CONNECTION", repr=False)
     pipeline: PipelineSettings = Field(default_factory=PipelineSettings)
     azure_storage: AzureStorageSettings | None = Field(default=None)
-    local_storage: DirectoryPath | None = Field(
+    local_storage: Path | None = Field(
         default=None, alias="LOCAL_STORAGE_PATH"
     )
+    file_format:str = Field(default='parquet')
 
 
 SETTINGS = Settings()

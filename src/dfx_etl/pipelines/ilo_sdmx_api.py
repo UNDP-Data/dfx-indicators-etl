@@ -99,7 +99,7 @@ class Retriever(BaseRetriever):
                         client = self.client  # Re-instantiate
                         client.headers.update({"Accept": "application/vnd.sdmx.data+csv;version=1.0.0"})
                         requests_since_reset = 0
-                        logger.info("Connection pool reset to avoid fingerprinting.")
+                        logger.debug("Connection pool reset to avoid fingerprinting.")
 
                     # --- UA ROTATION (Existing) ---
                     if requests_since_rotation >= next_rotation:
@@ -123,7 +123,6 @@ class Retriever(BaseRetriever):
                         df = self._clean_(df)
                         df["indicator_name"] = f"{row['name']} [{row['code']}]"
                         df["indicator_name"] = df["indicator_name"].astype('category')
-                        #print(row.code, len(df.columns), df.columns)
                         data.append(df)
                         pbar.set_description(f'Downloaded ILO indicator {row["code"]} containing {len(df)} rows')
 

@@ -6,9 +6,11 @@ import os
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from typing import Any, final
-
+import logging
 import pandas as pd
 
+
+logger = logging.getLogger(__name__)
 __all__ = ["BaseStorage"]
 
 
@@ -16,6 +18,10 @@ class BaseStorage(ABC):
     """
     Abstract class to build storage interfaces.
     """
+
+    def __init__(self,  file_format:str):
+
+        self.file_format = file_format
 
     @property
     @abstractmethod
@@ -44,7 +50,8 @@ class BaseStorage(ABC):
         """
 
     @final
-    def write_dataset(self, df: pd.DataFrame, folder_path: str = "") -> str:
+
+    def write_dataset(self, df: pd.DataFrame, folder_path:str) -> str:
         """
         Write a dataset to the storage.
 
@@ -55,6 +62,8 @@ class BaseStorage(ABC):
             a `name` attribute.
         folder_path : str, optional
             Path within the container or bucket to write the file to.
+        frmt: str, optional
+            The serialization format
 
         Returns
         -------
@@ -63,9 +72,16 @@ class BaseStorage(ABC):
         """
         if getattr(df, "name") is None:
             raise AttributeError("Data frame name must be provided.")
-        file_path = os.path.join(self.version, folder_path, f"{df.name}.parquet")
+
+        file_name = f"{df.name}.{self.file_format}"
+
+        file_path = os.path.join(self.version, folder_path, file_name)
         file_path = self.join_path(file_path)
-        df.to_parquet(file_path, storage_options=self.storage_options, index=False)
+        method_name = f'to_{self.file_format}'
+        serialization_method = getattr(df, method_name)
+
+        serialization_method(file_path, storage_options=self.storage_options, index=False)
+        logger.debug(f'{file_name} was saved to {file_path} ')
         return str(file_path)
 
     @final
