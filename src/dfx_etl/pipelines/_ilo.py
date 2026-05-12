@@ -4,8 +4,8 @@ import logging
 import io
 from typing import List
 from pydantic import Field, HttpUrl
-from ..validation import PREFIX_DIMENSION
-from ._base import BaseRetriever, BaseTransformer
+from dfx_etl.validation import PREFIX_DIMENSION
+from dfx_etl.pipelines._base import BaseRetriever, BaseTransformer
 logger = logging.getLogger(__name__)
 
 # Keep your original dimension whitelist
@@ -96,3 +96,27 @@ class Transformer(BaseTransformer):
         # Cleanup
         df.dropna(subset=["value"], inplace=True)
         return df
+
+
+
+if __name__ == '__main__':
+    from dfx_etl.settings import SETTINGS
+    from tqdm.contrib.logging import logging_redirect_tqdm
+    from dfx_etl.pipelines import Pipeline, list_pipelines
+    P = list_pipelines()
+    SETTINGS.local_storage = '/tmp/bbb'
+    PIPELINE_NAME = "dfx_etl.pipelines._ilo"
+    logging.getLogger('httpx').setLevel(logging.WARNING)
+    # Configure the logging level
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler()],
+    )
+    with logging_redirect_tqdm():
+
+        print(P)
+        p = Pipeline(retriever=Retriever(), transformer=Transformer())
+        print(p)
+        m = p.retriever.get_metadata()
+        print(m)

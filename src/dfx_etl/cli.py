@@ -12,7 +12,7 @@ from dfx_etl.settings import SETTINGS
 from dfx_etl.storage import  get_storage
 from dfx_etl.storage.file_frmt import FileFormat
 from pathlib import Path
-
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 
 logger = logging.getLogger(__name__)
@@ -190,6 +190,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         nargs='+',
         choices=PIPELINES,
+        default=PIPELINES,
         metavar="SOURCE",
         help="One or more sources to process (choices: %(choices)s)",
     )
@@ -199,6 +200,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         choices=STEPS,
         metavar="STEP",
+        default='load',
         help="Execute only a specific pipeline step (choices: %(choices)s)",
     )
 
@@ -255,17 +257,16 @@ def main(argv: list[str] | None = None) -> int:
         logger.debug(f'Using {_storage} to persist data')
 
         step = args.step or 'load'
-        for src in args.src:
-            pipeline = get_pipeline(src)
-            if step == 'retrieve':
-                pipeline.retrieve()
-            if step == 'transform':
-                pipeline.retrieve().transform()
-            if step == 'load':
-                pipeline()
+        with logging_redirect_tqdm():
 
-            #persisted_file = pipeline.persist(step=args.step, folder_path=dst_folder, frmt=frmt)
-            #logger.info(f'Step {args.step} for {pipeline.name} pipeline was persisted to {persisted_file}')
+            for src in args.src:
+                pipeline = get_pipeline(src)
+                if step == 'retrieve':
+                    pipeline.retrieve()
+                if step == 'transform':
+                    pipeline.retrieve().transform()
+                if step == 'load':
+                    pipeline()
 
     if args.command == 'init':
         engine = get_engine()

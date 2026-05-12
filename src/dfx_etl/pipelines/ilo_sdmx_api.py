@@ -305,7 +305,7 @@ class Retriever(BaseRetriever):
                  } | kwargs
 
         # chunk size
-        return self.read_csv(f"data/ILO,{indicator_code}/", params, client, chunk_size=1024*60, timeout=5*60)
+        return self.read_csv(f"data/ILO,{indicator_code}/", params, client, timeout=5*60)
 
 
 
