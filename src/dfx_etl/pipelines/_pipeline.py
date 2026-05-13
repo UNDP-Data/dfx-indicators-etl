@@ -100,16 +100,23 @@ class Pipeline(BaseModel):
         **kwargs
             Keyword arguments to be passed to the retriever call.
         """
-        step = sys._getframe(0).f_code.co_name
+
         # Pass a storage to the retriever only if it is expected
         if "storage" in signature(self.retriever).parameters:
             kwargs |= {"storage": self._storage}
+        step = sys._getframe(0).f_code.co_name
+
+
         ser_fpath = self.serialized_file_path(step=step)
-        if os.path.exists(ser_fpath):
+
+        if 'local' in self._storage.__class__.__name__.lower() and os.path.exists(ser_fpath):
             self._df_raw = pd.read_parquet(ser_fpath, engine='pyarrow')
             self._df_raw.name = f'{self.retriever.provider}_raw'
         else:
-            self._df_raw = self.retriever(**kwargs)
+            df = self.retriever(**kwargs)
+            df = df.astype(str)
+            df.replace('nan', '', inplace=True)
+            self._df_raw = df
             self._df_raw.name = f'{self.retriever.provider}_raw'
             self._serialize(step=step)
         return self
@@ -130,7 +137,12 @@ class Pipeline(BaseModel):
         step = sys._getframe(0).f_code.co_name
 
         ser_fpath = self.serialized_file_path(step=step)
-        if not os.path.exists(ser_fpath):
+        if 'local' in self._storage.__class__.__name__.lower() and os.path.exists(ser_fpath):
+            df = pd.read_parquet(ser_fpath, engine='pyarrow')
+            df.name = f'{self.retriever.provider}_transformed'
+            self._df_transformed = df
+
+        else:
             df = self.transformer(
                 self.df_raw.copy(), provider=self.retriever.provider, **kwargs
             )
@@ -146,29 +158,23 @@ class Pipeline(BaseModel):
             df.name = f'{self.retriever.provider}_transformed'
             self._df_transformed = df
             self._serialize(step=step)
-        else:
-            df = pd.read_parquet(ser_fpath, engine='pyarrow')
-            df.name = f'{self.retriever.provider}_transformed'
-            self._df_transformed = df
 
         return self
 
     @final
     def load(self):
-
+        if self.df_transformed is None:
+            raise ValueError("No transformed data. Run the transform first")
         step = sys._getframe(0).f_code.co_name
-        ser_fpath = self.serialized_file_path(step=step)
-        if not os.path.exists(ser_fpath):
-            # --- PHASE 1: THE EXTRACTORS (Metadata) ---
-            # These functions ensure the 'indicator' and 'dimension' tables are up to date.
-            # We use your existing _extract functions here.
-            self._sync_reference_data()
-            # --- PHASE 2: THE INGESTOR (Mass Data) ---
-            # Now that Stage 1 ensured all IDs exist, we stream the 11M rows.
-            self._stream_series_data()
-        else:
-            self._df_loaded = pd.read_parquet(ser_fpath, engine='pyarrow')
+        # --- PHASE 1: THE EXTRACTORS (Metadata) ---
+        # These functions ensure the 'indicator' and 'dimension' tables are up to date.
+        # We use your existing _extract functions here.
+        self._sync_reference_data()
+        # --- PHASE 2: THE INGESTOR (Mass Data) ---
+        # Now that Stage 1 ensured all IDs exist, we stream the 11M rows.
+        self._stream_series_data()
         self._df_loaded.name = f'{self.retriever.provider}_loaded'
+
         self._serialize(step=step)
         return self
 
@@ -194,11 +200,11 @@ class Pipeline(BaseModel):
         if df is None:
             logger.info(f"No data available to persist in {self.name} for step: {step}")
             return
-        if step == 'retrieve':
-            n = df.name
-            df = df.astype(str)
-            df.replace('nan', '', inplace=True)
-            df.name = n
+        # if step == 'retrieve':
+        #     n = df.name
+        #     df = df.astype(str)
+        #     df.replace('nan', '', inplace=True)
+        #     df.name = n
         serialized_file = self._storage.write_dataset(df, folder_path )
         logger.info(f'Step {step} for {self.name} was serialized to {serialized_file}')
 

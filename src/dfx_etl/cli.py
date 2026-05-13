@@ -121,6 +121,7 @@ def setup_logs(level=None):
 class Formatter(
     argparse.ArgumentDefaultsHelpFormatter,
     argparse.RawDescriptionHelpFormatter,
+
 ):
     pass
 
@@ -180,7 +181,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # --- SUBCOMMAND: rollback ---
-    init_parser = subparsers.add_parser(
+    rollback_parser = subparsers.add_parser(
         "rollback",
         help="Rollback the database."
     )
@@ -197,7 +198,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         nargs='+',
         choices=PIPELINES,
-        default=PIPELINES,
+        #default=PIPELINES,
         metavar="SOURCE",
         help="One or more sources to process (choices: %(choices)s)",
     )

@@ -38,6 +38,7 @@ class Retriever(BaseRetriever):
         pd.DataFrame
             Raw data from the API for the indicators with supported disaggregations.
         """
+
         df_metadata = self.get_metadata()
         data = []
         with self.client as client:
