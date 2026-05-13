@@ -7,10 +7,12 @@ import logging
 import os.path
 from inspect import signature
 from typing import Self, final, Any
+import sys
+
 from dfx_etl.database import ignore_on_conflict, get_engine
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, PrivateAttr
-
+from dfx_etl.storage.file_frmt import FileFormat
 from ..settings import SETTINGS
 from ..storage import BaseStorage, get_storage
 from ._base import BaseRetriever, BaseTransformer
@@ -35,6 +37,17 @@ class Pipeline(BaseModel):
     _df_loaded: pd.DataFrame | None = PrivateAttr(default=None)
     _engine: Any = PrivateAttr(default_factory=get_engine)
 
+    _step2df = {
+        'retrieve': 'raw',
+        'transform': 'transformed',
+        'load': 'loaded'  # Mimic the DB table name
+    }
+    _step2folder = {
+        'retrieve': 'raw',
+        'transform': 'transformed',
+        'load': 'loaded'  # Mimic the DB table name
+    }
+
     def __call__(self) -> pd.DataFrame:
         """
         Run all steps of the ETL pipeline.
@@ -44,12 +57,14 @@ class Pipeline(BaseModel):
         pd.DataFrame
             Validated data frame in the standard form.
         """
+
         self.retrieve()
         logger.info("Raw data shape: %s", self.df_raw.shape)
         self.transform()
         logger.info("Transformed data shape: %s", self.df_transformed.shape)
         self.load()
         logger.info("Loaded data shape: %s", self.df_loaded.shape)
+
         #return self.df_transformed
 
     @property
@@ -85,13 +100,25 @@ class Pipeline(BaseModel):
         **kwargs
             Keyword arguments to be passed to the retriever call.
         """
+
         # Pass a storage to the retriever only if it is expected
         if "storage" in signature(self.retriever).parameters:
             kwargs |= {"storage": self._storage}
+        step = sys._getframe(0).f_code.co_name
 
-        self._df_raw = self.retriever(**kwargs)
-        self._df_raw.name = f'{self.retriever.provider}_raw'
-        self._serialize(step='retrieve')
+
+        ser_fpath = self.serialized_file_path(step=step)
+
+        if 'local' in self._storage.__class__.__name__.lower() and os.path.exists(ser_fpath):
+            self._df_raw = pd.read_parquet(ser_fpath, engine='pyarrow')
+            self._df_raw.name = f'{self.retriever.provider}_raw'
+        else:
+            df = self.retriever(**kwargs)
+            df = df.astype(str)
+            df.replace('nan', '', inplace=True)
+            self._df_raw = df
+            self._df_raw.name = f'{self.retriever.provider}_raw'
+            self._serialize(step=step)
         return self
 
     @final
@@ -106,57 +133,80 @@ class Pipeline(BaseModel):
         """
         if self.df_raw is None:
             raise ValueError("No raw data. Run the retrieval first")
-        df = self.transformer(
-            self.df_raw.copy(), provider=self.retriever.provider, **kwargs
-        )
-        df = df.query(
-            "year >= @year_min and year <= @year_max",
-            local_dict={
-                "year_min": SETTINGS.pipeline.year_min,
-                "year_max": SETTINGS.pipeline.year_max,
-            },
-        ).reset_index(drop=True)
-        df.name = f'{self.retriever.provider}_transformed'
-        self._df_transformed = df
-        self._serialize(step='transform')
+
+        step = sys._getframe(0).f_code.co_name
+
+        ser_fpath = self.serialized_file_path(step=step)
+        if 'local' in self._storage.__class__.__name__.lower() and os.path.exists(ser_fpath):
+            df = pd.read_parquet(ser_fpath, engine='pyarrow')
+            df.name = f'{self.retriever.provider}_transformed'
+            self._df_transformed = df
+
+        else:
+            df = self.transformer(
+                self.df_raw.copy(), provider=self.retriever.provider, **kwargs
+            )
+            df = df.query(
+                "year >= @year_min and year <= @year_max",
+                local_dict={
+                    "year_min": SETTINGS.pipeline.year_min,
+                    "year_max": SETTINGS.pipeline.year_max,
+                },
+            ).reset_index(drop=True)
+            df.name = f'{self.retriever.provider}_transformed'
+            self._df_transformed = df
+            df.name = f'{self.retriever.provider}_transformed'
+            self._df_transformed = df
+            self._serialize(step=step)
+
         return self
 
     @final
     def load(self):
+        if self.df_transformed is None:
+            raise ValueError("No transformed data. Run the transform first")
+        step = sys._getframe(0).f_code.co_name
         # --- PHASE 1: THE EXTRACTORS (Metadata) ---
         # These functions ensure the 'indicator' and 'dimension' tables are up to date.
         # We use your existing _extract functions here.
         self._sync_reference_data()
-
         # --- PHASE 2: THE INGESTOR (Mass Data) ---
         # Now that Stage 1 ensured all IDs exist, we stream the 11M rows.
         self._stream_series_data()
         self._df_loaded.name = f'{self.retriever.provider}_loaded'
-        self._serialize(step='load')
+
+        self._serialize(step=step)
         return self
+
+
+    def serialized_file_name(self, step:str):
+        return f'{self.retriever.provider}_{self._step2df[step]}.{self._storage.file_format}'
+
+    def serialized_file_path(self, step: str):
+
+        file_name = self.serialized_file_name(step=step)
+        rel_path = self._step2folder[step]
+        rel_file_path = os.path.join(self._storage.version, rel_path, file_name)
+        return self._storage.join_path(rel_file_path)
+
 
     def _serialize(self, step:str=None):
         logger.debug(f'Serializing {step} for {self.name}')
-        step2df = {
-            'retrieve': 'raw',
-            'transform': 'transformed',
-            'load': 'loaded'  # Mimic the DB table name
-        }
-        step2folder = {
-            'retrieve': 'raw',
-            'transform': 'transformed',
-            'load': 'loaded'  # Mimic the DB table name
-        }
+
         # Identify which dataframe to grab
-        attr_name = f'df_{step2df[step]}'
+        attr_name = f'df_{self._step2df[step]}'
         df = getattr(self, attr_name)
-        folder_path = step2folder[step]
+        folder_path = self._step2folder[step]
         if df is None:
             logger.info(f"No data available to persist in {self.name} for step: {step}")
             return
-
-        serialized_file = self._storage.write_dataset(df, folder_path)
-        logger.info(f'Serialized step {step} for {self.name} to {serialized_file}')
+        # if step == 'retrieve':
+        #     n = df.name
+        #     df = df.astype(str)
+        #     df.replace('nan', '', inplace=True)
+        #     df.name = n
+        serialized_file = self._storage.write_dataset(df, folder_path )
+        logger.info(f'Step {step} for {self.name} was serialized to {serialized_file}')
 
     @final
     def persist(self, step: str = None, folder_path: str = None, frmt: str = 'parquet') -> str:
@@ -215,26 +265,44 @@ class Pipeline(BaseModel):
         before the mass ingestion starts.
         """
 
+        try:
+            # Use 'begin' to ensure an automatic COMMIT at the end,
+            # or an automatic ROLLBACK if it fails.
+            with self._engine.begin() as conn:
+                # Sync Indicators
+                self._extract_indicators().to_sql(
+                    "indicator",
+                    con=conn,  # USE THE CONTEXT CONNECTION, NOT SELF._ENGINE
+                    if_exists="append",
+                    index=False,
+                    method=ignore_on_conflict
+                )
 
-        # Sync Indicators
-        self._extract_indicators().to_sql(
-            "indicator",
-            con=self._engine,
-            #schema="dfx",
-            if_exists="append",
-            index=False,
-            method=ignore_on_conflict
-        )
 
-        # Sync Dimensions
-        self._extract_dimensions().to_sql(
-            "dimension",
-            con=self._engine,
-            #schema="dfx",
-            if_exists="append",
-            index=False,
-            method=ignore_on_conflict
-        )
+        except Exception as e:
+            logger.error(f"Indicator sync failed: {e}")
+            # By using 'with engine.begin()', the rollback is handled automatically here.
+            raise
+
+        try:
+            # Use 'begin' to ensure an automatic COMMIT at the end,
+            # or an automatic ROLLBACK if it fails.
+            with self._engine.begin() as conn:
+                # Sync Dimensions
+                self._extract_dimensions().to_sql(
+                    "dimension",
+                    con=conn,
+                    # schema="dfx",
+                    if_exists="append",
+                    index=False,
+                    method=ignore_on_conflict
+                )
+
+        except Exception as e:
+            logger.error(f"Dimensions sync failed: {e}")
+            # By using 'with engine.begin()', the rollback is handled automatically here.
+            raise
+
 
     def _stream_series_data(self):
         """

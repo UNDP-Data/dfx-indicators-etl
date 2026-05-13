@@ -62,8 +62,7 @@ class BaseStorage(ABC):
             a `name` attribute.
         folder_path : str, optional
             Path within the container or bucket to write the file to.
-        frmt: str, optional
-            The serialization format
+
 
         Returns
         -------
@@ -79,8 +78,8 @@ class BaseStorage(ABC):
         file_path = self.join_path(file_path)
         method_name = f'to_{self.file_format}'
         serialization_method = getattr(df, method_name)
-
-        serialization_method(file_path, storage_options=self.storage_options, index=False)
+        engine = 'pyarrow' if self.file_format == 'parquet' else 'c'
+        serialization_method(file_path, storage_options=self.storage_options, index=False, engine=engine)
         logger.debug(f'{file_name} was saved to {file_path} ')
         return str(file_path)
 

@@ -12,7 +12,7 @@ from dfx_etl.settings import SETTINGS
 from dfx_etl.storage import  get_storage
 from dfx_etl.storage.file_frmt import FileFormat
 from pathlib import Path
-
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 
 logger = logging.getLogger(__name__)
@@ -121,6 +121,7 @@ def setup_logs(level=None):
 class Formatter(
     argparse.ArgumentDefaultsHelpFormatter,
     argparse.RawDescriptionHelpFormatter,
+
 ):
     pass
 
@@ -179,6 +180,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Force re-initialization (Warning: This may drop existing schema including tables!)"
     )
 
+    # --- SUBCOMMAND: rollback ---
+    rollback_parser = subparsers.add_parser(
+        "rollback",
+        help="Rollback the database."
+    )
+
+
     # --- SUBCOMMAND: run ---
     run_parser = subparsers.add_parser(
         "run",
@@ -190,6 +198,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         nargs='+',
         choices=PIPELINES,
+        #default=PIPELINES,
         metavar="SOURCE",
         help="One or more sources to process (choices: %(choices)s)",
     )
@@ -199,6 +208,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         choices=STEPS,
         metavar="STEP",
+        default='load',
         help="Execute only a specific pipeline step (choices: %(choices)s)",
     )
 
@@ -255,17 +265,17 @@ def main(argv: list[str] | None = None) -> int:
         logger.debug(f'Using {_storage} to persist data')
 
         step = args.step or 'load'
-        for src in args.src:
-            pipeline = get_pipeline(src)
-            if step == 'retrieve':
-                pipeline.retrieve()
-            if step == 'transform':
-                pipeline.retrieve().transform()
-            if step == 'load':
-                pipeline()
+        with logging_redirect_tqdm():
 
-            #persisted_file = pipeline.persist(step=args.step, folder_path=dst_folder, frmt=frmt)
-            #logger.info(f'Step {args.step} for {pipeline.name} pipeline was persisted to {persisted_file}')
+            for src in args.src:
+                pipeline = get_pipeline(src)
+
+                if step == 'retrieve':
+                    pipeline.retrieve()
+                if step == 'transform':
+                    pipeline.retrieve().transform()
+                if step == 'load':
+                    pipeline()
 
     if args.command == 'init':
         engine = get_engine()
@@ -294,6 +304,16 @@ def main(argv: list[str] | None = None) -> int:
         else:
             logger.info(f"Database already contains {len(tables)} necessary tables. No action taken.")
 
+
+    if args.command == 'rollback':
+        from sqlalchemy import text
+        engine = get_engine()
+        with engine.connect() as conn:
+            logger.info("Forcing global rollback and session cleanup...")
+
+            # 1. Rollback the current connection
+            conn.execute(text("ROLLBACK"))
+        engine.dispose(close=True)
 
     return 0
 
