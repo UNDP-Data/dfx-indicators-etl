@@ -6,7 +6,7 @@ performing minor data munging routines.
 import re
 from importlib import resources
 from io import StringIO
-from typing import Literal, Sequence, TypeAlias
+from typing import Literal, Sequence, TypeAlias, Any
 
 import pandas as pd
 
@@ -141,7 +141,7 @@ def replace_country_metadata(
 
     Examples
     --------
-    >>> replace_country_metadata(["DZA", None, "AUT", "usa"], "iso-alpha-3", "name")
+    replace_country_metadata(["DZA", None, "AUT", "usa"], "iso-alpha-3", "name")
     ['Algeria', None, 'Austria', None]
 
     The values are case-sensitive. Any non-matching value is replaced with None.
@@ -155,7 +155,7 @@ def replace_country_metadata(
     return [mapping.get(value) for value in values]
 
 
-def to_snake_case(value: str, prefix: str = "", suffix: str = "") -> str:
+def to_snake_case_old(value: str, prefix: str = "", suffix: str = "") -> str:
     """
     Convert a string value to snake case, optionally adding a prefix and/or suffix.
 
@@ -175,9 +175,9 @@ def to_snake_case(value: str, prefix: str = "", suffix: str = "") -> str:
 
     Examples
     --------
-    >>> to_snake_case("Time Period")
+    to_snake_case("Time Period")
     'time_period'
-    >>> to_snake_case(" Time\n\n\nPeriod  ", prefix="dim", suffix="years")
+    to_snake_case(" Time\n\n\nPeriod  ", prefix="dim", suffix="years")
     'dim_time_period_years'
     """
     value = re.sub(r"\s+", "_", value.strip().lower())
@@ -187,6 +187,23 @@ def to_snake_case(value: str, prefix: str = "", suffix: str = "") -> str:
         value = f"{value}_{suffix}"
     return value
 
+
+def to_snake_case(value: str, prefix: str = "", suffix: str = "") -> str:
+    # 1. Catch the 'float' (NaN) or None before calling .strip()
+    if pd.isna(value):
+        return ""
+
+    # 2. Safety cast to string in case a dimension is a number (like a year)
+    value = str(value)
+
+    # 3. Proceed with the logic
+    value = re.sub(r"\s+", "_", value.strip().lower())
+
+    if prefix:
+        value = f"{prefix}_{value}"
+    if suffix:
+        value = f"{value}_{suffix}"
+    return value
 
 def _resolve_dimensions(mapping: pd.Series | dict, prefix: str) -> str:
     """

@@ -99,24 +99,3 @@ class Transformer(BaseTransformer):
 
 
 
-if __name__ == '__main__':
-    from dfx_etl.settings import SETTINGS
-    from tqdm.contrib.logging import logging_redirect_tqdm
-    from dfx_etl.pipelines import Pipeline, list_pipelines
-    P = list_pipelines()
-    SETTINGS.local_storage = '/tmp/bbb'
-    PIPELINE_NAME = "dfx_etl.pipelines._ilo"
-    logging.getLogger('httpx').setLevel(logging.WARNING)
-    # Configure the logging level
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler()],
-    )
-    with logging_redirect_tqdm():
-
-        print(P)
-        p = Pipeline(retriever=Retriever(), transformer=Transformer())
-        print(p)
-        m = p.retriever.get_metadata()
-        print(m)

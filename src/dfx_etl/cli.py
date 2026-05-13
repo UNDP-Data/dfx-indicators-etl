@@ -179,6 +179,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Force re-initialization (Warning: This may drop existing schema including tables!)"
     )
 
+    # --- SUBCOMMAND: rollback ---
+    init_parser = subparsers.add_parser(
+        "rollback",
+        help="Rollback the database."
+    )
+
+
     # --- SUBCOMMAND: run ---
     run_parser = subparsers.add_parser(
         "run",
@@ -261,6 +268,7 @@ def main(argv: list[str] | None = None) -> int:
 
             for src in args.src:
                 pipeline = get_pipeline(src)
+
                 if step == 'retrieve':
                     pipeline.retrieve()
                 if step == 'transform':
@@ -295,6 +303,16 @@ def main(argv: list[str] | None = None) -> int:
         else:
             logger.info(f"Database already contains {len(tables)} necessary tables. No action taken.")
 
+
+    if args.command == 'rollback':
+        from sqlalchemy import text
+        engine = get_engine()
+        with engine.connect() as conn:
+            logger.info("Forcing global rollback and session cleanup...")
+
+            # 1. Rollback the current connection
+            conn.execute(text("ROLLBACK"))
+        engine.dispose(close=True)
 
     return 0
 
